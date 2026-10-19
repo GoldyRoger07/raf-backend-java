@@ -717,9 +717,30 @@ englobante : aucune connexion n'est tenue pendant les appels a Resend ou au serv
 push. Un abonnement revoque par le navigateur (404 / 410) est supprime.
 
 
+### Back-office : endpoints dedies (phase 1)
+
+| Methode | Endpoint | Acces |
+|---|---|---|
+| GET | `/api/admin/dashboard` | admin |
+| GET | `/api/admin/players?query=` , `/api/admin/players/{id}` | admin |
+| GET | `/api/admin/wallet/withdrawals?status=` ou `?userId=` | admin |
+
+Le back-office est une application Angular (projet `raf-frontend-ssr`, routes
+`/admin`, rendues dans le navigateur uniquement). Le tableau de bord agrege en SQL
+direct (joueurs, quiz par statut, argent en circulation, activite sur 30 jours,
+travail en attente, dernier rapprochement). La recherche de joueurs, ouverte aux
+admins et non au seul super-admin, trouve un joueur par email, nom ou telephone
+saisi sans indicatif ; elle ne permet de rien modifier. La liste des retraits
+renvoie le joueur avec chaque demande, assemble dans la transaction
+(`AdminWithdrawalResponse`).
+
+**A corriger en phase 2 :** la regle de securite `/api/admin/**` exige ADMIN ou
+SUPER_ADMIN avant meme les `@PreAuthorize`, si bien qu'un MODERATOR recoit 403 sur
+`/api/admin/questions` alors que le controleur l'autorise.
+
 ### Tests d'integration
 
-`./mvnw test` lance 52 tests contre le **MySQL local**, base `raf_test` (identifiants
+`./mvnw test` lance 55 tests contre le **MySQL local**, base `raf_test` (identifiants
 de `.env.dev.properties`, URL modifiable par `TEST_DB_URL`). La base est videe
 puis recreee par Flyway a chaque lancement ; **l'effacement refuse toute base dont
 le nom ne finit pas par `_test`**, pour qu'une URL mal reglee ne puisse jamais vider

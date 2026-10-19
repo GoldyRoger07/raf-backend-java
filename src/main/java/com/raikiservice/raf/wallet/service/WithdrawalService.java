@@ -21,6 +21,7 @@ import com.raikiservice.raf.wallet.domain.WalletTransactionType;
 import com.raikiservice.raf.wallet.domain.WithdrawalRequest;
 import com.raikiservice.raf.wallet.domain.WithdrawalStatus;
 import com.raikiservice.raf.wallet.repository.WithdrawalRequestRepository;
+import com.raikiservice.raf.wallet.web.dto.AdminWithdrawalResponse;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -276,6 +277,19 @@ public class WithdrawalService {
     @Transactional(readOnly = true)
     public Page<WithdrawalRequest> historyForUser(Long userId, Pageable pageable) {
         return withdrawalRequestRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+    }
+
+    /**
+     * Vue back-office : par statut, ou toutes les demandes d'un joueur. Assemblee
+     * dans la transaction, le joueur etant paresseux.
+     */
+    @Transactional(readOnly = true)
+    public Page<AdminWithdrawalResponse> adminView(WithdrawalStatus status, Long userId,
+            Pageable pageable) {
+        Page<WithdrawalRequest> page = userId != null
+                ? withdrawalRequestRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
+                : withdrawalRequestRepository.findByStatusOrderByCreatedAtAsc(status, pageable);
+        return page.map(AdminWithdrawalResponse::from);
     }
 
     @Transactional(readOnly = true)

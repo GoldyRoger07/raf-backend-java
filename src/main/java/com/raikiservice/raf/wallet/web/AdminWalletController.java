@@ -10,6 +10,7 @@ import com.raikiservice.raf.wallet.service.TopUpService;
 import com.raikiservice.raf.wallet.service.WalletService;
 import com.raikiservice.raf.wallet.service.WithdrawalService;
 import com.raikiservice.raf.wallet.web.dto.AdjustmentDto;
+import com.raikiservice.raf.wallet.web.dto.AdminWithdrawalResponse;
 import com.raikiservice.raf.wallet.web.dto.CounterWithdrawalConfirmDto;
 import com.raikiservice.raf.wallet.web.dto.CounterWithdrawalDto;
 import com.raikiservice.raf.wallet.web.dto.ManualTopUpDto;
@@ -80,11 +81,12 @@ public class AdminWalletController {
     }
 
     @GetMapping("/withdrawals")
-    @Operation(summary = "Lister les demandes de retrait par statut")
-    public Page<WithdrawalResponse> withdrawals(
+    @Operation(summary = "Demandes de retrait par statut, ou toutes celles d'un joueur (userId)")
+    public Page<AdminWithdrawalResponse> withdrawals(
             @RequestParam(defaultValue = "PENDING") WithdrawalStatus status,
+            @RequestParam(required = false) Long userId,
             @PageableDefault(size = 20) Pageable pageable) {
-        return withdrawalService.byStatus(status, pageable).map(WithdrawalResponse::from);
+        return withdrawalService.adminView(status, userId, pageable);
     }
 
     @PostMapping("/withdrawals/{id}/approve")
