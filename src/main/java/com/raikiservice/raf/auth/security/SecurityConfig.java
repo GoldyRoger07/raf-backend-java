@@ -64,6 +64,11 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/actuator/health")
                         .permitAll()
+                        // La banque de questions est le domaine du moderateur : la regle
+                        // doit preceder celle de /api/admin/**, la premiere qui correspond
+                        // l'emporte (le controleur precise ensuite par @PreAuthorize).
+                        .requestMatchers("/api/admin/questions/**")
+                        .hasAnyRole("MODERATOR", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling

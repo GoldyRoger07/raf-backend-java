@@ -15,6 +15,7 @@ import com.raikiservice.raf.common.error.ErrorCode;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -27,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * autres, et n'ont rien a nettoyer.
  */
 @SpringBootTest
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import(TestInfrastructure.class)
 public abstract class IntegrationTest {

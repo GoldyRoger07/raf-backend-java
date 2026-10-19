@@ -73,6 +73,10 @@ public class TestData {
         return user(RoleName.ADMIN, true);
     }
 
+    public User moderator() {
+        return user(RoleName.MODERATOR, true);
+    }
+
     private User user(RoleName role, boolean phoneVerified) {
         long n = SEQUENCE.incrementAndGet();
         User user = new User();
