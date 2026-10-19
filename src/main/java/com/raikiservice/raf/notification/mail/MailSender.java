@@ -1,6 +1,6 @@
 package com.raikiservice.raf.notification.mail;
 
-/** Envoi d'un email transactionnel. Implementation reelle au lot 7. */
+/** Envoi d'un email transactionnel : console ({@link ConsoleMailSender}) ou Resend selon app.mail.mode. */
 public interface MailSender {
 
     void send(String to, String subject, String htmlBody);

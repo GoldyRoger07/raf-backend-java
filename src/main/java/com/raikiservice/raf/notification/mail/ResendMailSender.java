@@ -5,17 +5,20 @@ import java.util.Map;
 import com.raikiservice.raf.common.config.AppProperties;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 /**
- * Envoi via Resend (https://resend.com).
+ * Envoi via Resend (https://resend.com), actif avec {@code app.mail.mode=resend}.
  *
- * <p>Sans cle API configuree, le message est simplement journalise : le parcours
- * d'inscription reste testable en local sans compte Resend.
+ * <p>Sans cle API configuree, le message est affiche en console comme avec
+ * {@link ConsoleMailSender} : mieux vaut un email visible dans les logs qu'un
+ * email perdu.
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "app.mail.mode", havingValue = "resend")
 public class ResendMailSender implements MailSender {
 
     private static final String ENDPOINT = "https://api.resend.com/emails";
@@ -33,7 +36,8 @@ public class ResendMailSender implements MailSender {
     @Override
     public void send(String to, String subject, String htmlBody) {
         if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("re_CHANGE_ME")) {
-            log.info("[EMAIL SIMULE] vers {} : {}\n{}", to, subject, htmlBody);
+            log.warn("Mode resend sans cle API : email affiche en console");
+            ConsoleMailSender.print(to, subject, htmlBody);
             return;
         }
 

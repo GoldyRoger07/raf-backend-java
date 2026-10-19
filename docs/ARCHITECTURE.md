@@ -510,6 +510,88 @@ RUNNING a l'heure prevue et CLOSING -> COMPUTING a la cloture. Il suppose une
 instance unique ; les transitions re-verifient l'etat sous verrou, donc un double
 traitement est sans effet, mais ShedLock sera necessaire avant de scaler.
 
+### Lot 6 - Parties, classement et gains (livre)
+
+| Methode | Endpoint | Acces |
+|---|---|---|
+| POST | `/api/game/start` | joueur avec ticket |
+| POST | `/api/game/submit` | joueur |
+| GET | `/api/game/sessions?quizId=` | joueur |
+| GET | `/api/game/{sessionId}/review` | joueur, quiz FINISHED |
+| GET | `/api/quizzes/{id}/leaderboard` | joueur, quiz FINISHED |
+| GET | `/api/admin/quizzes/{id}/sessions?flagged=` | admin |
+| GET | `/api/admin/game/sessions/{id}/review` | admin |
+| POST | `/api/admin/game/sessions/{id}/invalidate` | admin |
+| POST | `/api/admin/quizzes/{id}/finalize` | admin |
+
+Migration `V6__game.sql` : `game_sessions`, `game_session_questions`,
+`game_answers`, `quiz_rankings` (la colonne de rang s'appelle `rank_position` :
+`rank` est reserve depuis MySQL 8.0.2), et trois parametres `game.*`.
+
+**Reprise plutot que double consommation.** `/start` renvoie la partie en cours
+si le joueur en a une (200, `resumed=true`, meme tirage, meme ordre des
+propositions, chrono restant calcule par le serveur) ; sinon il consomme le ticket
+le plus ancien (201). Deux clics simultanes visent donc le meme ticket : le second
+attend le verrou du premier et reprend sa partie — verifie en conditions reelles.
+
+**Le submit n'echoue pas, il invalide.** Toute incoherence (reponse n ne portant
+pas sur la question n du tirage, choix etranger a la question, temps decroissants
+ou superieurs a la duree, temps declare superieur au temps ecoule cote serveur)
+passe la partie en INVALIDATED dans une transaction qui commit. Lever une
+exception annulerait l'invalidation et laisserait le joueur resoumettre jusqu'a
+passer. Le submit est idempotent : un rejeu renvoie le resultat deja calcule.
+
+**Signalement, pas sanction.** Des reponses enchainees en moins de
+`game.min_answer_ms` (defaut 400 ms), au-dela de `game.fast_answer_flag_count`
+occurrences, marquent la partie `flagged` pour revue. L'admin peut ensuite
+l'invalider tant que le classement n'est pas fige.
+
+**Cloture.** Le premier score strictement superieur a `min_score_threshold`
+declenche `QuizService.triggerClosing` (etat et seuil re-verifies sous verrou).
+Apres `ends_at`, `QuizScheduler` passe le quiz en COMPUTING ; `GameScheduler`
+expire les parties echues puis, quand plus aucune n'est IN_PROGRESS, fige le
+classement (score DESC, debut de la partie ASC, id ASC) et verse les gains en
+solde GAINS, le tout dans une transaction sous le verrou du quiz.
+
+**Regles de verrouillage ajoutees.**
+
+1. *Ordre des verrous* : quiz (partage) puis ticket au demarrage ; partie puis
+   quiz au submit et a l'invalidation. Le verrou partage au demarrage fait
+   attendre la cloture (exclusive) : aucune partie ne demarre sur un quiz clos.
+2. *Le submit ne charge jamais le quiz* : duree et bareme sont copies dans la
+   partie, et le seuil est lu par projection scalaire. Ainsi le verrou de
+   `triggerClosing` reste la premiere lecture du quiz (regle 1 du lot 3).
+3. *Sous REPEATABLE READ, une lecture simple ne voit pas ce qu'une transaction
+   concurrente vient de commiter.* Pour retrouver la partie creee par un clic
+   concurrent, il faut une lecture verrouillee (`findByTicketIdForShare`). Pour la
+   meme raison, le classement attend qu'aucune partie ne soit IN_PROGRESS plutot
+   que de les expirer lui-meme : une soumission en vol lui serait invisible.
+4. *Pas de promotion de verrou sur une ligne partagee.* Inserer le tirage pose un
+   verrou partage sur les questions (cle etrangere) ; incrementer ensuite
+   `times_served` dans la meme transaction exigerait un verrou exclusif, et deux
+   parties partageant une question s'interbloqueraient. Les compteurs sont donc
+   ecrits apres le commit, dans une transaction separee (`QuestionStatsRecorder`).
+
+### Lot 7 - Paiements (a venir)
+
+**Exigence : les depots et retraits manuels restent possibles depuis le
+back-office, en plus des connecteurs MonCash / NatCash** (decision du
+2026-10-19). Etat actuel et ce qu'il reste a ajouter :
+
+| Operation | Existe | A ajouter |
+|---|---|---|
+| Depot manuel | `POST /api/admin/wallet/topups/manual` (provider `MANUAL`, reference idempotente) | rien d'obligatoire |
+| Retrait demande par le joueur, paye a la main | demande joueur + `approve` / `paid` / `reject` admin | accepter `MANUAL` sans numero de reception (remise en especes) |
+| Retrait saisi par l'admin pour un joueur (guichet) | non — seul l'`ADJUSTMENT` permet de debiter, ce qui fausse la comptabilite | endpoint admin dedie : debit du solde GAINS en type `WITHDRAWAL`, reference idempotente, trace d'audit, **OTP du joueur exige** |
+
+**Le retrait au guichet exige le code OTP recu par le joueur.** Sans lui, un
+administrateur — ou un compte administrateur compromis — pourrait vider les gains
+de n'importe quel joueur en son absence. Le joueur present communique le code
+recu sur son telephone ; l'admin le saisit avec la demande.
+
+Toutes ces operations passent par `WalletService` et laissent une trace
+d'audit, comme les autres mouvements d'argent.
+
 ---
 
 ## 8. Points ouverts
@@ -524,3 +606,11 @@ traitement est sans effet, mais ShedLock sera necessaire avant de scaler.
 - SMS transactionnel (OTP) : opérateur et coût à arbitrer.
 - Réutilisation d'une question déjà servie : délai de quarantaine à définir.
 - Parrainage : hors périmètre initial.
+- Gains versés automatiquement à la clôture, parties signalées comprises : la
+  revue des signalements doit se faire pendant le compte à rebours (la validation
+  manuelle des retraits reste le second filet). Envisager un blocage de la
+  finalisation tant que des signalements ne sont pas traités.
+- Limitation de débit sur `/api/game/start` et corrélation IP / appareil entre
+  comptes : pas encore faites (IP et user-agent sont déjà enregistrés par partie).
+- Notifications de fin de quiz et de gains : à brancher avec le module
+  notification.
