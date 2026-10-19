@@ -582,12 +582,39 @@ back-office, en plus des connecteurs MonCash / NatCash** (decision du
 |---|---|---|
 | Depot manuel | `POST /api/admin/wallet/topups/manual` (provider `MANUAL`, reference idempotente) | rien d'obligatoire |
 | Retrait demande par le joueur, paye a la main | demande joueur + `approve` / `paid` / `reject` admin | accepter `MANUAL` sans numero de reception (remise en especes) |
-| Retrait saisi par l'admin pour un joueur (guichet) | non — seul l'`ADJUSTMENT` permet de debiter, ce qui fausse la comptabilite | endpoint admin dedie : debit du solde GAINS en type `WITHDRAWAL`, reference idempotente, trace d'audit, **OTP du joueur exige** |
+| Retrait saisi par l'admin pour un joueur (guichet) | **livre** (voir ci-dessous) | — |
 
-**Le retrait au guichet exige le code OTP recu par le joueur.** Sans lui, un
-administrateur — ou un compte administrateur compromis — pourrait vider les gains
-de n'importe quel joueur en son absence. Le joueur present communique le code
-recu sur son telephone ; l'admin le saisit avec la demande.
+#### Retrait au guichet (livre)
+
+| Methode | Endpoint | Acces |
+|---|---|---|
+| POST | `/api/admin/wallet/users/{userId}/counter-withdrawals` | admin |
+| POST | `/api/admin/wallet/counter-withdrawals/{id}/confirm` | admin |
+| POST | `/api/admin/wallet/counter-withdrawals/{id}/cancel` | admin |
+
+**Le code OTP du joueur est exige.** Sans lui, un administrateur — ou un compte
+administrateur compromis — pourrait vider les gains de n'importe quel joueur en
+son absence.
+
+**Deux temps, pour que le code autorise un montant precis.** La saisie (montant en
+HTG) applique les memes controles que le retrait en ligne (telephone verifie,
+minimum, plafond journalier, frais, solde), cree la demande en `AWAITING_OTP`
+**sans rien debiter**, et envoie au joueur un SMS qui annonce le montant net. La
+confirmation, avec le code donne par le joueur, debite les gains en type
+`WITHDRAWAL` et passe directement en `PAID` : les especes sont remises sur place.
+Elle est idempotente (verrou sur la demande, cle `withdrawal:{id}`).
+
+Une nouvelle saisie annule celle encore en attente pour ce joueur. Comme un nouvel
+OTP invalide le precedent, le seul code valable correspond toujours a la seule
+demande confirmable — un code ne peut pas servir a confirmer un autre montant.
+L'objet `COUNTER_WITHDRAWAL` de l'OTP est distinct de `WITHDRAWAL` : un code
+demande pour un retrait en ligne ne sert pas au guichet.
+
+Migration `V7__counter_withdrawal.sql` : `destination_number` devient nullable
+(pas de numero pour des especes), ajout de `initiated_by_admin_id` et `note`, et
+du parametre `withdrawal.counter_fee_htg` (25 HTG, comme le retrait en ligne — a
+ajuster). Le plafond journalier ignore desormais les demandes `AWAITING_OTP` et
+`CANCELLED`, ou rien n'a ete debite.
 
 Toutes ces operations passent par `WalletService` et laissent une trace
 d'audit, comme les autres mouvements d'argent.

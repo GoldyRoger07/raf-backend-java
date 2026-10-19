@@ -20,7 +20,10 @@ public record WithdrawalResponse(
         String payoutReference,
         Instant createdAt,
         Instant reviewedAt,
-        Instant paidAt) {
+        Instant paidAt,
+        /** Agent ayant saisi un retrait au guichet ; null pour un retrait en ligne. */
+        Long initiatedByAdminId,
+        String note) {
 
     public static WithdrawalResponse from(WithdrawalRequest request) {
         return new WithdrawalResponse(
@@ -37,6 +40,8 @@ public record WithdrawalResponse(
                 request.getPayoutReference(),
                 request.getCreatedAt(),
                 request.getReviewedAt(),
-                request.getPaidAt());
+                request.getPaidAt(),
+                request.getInitiatedByAdminId(),
+                request.getNote());
     }
 }

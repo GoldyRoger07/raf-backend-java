@@ -4,10 +4,13 @@ import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.wallet.domain.TopUpStatus;
 import com.raikiservice.raf.wallet.domain.WithdrawalStatus;
 import com.raikiservice.raf.wallet.service.AdjustmentService;
+import com.raikiservice.raf.wallet.service.CounterWithdrawalService;
 import com.raikiservice.raf.wallet.service.TopUpService;
 import com.raikiservice.raf.wallet.service.WalletService;
 import com.raikiservice.raf.wallet.service.WithdrawalService;
 import com.raikiservice.raf.wallet.web.dto.AdjustmentDto;
+import com.raikiservice.raf.wallet.web.dto.CounterWithdrawalConfirmDto;
+import com.raikiservice.raf.wallet.web.dto.CounterWithdrawalDto;
 import com.raikiservice.raf.wallet.web.dto.ManualTopUpDto;
 import com.raikiservice.raf.wallet.web.dto.PayoutDto;
 import com.raikiservice.raf.wallet.web.dto.RejectionDto;
@@ -50,6 +53,7 @@ public class AdminWalletController {
     private final TopUpService topUpService;
     private final WithdrawalService withdrawalService;
     private final AdjustmentService adjustmentService;
+    private final CounterWithdrawalService counterWithdrawalService;
 
     @PostMapping("/topups/manual")
     @Operation(summary = "Crediter un joueur apres un encaissement hors ligne")
@@ -102,6 +106,33 @@ public class AdminWalletController {
             @PathVariable Long id, @Valid @RequestBody PayoutDto request) {
         return WithdrawalResponse.from(
                 withdrawalService.markPaid(admin.getId(), id, request.payoutReference()));
+    }
+
+    @PostMapping("/users/{userId}/counter-withdrawals")
+    @Operation(summary = "Saisir un retrait au guichet : envoie un code au joueur, rien n'est debite")
+    public ResponseEntity<WithdrawalResponse> initiateCounterWithdrawal(
+            @AuthenticationPrincipal UserPrincipal admin, @PathVariable Long userId,
+            @Valid @RequestBody CounterWithdrawalDto request) {
+
+        WithdrawalResponse response = WithdrawalResponse.from(counterWithdrawalService.initiate(
+                admin.getId(), userId, request.amountHtg(), request.note()));
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/counter-withdrawals/{id}/confirm")
+    @Operation(summary = "Confirmer un retrait au guichet avec le code du joueur : debit et remise des especes")
+    public WithdrawalResponse confirmCounterWithdrawal(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long id, @Valid @RequestBody CounterWithdrawalConfirmDto request) {
+        return WithdrawalResponse.from(counterWithdrawalService.confirm(
+                admin.getId(), id, request.otpCode(), request.receiptReference()));
+    }
+
+    @PostMapping("/counter-withdrawals/{id}/cancel")
+    @Operation(summary = "Abandonner un retrait au guichet non confirme")
+    public WithdrawalResponse cancelCounterWithdrawal(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long id) {
+        return WithdrawalResponse.from(counterWithdrawalService.cancel(admin.getId(), id));
     }
 
     @PostMapping("/users/{userId}/adjust")

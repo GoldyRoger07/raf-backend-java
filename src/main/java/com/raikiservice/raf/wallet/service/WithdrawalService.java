@@ -63,18 +63,6 @@ public class WithdrawalService {
         User user = loadUser(userId);
         assertPhoneVerified(user);
 
-        if (amountCredits <= 0) {
-            throw new ApiException(ErrorCode.INVALID_AMOUNT);
-        }
-
-        long minCredits = settingsService.getLong(
-                SettingKeys.WITHDRAWAL_MIN_CREDITS, DEFAULT_MIN_CREDITS);
-        if (amountCredits < minCredits) {
-            throw new ApiException(ErrorCode.WITHDRAWAL_BELOW_MINIMUM,
-                    "Le retrait minimum est de " + minCredits + " credits ("
-                            + walletService.creditsToHtg(minCredits) + " HTG).");
-        }
-
         // Une seule demande en attente a la fois : sinon l'administrateur traite
         // des demandes qui se chevauchent sur le meme solde.
         if (!withdrawalRequestRepository.findByUserIdAndStatus(userId, WithdrawalStatus.PENDING)
@@ -82,15 +70,7 @@ public class WithdrawalService {
             throw new ApiException(ErrorCode.WITHDRAWAL_PENDING_EXISTS);
         }
 
-        long maxPerDay = settingsService.getLong(
-                SettingKeys.WITHDRAWAL_MAX_CREDITS_PER_DAY, DEFAULT_MAX_PER_DAY);
-        long alreadyRequested = withdrawalRequestRepository.sumRequestedSince(
-                userId, Instant.now().minus(1, ChronoUnit.DAYS));
-        if (alreadyRequested + amountCredits > maxPerDay) {
-            throw new ApiException(ErrorCode.WITHDRAWAL_DAILY_LIMIT,
-                    "Plafond journalier de " + maxPerDay + " credits : il vous reste "
-                            + Math.max(0, maxPerDay - alreadyRequested) + " credit(s).");
-        }
+        assertWithinLimits(userId, amountCredits);
 
         long amountHtg = walletService.creditsToHtg(amountCredits);
         long feeHtg = settingsService.getLong(SettingKeys.WITHDRAWAL_FEE_HTG, DEFAULT_FEE_HTG);
@@ -133,6 +113,36 @@ public class WithdrawalService {
                 String.valueOf(saved.getId()), null, amountCredits + " credits");
 
         return saved;
+    }
+
+    /**
+     * Minimum et plafond journalier, communs au retrait en ligne et au retrait au
+     * guichet : passer par le guichet ne doit pas permettre de contourner le
+     * plafond.
+     */
+    @Transactional(readOnly = true)
+    public void assertWithinLimits(Long userId, long amountCredits) {
+        if (amountCredits <= 0) {
+            throw new ApiException(ErrorCode.INVALID_AMOUNT);
+        }
+
+        long minCredits = settingsService.getLong(
+                SettingKeys.WITHDRAWAL_MIN_CREDITS, DEFAULT_MIN_CREDITS);
+        if (amountCredits < minCredits) {
+            throw new ApiException(ErrorCode.WITHDRAWAL_BELOW_MINIMUM,
+                    "Le retrait minimum est de " + minCredits + " credits ("
+                            + walletService.creditsToHtg(minCredits) + " HTG).");
+        }
+
+        long maxPerDay = settingsService.getLong(
+                SettingKeys.WITHDRAWAL_MAX_CREDITS_PER_DAY, DEFAULT_MAX_PER_DAY);
+        long alreadyRequested = withdrawalRequestRepository.sumRequestedSince(
+                userId, Instant.now().minus(1, ChronoUnit.DAYS));
+        if (alreadyRequested + amountCredits > maxPerDay) {
+            throw new ApiException(ErrorCode.WITHDRAWAL_DAILY_LIMIT,
+                    "Plafond journalier de " + maxPerDay + " credits : il reste "
+                            + Math.max(0, maxPerDay - alreadyRequested) + " credit(s).");
+        }
     }
 
     @Transactional

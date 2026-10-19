@@ -3,6 +3,7 @@ package com.raikiservice.raf.auth.service;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.function.Function;
 
 import com.raikiservice.raf.auth.domain.OtpCode;
 import com.raikiservice.raf.auth.domain.OtpPurpose;
@@ -37,6 +38,17 @@ public class OtpService {
 
     @Transactional
     public void send(User user, OtpPurpose purpose, String destination) {
+        send(user, purpose, destination, code -> "RAF : votre code de verification est " + code + ".");
+    }
+
+    /**
+     * Variante au message personnalise : le joueur doit savoir ce qu'il autorise
+     * (par exemple le montant d'un retrait au guichet) avant de donner son code.
+     * La duree de validite est ajoutee a la fin du message.
+     */
+    @Transactional
+    public void send(User user, OtpPurpose purpose, String destination,
+            Function<String, String> messageForCode) {
         assertNoCooldown(user.getId(), purpose);
 
         // Un nouveau code annule le precedent, sinon deux codes resteraient valables.
@@ -52,8 +64,8 @@ public class OtpService {
         entity.setExpiresAt(Instant.now().plusSeconds(appProperties.otp().ttl().getSeconds()));
         otpCodeRepository.save(entity);
 
-        smsSender.send(destination, "RAF : votre code de verification est " + code
-                + ". Il expire dans " + appProperties.otp().ttl().toMinutes() + " minutes.");
+        smsSender.send(destination, messageForCode.apply(code)
+                + " Il expire dans " + appProperties.otp().ttl().toMinutes() + " minutes.");
     }
 
     /**

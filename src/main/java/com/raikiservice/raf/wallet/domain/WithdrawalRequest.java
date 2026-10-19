@@ -50,7 +50,8 @@ public class WithdrawalRequest extends AuditableEntity {
     @Column(nullable = false, length = 20)
     private PaymentProvider provider;
 
-    @Column(name = "destination_number", nullable = false, length = 20)
+    /** Numero de reception chez l'operateur. Null pour un retrait au guichet (especes). */
+    @Column(name = "destination_number", length = 20)
     private String destinationNumber;
 
     @Enumerated(EnumType.STRING)
@@ -59,6 +60,10 @@ public class WithdrawalRequest extends AuditableEntity {
 
     @Column(name = "otp_verified_at")
     private Instant otpVerifiedAt;
+
+    /** Renseigne pour un retrait au guichet : l'agent qui l'a saisi. */
+    @Column(name = "initiated_by_admin_id")
+    private Long initiatedByAdminId;
 
     @Column(name = "debit_transaction_id")
     private Long debitTransactionId;
@@ -80,4 +85,11 @@ public class WithdrawalRequest extends AuditableEntity {
 
     @Column(name = "paid_at")
     private Instant paidAt;
+
+    @Column(length = 255)
+    private String note;
+
+    public boolean isCounterWithdrawal() {
+        return initiatedByAdminId != null;
+    }
 }
