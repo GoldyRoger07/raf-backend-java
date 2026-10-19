@@ -14,6 +14,7 @@ import com.raikiservice.raf.auth.service.RefreshTokenService;
 import com.raikiservice.raf.auth.web.dto.UserResponse;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
+import com.raikiservice.raf.common.error.ErrorCode;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,6 +30,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -51,10 +53,19 @@ public class AdminUserController {
     private final AuditService auditService;
 
     @GetMapping
-    @Operation(summary = "Lister les comptes")
+    @Operation(summary = "Lister ou rechercher les comptes (staffOnly : personnel uniquement)")
     @Transactional(readOnly = true)
-    public Page<UserResponse> list(@PageableDefault(size = 20) Pageable pageable) {
-        return userRepository.findAll(pageable).map(UserResponse::from);
+    public Page<UserResponse> list(@RequestParam(required = false) String query,
+            @RequestParam(defaultValue = "false") boolean staffOnly,
+            @PageableDefault(size = 20) Pageable pageable) {
+        String text = query == null ? "" : query.trim().toLowerCase();
+        // % et _ saisis par l'agent sont cherches tels quels, pas comme jokers.
+        String term = "%" + text.replace("%", "\\%").replace("_", "\\_") + "%";
+        String digits = text.replaceAll("[^0-9]", "");
+        // Un telephone ne se cherche qu'a partir de 4 chiffres ; sinon motif impossible
+        // (aucun numero ne contient #).
+        String phone = digits.length() >= 4 ? "%" + digits + "%" : (text.isEmpty() ? "%" : "#");
+        return userRepository.searchAccounts(term, phone, staffOnly, pageable).map(UserResponse::from);
     }
 
     @GetMapping("/{id}")
@@ -70,7 +81,15 @@ public class AdminUserController {
     public UserResponse setRoles(@AuthenticationPrincipal UserPrincipal admin,
             @PathVariable Long id, @RequestBody Set<RoleName> roleNames) {
 
+        assertNotSelf(admin, id);
+        if (roleNames == null || roleNames.isEmpty()) {
+            throw new ApiException(ErrorCode.ROLES_REQUIRED);
+        }
+
         User user = require(id);
+        if (isSuperAdmin(user) && !roleNames.contains(RoleName.SUPER_ADMIN)) {
+            assertNotLastSuperAdmin();
+        }
         String previous = user.getRoles().stream()
                 .map(role -> role.getName().name())
                 .sorted()
@@ -99,7 +118,11 @@ public class AdminUserController {
     public UserResponse setStatus(@AuthenticationPrincipal UserPrincipal admin,
             @PathVariable Long id, @RequestBody UserStatus status) {
 
+        assertNotSelf(admin, id);
         User user = require(id);
+        if (status != UserStatus.ACTIVE && isSuperAdmin(user) && user.getStatus() == UserStatus.ACTIVE) {
+            assertNotLastSuperAdmin();
+        }
         UserStatus previous = user.getStatus();
         user.setStatus(status);
 
@@ -111,6 +134,27 @@ public class AdminUserController {
                 previous.name(), status.name());
 
         return UserResponse.from(user);
+    }
+
+    /**
+     * On ne touche pas a son propre compte depuis cet ecran : un super-administrateur
+     * qui se retirerait ses droits par erreur ne pourrait plus les retablir.
+     */
+    private void assertNotSelf(UserPrincipal admin, Long id) {
+        if (admin.getId().equals(id)) {
+            throw new ApiException(ErrorCode.OWN_ACCOUNT_LOCKED);
+        }
+    }
+
+    /** Sans super-administrateur actif, plus personne ne peut gerer les roles. */
+    private void assertNotLastSuperAdmin() {
+        if (userRepository.countActiveSuperAdmins() <= 1) {
+            throw new ApiException(ErrorCode.LAST_SUPER_ADMIN);
+        }
+    }
+
+    private static boolean isSuperAdmin(User user) {
+        return user.getRoles().stream().anyMatch(role -> role.getName() == RoleName.SUPER_ADMIN);
     }
 
     private User require(Long id) {

@@ -46,6 +46,12 @@ public class AdminGameController {
         return adminGameService.sessions(quizId, flagged, pageable);
     }
 
+    @GetMapping("/game/sessions/flagged")
+    @Operation(summary = "Parties signalees a revoir, tous quiz confondus (avant versement des gains)")
+    public Page<AdminGameSessionResponse> flagged(@PageableDefault(size = 50) Pageable pageable) {
+        return adminGameService.actionableFlagged(pageable);
+    }
+
     @GetMapping("/game/sessions/{sessionId}/review")
     @Operation(summary = "Corrige d'une partie, a tout moment")
     public GameReviewResponse review(@AuthenticationPrincipal UserPrincipal admin,

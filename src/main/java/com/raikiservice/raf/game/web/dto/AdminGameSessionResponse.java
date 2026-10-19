@@ -9,8 +9,10 @@ import com.raikiservice.raf.game.domain.GameSessionStatus;
 public record AdminGameSessionResponse(
         Long id,
         Long quizId,
+        String quizTitle,
         Long userId,
         String userEmail,
+        String playerName,
         Long ticketId,
         GameSessionStatus status,
         Instant startedAt,
@@ -30,8 +32,10 @@ public record AdminGameSessionResponse(
         return new AdminGameSessionResponse(
                 session.getId(),
                 session.getQuiz().getId(),
+                session.getQuiz().getTitle(),
                 session.getUser().getId(),
                 session.getUser().getEmail(),
+                session.getUser().fullName(),
                 session.getTicket().getId(),
                 session.getStatus(),
                 session.getStartedAt(),

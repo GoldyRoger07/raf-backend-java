@@ -46,6 +46,17 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
 
     Page<GameSession> findByQuizIdAndFlaggedTrueOrderByStartedAtDesc(Long quizId, Pageable pageable);
 
+    /**
+     * Signalements encore actionnables, tous quiz confondus : parties validees et
+     * signalees d'un quiz dont les gains ne sont pas encore verses.
+     */
+    @Query("select s from GameSession s where s.flagged = true "
+            + "and s.status = com.raikiservice.raf.game.domain.GameSessionStatus.SUBMITTED "
+            + "and s.quiz.status not in (com.raikiservice.raf.quiz.domain.QuizStatus.FINISHED, "
+            + "com.raikiservice.raf.quiz.domain.QuizStatus.CANCELLED) "
+            + "order by s.startedAt desc")
+    Page<GameSession> findActionableFlagged(Pageable pageable);
+
     /** Parties encore ouvertes : le classement attend qu'elles soient closes. */
     long countByQuizIdAndStatus(Long quizId, GameSessionStatus status);
 

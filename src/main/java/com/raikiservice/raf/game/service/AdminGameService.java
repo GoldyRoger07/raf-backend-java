@@ -30,6 +30,11 @@ public class AdminGameService {
     }
 
     @Transactional(readOnly = true)
+    public Page<AdminGameSessionResponse> actionableFlagged(Pageable pageable) {
+        return gameSessionRepository.findActionableFlagged(pageable).map(AdminGameSessionResponse::from);
+    }
+
+    @Transactional(readOnly = true)
     public AdminGameSessionResponse session(Long sessionId) {
         return gameSessionRepository.findById(sessionId)
                 .map(AdminGameSessionResponse::from)

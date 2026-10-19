@@ -118,6 +118,12 @@ public enum ErrorCode {
     GAME_STILL_RUNNING(HttpStatus.CONFLICT,
             "Des parties sont encore en cours : le classement sera calcule a leur fin."),
 
+    OWN_ACCOUNT_LOCKED(HttpStatus.CONFLICT,
+            "Vous ne pouvez pas modifier vos propres roles ni votre propre statut."),
+    LAST_SUPER_ADMIN(HttpStatus.CONFLICT,
+            "Ce compte est le dernier super-administrateur actif : il doit le rester."),
+    ROLES_REQUIRED(HttpStatus.BAD_REQUEST, "Un compte doit garder au moins un role."),
+
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "Ressource introuvable."),
     CONFLICT(HttpStatus.CONFLICT, "L'operation entre en conflit avec l'etat actuel."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Une erreur interne est survenue.");

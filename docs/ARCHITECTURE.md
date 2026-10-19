@@ -734,13 +734,33 @@ saisi sans indicatif ; elle ne permet de rien modifier. La liste des retraits
 renvoie le joueur avec chaque demande, assemble dans la transaction
 (`AdminWithdrawalResponse`).
 
-**A corriger en phase 2 :** la regle de securite `/api/admin/**` exige ADMIN ou
-SUPER_ADMIN avant meme les `@PreAuthorize`, si bien qu'un MODERATOR recoit 403 sur
-`/api/admin/questions` alors que le controleur l'autorise.
+**Corrige en phase 2 :** la regle `/api/admin/questions/**` (MODERATOR, ADMIN,
+SUPER_ADMIN) precede desormais celle de `/api/admin/**` ; un test HTTP par role
+le verifie.
+
+### Back-office : phase 3
+
+| Methode | Endpoint | Acces |
+|---|---|---|
+| GET | `/api/admin/game/sessions/flagged` | admin |
+| GET | `/api/admin/audit` , `/api/admin/audit/filters` | admin |
+| GET | `/api/admin/users?query=&staffOnly=` | super-admin |
+
+Le journal d'audit se consulte en lecture seule, filtrable par action, type et
+identifiant d'objet, et auteur ; les noms des auteurs sont resolus en une requete
+par page. Les parties signalees sont listees tous quiz confondus, tant que les
+gains ne sont pas verses (au-dela, l'invalidation est refusee).
+
+**Garde-fous des comptes.** Un super-administrateur ne peut modifier ni ses propres
+roles ni son propre statut depuis la gestion des comptes (`OWN_ACCOUNT_LOCKED`) :
+une erreur de manipulation le priverait de ses droits sans recours. Un compte
+garde au moins un role (`ROLES_REQUIRED`), et le dernier super-administrateur
+actif ne peut pas etre retrogade ni suspendu (`LAST_SUPER_ADMIN`, defense en
+profondeur : avec la premiere regle, ce cas suppose deja une anomalie).
 
 ### Tests d'integration
 
-`./mvnw test` lance 55 tests contre le **MySQL local**, base `raf_test` (identifiants
+`./mvnw test` lance 64 tests contre le **MySQL local**, base `raf_test` (identifiants
 de `.env.dev.properties`, URL modifiable par `TEST_DB_URL`). La base est videe
 puis recreee par Flyway a chaque lancement ; **l'effacement refuse toute base dont
 le nom ne finit pas par `_test`**, pour qu'une URL mal reglee ne puisse jamais vider
