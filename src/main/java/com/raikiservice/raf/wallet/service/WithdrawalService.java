@@ -63,6 +63,12 @@ public class WithdrawalService {
         User user = loadUser(userId);
         assertPhoneVerified(user);
 
+        // Especes : pas de numero de reception, l'argent est remis au guichet.
+        boolean cash = provider == PaymentProvider.MANUAL;
+        if (!cash && (destinationNumber == null || destinationNumber.isBlank())) {
+            throw new ApiException(ErrorCode.WITHDRAWAL_DESTINATION_REQUIRED);
+        }
+
         // Une seule demande en attente a la fois : sinon l'administrateur traite
         // des demandes qui se chevauchent sur le meme solde.
         if (!withdrawalRequestRepository.findByUserIdAndStatus(userId, WithdrawalStatus.PENDING)
@@ -73,7 +79,9 @@ public class WithdrawalService {
         assertWithinLimits(userId, amountCredits);
 
         long amountHtg = walletService.creditsToHtg(amountCredits);
-        long feeHtg = settingsService.getLong(SettingKeys.WITHDRAWAL_FEE_HTG, DEFAULT_FEE_HTG);
+        long feeHtg = cash
+                ? settingsService.getLong(SettingKeys.WITHDRAWAL_COUNTER_FEE_HTG, DEFAULT_FEE_HTG)
+                : settingsService.getLong(SettingKeys.WITHDRAWAL_FEE_HTG, DEFAULT_FEE_HTG);
         if (feeHtg >= amountHtg) {
             throw new ApiException(ErrorCode.WITHDRAWAL_BELOW_MINIMUM,
                     "Le montant demande ne couvre pas les frais de " + feeHtg + " HTG.");
@@ -90,7 +98,7 @@ public class WithdrawalService {
         request.setFeeHtg(feeHtg);
         request.setNetHtg(amountHtg - feeHtg);
         request.setProvider(provider);
-        request.setDestinationNumber(destinationNumber);
+        request.setDestinationNumber(cash ? null : destinationNumber);
         request.setStatus(WithdrawalStatus.PENDING);
         request.setOtpVerifiedAt(Instant.now());
 
@@ -159,14 +167,59 @@ public class WithdrawalService {
         return request;
     }
 
-    /** Versement effectue chez l'operateur : etape finale, purement declarative. */
+    /**
+     * Remise en especes : envoie au joueur, present au guichet, le code qui
+     * autorise l'agent a lui remettre l'argent. Le SMS annonce le montant net.
+     */
     @Transactional
-    public WithdrawalRequest markPaid(Long adminId, Long withdrawalId, String payoutReference) {
+    public void sendPickupCode(Long adminId, Long withdrawalId) {
         WithdrawalRequest request = withdrawalRequestRepository.findById(withdrawalId)
+                .orElseThrow(() -> ApiException.notFound("Demande de retrait"));
+
+        if (request.getProvider() != PaymentProvider.MANUAL || request.isCounterWithdrawal()) {
+            throw new ApiException(ErrorCode.NOT_A_CASH_WITHDRAWAL);
+        }
+        if (request.getStatus() != WithdrawalStatus.APPROVED) {
+            throw new ApiException(ErrorCode.WITHDRAWAL_NOT_APPROVED);
+        }
+
+        User user = request.getUser();
+        long netHtg = request.getNetHtg();
+        otpService.send(user, OtpPurpose.CASH_PICKUP, user.getPhone(),
+                code -> "RAF : code " + code + " pour recevoir " + netHtg
+                        + " HTG en especes au guichet. Ne le donnez qu'a l'agent RAF en face de vous.");
+
+        auditService.record(adminId, "WITHDRAWAL_PICKUP_CODE_SENT", "WithdrawalRequest",
+                String.valueOf(withdrawalId));
+    }
+
+    /**
+     * Versement d'un retrait approuve : etape finale.
+     *
+     * <p>MonCash / NatCash : purement declaratif, l'agent saisit la reference de
+     * l'operateur. Especes : le code recu par le joueur est exige, sinon
+     * n'importe qui se presentant sous son nom repartirait avec ses gains.
+     *
+     * <p>Verrou sur la demande : deux validations simultanees ne peuvent pas
+     * consommer le code et marquer la remise deux fois.
+     */
+    @Transactional
+    public WithdrawalRequest markPaid(Long adminId, Long withdrawalId, String payoutReference,
+            String pickupCode) {
+        WithdrawalRequest request = withdrawalRequestRepository.findByIdForUpdate(withdrawalId)
                 .orElseThrow(() -> ApiException.notFound("Demande de retrait"));
 
         if (request.getStatus() != WithdrawalStatus.APPROVED) {
             throw new ApiException(ErrorCode.WITHDRAWAL_NOT_APPROVED);
+        }
+
+        if (request.getProvider() == PaymentProvider.MANUAL) {
+            if (pickupCode == null || pickupCode.isBlank()) {
+                throw new ApiException(ErrorCode.PICKUP_CODE_REQUIRED);
+            }
+            otpService.verify(request.getUser(), OtpPurpose.CASH_PICKUP, pickupCode);
+        } else if (payoutReference == null || payoutReference.isBlank()) {
+            throw new ApiException(ErrorCode.PAYOUT_REFERENCE_REQUIRED);
         }
 
         request.setStatus(WithdrawalStatus.PAID);
@@ -174,7 +227,10 @@ public class WithdrawalService {
         request.setPaidAt(Instant.now());
 
         auditService.record(adminId, "WITHDRAWAL_PAID", "WithdrawalRequest",
-                String.valueOf(withdrawalId), null, payoutReference);
+                String.valueOf(withdrawalId), null,
+                request.getProvider() == PaymentProvider.MANUAL
+                        ? "especes remises au guichet" + (payoutReference == null ? "" : ", recu " + payoutReference)
+                        : payoutReference);
 
         return request;
     }

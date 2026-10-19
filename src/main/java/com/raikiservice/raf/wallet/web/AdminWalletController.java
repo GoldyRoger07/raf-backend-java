@@ -1,6 +1,7 @@
 package com.raikiservice.raf.wallet.web;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
+import com.raikiservice.raf.auth.web.dto.MessageResponse;
 import com.raikiservice.raf.wallet.domain.TopUpStatus;
 import com.raikiservice.raf.wallet.domain.WithdrawalStatus;
 import com.raikiservice.raf.wallet.service.AdjustmentService;
@@ -100,12 +101,20 @@ public class AdminWalletController {
         return WithdrawalResponse.from(withdrawalService.reject(admin.getId(), id, request.reason()));
     }
 
+    @PostMapping("/withdrawals/{id}/pickup-code")
+    @Operation(summary = "Retrait en especes : envoyer au joueur present le code de remise")
+    public MessageResponse sendPickupCode(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long id) {
+        withdrawalService.sendPickupCode(admin.getId(), id);
+        return new MessageResponse("Code de remise envoye au joueur par SMS.");
+    }
+
     @PostMapping("/withdrawals/{id}/paid")
-    @Operation(summary = "Marquer le versement comme effectue")
+    @Operation(summary = "Marquer le versement comme effectue (especes : code du joueur exige)")
     public WithdrawalResponse markPaid(@AuthenticationPrincipal UserPrincipal admin,
             @PathVariable Long id, @Valid @RequestBody PayoutDto request) {
-        return WithdrawalResponse.from(
-                withdrawalService.markPaid(admin.getId(), id, request.payoutReference()));
+        return WithdrawalResponse.from(withdrawalService.markPaid(
+                admin.getId(), id, request.payoutReference(), request.pickupCode()));
     }
 
     @PostMapping("/users/{userId}/counter-withdrawals")

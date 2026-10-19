@@ -7,6 +7,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
+/**
+ * Demande de retrait par le joueur.
+ *
+ * <p>{@code destinationNumber} est obligatoire pour MonCash / NatCash, et ignore
+ * pour {@code MANUAL} (especes remises au guichet) : le controle est fait par le
+ * service, la regle dependant de l'operateur.
+ */
 public record WithdrawalRequestDto(
 
         @Min(value = 1, message = "Le montant doit etre positif.")
@@ -15,7 +22,6 @@ public record WithdrawalRequestDto(
         @NotNull(message = "L'operateur est obligatoire.")
         PaymentProvider provider,
 
-        @NotBlank(message = "Le numero de reception est obligatoire.")
         @Pattern(regexp = "^\\+[1-9]\\d{7,14}$",
                 message = "Le numero doit etre au format international, ex. +50912345678.")
         String destinationNumber,

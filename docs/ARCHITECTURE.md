@@ -581,8 +581,26 @@ back-office, en plus des connecteurs MonCash / NatCash** (decision du
 | Operation | Existe | A ajouter |
 |---|---|---|
 | Depot manuel | `POST /api/admin/wallet/topups/manual` (provider `MANUAL`, reference idempotente) | rien d'obligatoire |
-| Retrait demande par le joueur, paye a la main | demande joueur + `approve` / `paid` / `reject` admin | accepter `MANUAL` sans numero de reception (remise en especes) |
+| Retrait demande par le joueur, paye en especes | **livre** (voir ci-dessous) | — |
 | Retrait saisi par l'admin pour un joueur (guichet) | **livre** (voir ci-dessous) | — |
+
+#### Retrait en especes demande par le joueur (livre)
+
+| Methode | Endpoint | Acces |
+|---|---|---|
+| POST | `/api/wallet/withdrawals` avec `provider: MANUAL` | joueur |
+| POST | `/api/admin/wallet/withdrawals/{id}/pickup-code` | admin |
+| POST | `/api/admin/wallet/withdrawals/{id}/paid` avec `pickupCode` | admin |
+
+Le joueur demande un retrait `MANUAL` sans numero de reception (OTP de retrait
+habituel, gains geles aussitot, frais `withdrawal.counter_fee_htg`). Un admin
+l'approuve comme les autres. Au guichet, l'agent envoie au joueur present un code
+de remise (`CASH_PICKUP`, SMS annoncant le montant net) ; la remise (`paid`)
+**exige ce code** — sans lui, quiconque se presenterait sous le nom du joueur
+repartirait avec ses gains. Pour MonCash / NatCash, `paid` exige toujours la
+reference de l'operateur. L'objet d'OTP `CASH_PICKUP` est distinct de
+`COUNTER_WITHDRAWAL` : un code de remise ne peut pas confirmer un retrait saisi par
+l'agent pour un autre montant (verifie par un test).
 
 #### Retrait au guichet (livre)
 
@@ -660,7 +678,7 @@ gains retirables dus aux joueurs.
 
 ### Tests d'integration
 
-`./mvnw test` lance 39 tests contre le **MySQL local**, base `raf_test` (identifiants
+`./mvnw test` lance 44 tests contre le **MySQL local**, base `raf_test` (identifiants
 de `.env.dev.properties`, URL modifiable par `TEST_DB_URL`). La base est videe
 puis recreee par Flyway a chaque lancement ; **l'effacement refuse toute base dont
 le nom ne finit pas par `_test`**, pour qu'une URL mal reglee ne puisse jamais vider
@@ -674,6 +692,7 @@ OTP.
 | `TicketConcurrencyTest` | lots 3 et 5 : solde jamais negatif, plafonds, idempotence, charge superieure au pool |
 | `VoteConcurrencyTest` | lot 5 : votes simultanes tous comptes |
 | `CounterWithdrawalTest` | lot 7 : retrait au guichet, OTP, retrait en ligne |
+| `CashWithdrawalTest` | lot 7 : retrait en especes demande par le joueur |
 | `ReconciliationTest` | rapprochement : bilan propre, puis chaque falsification detectee |
 
 **Defauts trouves par les tests et corriges.** Chacun a ete reproduit (le test
