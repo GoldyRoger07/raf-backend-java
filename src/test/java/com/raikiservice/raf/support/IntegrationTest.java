@@ -44,6 +44,25 @@ public abstract class IntegrationTest {
                 .isEqualTo(expected);
     }
 
+    /**
+     * Reessaie une verification jusqu'a 5 s : l'audit et les statistiques sont
+     * ecrits apres la transaction, sur un autre thread.
+     */
+    protected static void eventually(Runnable assertion) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 5_000;
+        while (true) {
+            try {
+                assertion.run();
+                return;
+            } catch (AssertionError e) {
+                if (System.currentTimeMillis() > deadline) {
+                    throw e;
+                }
+                Thread.sleep(50);
+            }
+        }
+    }
+
     /** Lance {@code count} appels au meme instant ; renvoie ceux qui ont reussi. */
     protected static <T> List<T> concurrently(int count, Callable<T> call) throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(count);

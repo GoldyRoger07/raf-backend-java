@@ -621,7 +621,7 @@ d'audit, comme les autres mouvements d'argent.
 
 ### Tests d'integration
 
-`./mvnw test` lance 31 tests contre le **MySQL local**, base `raf_test` (identifiants
+`./mvnw test` lance 32 tests contre le **MySQL local**, base `raf_test` (identifiants
 de `.env.dev.properties`, URL modifiable par `TEST_DB_URL`). La base est videe
 puis recreee par Flyway a chaque lancement ; **l'effacement refuse toute base dont
 le nom ne finit pas par `_test`**, pour qu'une URL mal reglee ne puisse jamais vider
@@ -632,7 +632,7 @@ OTP.
 | Classe | Couvre |
 |---|---|
 | `GameFlowTest` | lot 6 : reprise, double clic, anti-triche, cloture, classement, gains |
-| `TicketConcurrencyTest` | lots 3 et 5 : solde jamais negatif, plafonds, idempotence |
+| `TicketConcurrencyTest` | lots 3 et 5 : solde jamais negatif, plafonds, idempotence, charge superieure au pool |
 | `VoteConcurrencyTest` | lot 5 : votes simultanes tous comptes |
 | `CounterWithdrawalTest` | lot 7 : retrait au guichet, OTP, retrait en ligne |
 
@@ -653,19 +653,28 @@ echoue sans la correction) avant d'etre corrige :
    et le compteur incremente par la base.
 4. *Rejeux simultanes d'un achat refuses en 409* au lieu de renvoyer le ticket : la
    cle d'idempotence est re-verifiee sous le verrou du quiz.
+5. *Epuisement du pool de connexions sous charge* (16 achats simultanes : 56 s et
+   6 traces d'audit perdues sur 16). Chaque ecriture tenait sa connexion en
+   attendant celle de l'audit (`REQUIRES_NEW`) ; meme les callbacks de fin de
+   transaction s'executent avant la restitution de la connexion. L'audit et les
+   statistiques de questions sont desormais ecrits par `AfterTransactionExecutor`,
+   sur un thread a part, une fois la transaction terminee : le thread de la requete
+   rend sa connexion sans en attendre une seconde. L'audit garde la trace des
+   operations annulees (ecriture apres validation *ou* annulation). Contrepartie :
+   l'entree d'audit apparait quelques millisecondes apres l'operation, et une
+   trace en file d'attente est perdue si le processus meurt a cet instant (l'arret
+   normal vide la file).
 
 ---
 
 ## 8. Points ouverts
 
-- **Epuisement du pool de connexions sous charge (decouvert par les tests, non
-  corrige).** Toute ecriture tient une connexion et en demande une seconde pour
-  l'audit (`AuditWriter`, `REQUIRES_NEW`) — de meme `QuestionStatsRecorder`, appele
-  avant la liberation de la connexion. Avec un pool de 10, une dizaine d'achats
-  simultanes suffit : tout se fige 30 s, puis les traces d'audit sont perdues
-  (l'echec est avale). Les tests de concurrence sont volontairement limites a 4
-  appels paralleles en attendant. Pistes : ecrire l'audit apres la fin de la
-  transaction (connexion deja rendue), ou un pool dedie a l'audit.
+- **Transactions imbriquees restantes** (`REQUIRES_NEW` appele en tenant deja une
+  connexion), meme risque d'epuisement du pool mais sur des chemins peu
+  concurrents : compteur d'essais OTP (`OtpAttemptRecorder`), revocation d'une
+  famille de jetons, creation du portefeuille a la volee (`WalletProvisioner`),
+  import CSV. A surveiller ; a traiter si un de ces chemins devient massif
+  (par exemple des inscriptions en rafale).
 
 - Cadre légal haïtien du jeu payant : licence, âge minimum 18+, jeu responsable
   (plafond de dépense, auto-exclusion), fiscalité des gains.

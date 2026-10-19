@@ -1,5 +1,6 @@
 package com.raikiservice.raf.common.audit;
 
+import com.raikiservice.raf.common.async.AfterTransactionExecutor;
 import com.raikiservice.raf.common.util.RequestContext;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,10 +13,16 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 /**
  * Ecriture du journal d'audit.
  *
- * <p>Deliberement non transactionnel : l'ecriture reelle est deleguee a
- * {@link AuditWriter}, qui ouvre sa propre transaction. Une operation metier annulee
- * laisse ainsi la trace de la tentative, et un echec d'audit ne fait jamais echouer
- * l'operation tracee.
+ * <p>L'entree est construite tout de suite (l'IP et le navigateur ne sont
+ * disponibles que pendant la requete), puis ecrite <em>apres</em> la fin de la
+ * transaction metier, qu'elle soit validee ou annulee, par
+ * {@link AfterTransactionExecutor} : une operation annulee laisse ainsi la trace
+ * de la tentative, un echec d'audit ne fait jamais echouer l'operation tracee, et
+ * le thread de la requete n'a jamais besoin d'une seconde connexion (voir
+ * {@link AfterTransactionExecutor} pour l'epuisement du pool que cela evite).
+ *
+ * <p>Consequence : l'entree apparait en base quelques millisecondes apres la fin
+ * de l'operation, et non dans la meme transaction.
  */
 @Slf4j
 @Service
@@ -23,6 +30,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class AuditService {
 
     private final AuditWriter auditWriter;
+    private final AfterTransactionExecutor afterTransactionExecutor;
 
     public void record(Long actorUserId, String action, String entityType, String entityId) {
         record(actorUserId, action, entityType, entityId, null, null);
@@ -43,7 +51,7 @@ public class AuditService {
             entry.setIpAddress(RequestContext.clientIp(request));
             entry.setUserAgent(RequestContext.userAgent(request));
 
-            auditWriter.write(entry);
+            afterTransactionExecutor.afterCompletion("audit " + action, () -> auditWriter.write(entry));
         } catch (RuntimeException e) {
             log.error("Echec d'ecriture du journal d'audit pour l'action {}", action, e);
         }

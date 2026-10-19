@@ -31,6 +31,7 @@ class TicketConcurrencyTest extends IntegrationTest {
     @Autowired private TicketService ticketService;
     @Autowired private TicketRepository ticketRepository;
     @Autowired private WalletTransactionRepository walletTransactionRepository;
+    @Autowired private com.raikiservice.raf.common.audit.AuditLogRepository auditLogRepository;
 
     private static Long categoryId;
 
@@ -45,18 +46,15 @@ class TicketConcurrencyTest extends IntegrationTest {
     void concurrentPurchasesNeverOverdrawTheWallet() throws Exception {
         User player = data.player();
         Long quizId = data.publishedQuiz(categoryId, 3, 1000, 1000, null, null);
-        data.credit(player.getId(), BalanceType.CREDIT, 2L * TestData.TICKET_PRICE);
+        data.credit(player.getId(), BalanceType.CREDIT, 5L * TestData.TICKET_PRICE);
 
-        // 4 achats et non davantage : chaque achat tient deux connexions (la sienne et
-        // celle de l'audit en REQUIRES_NEW), et le pool en compte 10. Voir les
-        // points ouverts de ARCHITECTURE.md.
-        List<TicketResponse> bought = concurrently(4, () ->
+        List<TicketResponse> bought = concurrently(10, () ->
                 ticketService.purchase(player.getId(), quizId, UUID.randomUUID().toString()));
 
-        assertThat(bought).hasSize(2);
+        assertThat(bought).hasSize(5);
         assertThat(data.balance(player.getId(), BalanceType.CREDIT)).isZero();
         assertThat(ticketRepository.countByQuizIdAndUserIdAndStatusNot(
-                quizId, player.getId(), TicketStatus.REFUNDED)).isEqualTo(2);
+                quizId, player.getId(), TicketStatus.REFUNDED)).isEqualTo(5);
     }
 
     @Test
@@ -98,6 +96,39 @@ class TicketConcurrencyTest extends IntegrationTest {
         assertThat(bought).hasSize(2);
         assertThat(ticketRepository.countByQuizIdAndStatusNot(quizId, TicketStatus.REFUNDED))
                 .isEqualTo(2);
+    }
+
+    /**
+     * Plus d'achats simultanes que de connexions dans le pool (10). Avant que
+     * l'audit ne soit ecrit hors du thread de la requete, chaque achat tenait sa
+     * connexion en attendant celle de l'audit : tout se figeait 30 s et les traces
+     * etaient perdues.
+     */
+    @Test
+    void moreSimultaneousPurchasesThanPooledConnectionsNeitherStallNorLoseAudit()
+            throws Exception {
+        Long quizId = data.publishedQuiz(categoryId, 3, 1000, 1000, null, null);
+        List<User> players = new java.util.ArrayList<>();
+        for (int i = 0; i < 16; i++) {
+            User player = data.player();
+            data.credit(player.getId(), BalanceType.CREDIT, TestData.TICKET_PRICE);
+            players.add(player);
+        }
+
+        java.util.concurrent.atomic.AtomicInteger next = new java.util.concurrent.atomic.AtomicInteger();
+        long start = System.currentTimeMillis();
+        List<TicketResponse> bought = concurrently(players.size(), () -> ticketService.purchase(
+                players.get(next.getAndIncrement()).getId(), quizId, UUID.randomUUID().toString()));
+        long elapsed = System.currentTimeMillis() - start;
+
+        assertThat(bought).hasSize(players.size());
+        assertThat(elapsed).as("duree des achats (ms)").isLessThan(10_000);
+
+        java.util.Set<String> ticketIds = new java.util.HashSet<>();
+        bought.forEach(ticket -> ticketIds.add(String.valueOf(ticket.id())));
+        eventually(() -> assertThat(auditLogRepository.findAll()).filteredOn(entry ->
+                "TICKET_PURCHASED".equals(entry.getAction()) && ticketIds.contains(entry.getEntityId()))
+                .hasSize(players.size()));
     }
 
     @Test

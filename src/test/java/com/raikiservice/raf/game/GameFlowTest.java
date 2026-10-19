@@ -323,9 +323,11 @@ class GameFlowTest extends IntegrationTest {
                 answer(game, 0, true, 100), answer(game, 1, false, 200)), null));
 
         List<Long> ids = game.questions().stream().map(GameStartResponse.QuestionView::id).toList();
-        var questions = questionRepository.findAllById(ids);
-        assertThat(questions).extracting(q -> q.getTimesServed()).containsOnly(1);
-        assertThat(questions.stream().mapToInt(q -> q.getTimesCorrect()).sum()).isEqualTo(1);
+        eventually(() -> {
+            var questions = questionRepository.findAllById(ids);
+            assertThat(questions).extracting(q -> q.getTimesServed()).containsOnly(1);
+            assertThat(questions.stream().mapToInt(q -> q.getTimesCorrect()).sum()).isEqualTo(1);
+        });
     }
 
     // --- Outils -------------------------------------------------------------------

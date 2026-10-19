@@ -11,7 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Alimente times_served / times_correct, dans sa propre transaction, apres le
- * commit de la partie.
+ * commit de la partie et hors du thread de la requete
+ * ({@code AfterTransactionExecutor}).
  *
  * <p>Pourquoi pas dans la transaction de la partie : inserer le tirage ou les
  * reponses pose un verrou partage sur les questions (cle etrangere). Mettre

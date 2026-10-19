@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.raikiservice.raf.common.async.AfterTransactionExecutor;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
@@ -49,8 +50,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Deroule d'une partie, selon le modele de revelation differee.
@@ -89,6 +88,7 @@ public class GameService {
     private final QuestionRepository questionRepository;
     private final QuizService quizService;
     private final QuestionStatsRecorder questionStatsRecorder;
+    private final AfterTransactionExecutor afterTransactionExecutor;
     private final SettingsService settingsService;
     private final AuditService auditService;
 
@@ -580,23 +580,16 @@ public class GameService {
 
     /**
      * Statistiques de questions, ecrites une fois la partie validee en base (voir
-     * {@link QuestionStatsRecorder}). Un echec est journalise sans remonter : la
-     * partie est deja enregistree, le joueur ne doit pas recevoir d'erreur.
+     * {@link QuestionStatsRecorder}), sur un thread a part : la connexion de la
+     * partie est rendue avant que les compteurs n'en demandent une. Un echec est
+     * journalise sans remonter : la partie est deja enregistree.
      */
     private void recordStatsAfterCommit(List<Long> served, List<Long> answeredCorrectly) {
         List<Long> servedCopy = List.copyOf(served);
         List<Long> correctCopy = List.copyOf(answeredCorrectly);
 
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                try {
-                    questionStatsRecorder.record(servedCopy, correctCopy);
-                } catch (RuntimeException e) {
-                    log.warn("Statistiques de questions non mises a jour", e);
-                }
-            }
-        });
+        afterTransactionExecutor.afterCommit("statistiques de questions",
+                () -> questionStatsRecorder.record(servedCopy, correctCopy));
     }
 
     private Map<Long, Question> loadQuestions(List<GameSessionQuestion> draws) {
