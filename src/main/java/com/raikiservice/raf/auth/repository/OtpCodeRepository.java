@@ -22,6 +22,15 @@ public interface OtpCodeRepository extends JpaRepository<OtpCode, Long> {
             @Param("purpose") OtpPurpose purpose,
             @Param("now") Instant now);
 
+    /**
+     * Consommation atomique : renvoie 0 si le code l'a deja ete. C'est la base qui
+     * tranche entre deux verifications simultanees du meme code, pas une lecture
+     * suivie d'une ecriture.
+     */
+    @Modifying
+    @Query("update OtpCode o set o.consumedAt = :now where o.id = :id and o.consumedAt is null")
+    int consume(@Param("id") Long id, @Param("now") Instant now);
+
     @Modifying
     @Query("update OtpCode o set o.attempts = o.attempts + 1 where o.id = :id")
     int incrementAttempts(@Param("id") Long id);

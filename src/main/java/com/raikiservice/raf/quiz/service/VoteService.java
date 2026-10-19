@@ -55,7 +55,7 @@ public class VoteService {
             throw new ApiException(ErrorCode.VOTE_ALREADY_CAST);
         }
 
-        QuizTopic topic = quizTopicRepository.findById(topicId)
+        QuizTopic topic = quizTopicRepository.findByIdForUpdate(topicId)
                 .orElseThrow(() -> ApiException.notFound("Sujet"));
         if (!topic.getQuiz().getId().equals(quizId)) {
             throw ApiException.notFound("Sujet");
@@ -77,7 +77,9 @@ public class VoteService {
             throw new ApiException(ErrorCode.VOTE_ALREADY_CAST);
         }
 
-        topic.setVoteCount(topic.getVoteCount() + 1);
+        // Surtout pas topic.setVoteCount(lu + 1) : deux votes simultanes n'en
+        // compteraient qu'un. L'entite chargee garde donc l'ancien compteur.
+        quizTopicRepository.incrementVoteCount(topic.getId());
         return topic;
     }
 

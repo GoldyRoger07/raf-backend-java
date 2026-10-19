@@ -96,7 +96,11 @@ public class OtpService {
             throw new ApiException(ErrorCode.OTP_INVALID);
         }
 
-        entity.setConsumedAt(Instant.now());
+        // Deux requetes simultanees portant le meme code passent toutes deux les
+        // controles ci-dessus : seule la premiere a consommer le code l'emporte.
+        if (otpCodeRepository.consume(entity.getId(), Instant.now()) == 0) {
+            throw new ApiException(ErrorCode.OTP_INVALID);
+        }
     }
 
     private void assertNoCooldown(Long userId, OtpPurpose purpose) {

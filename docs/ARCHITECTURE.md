@@ -619,9 +619,53 @@ ajuster). Le plafond journalier ignore desormais les demandes `AWAITING_OTP` et
 Toutes ces operations passent par `WalletService` et laissent une trace
 d'audit, comme les autres mouvements d'argent.
 
+### Tests d'integration
+
+`./mvnw test` lance 31 tests contre le **MySQL local**, base `raf_test` (identifiants
+de `.env.dev.properties`, URL modifiable par `TEST_DB_URL`). La base est videe
+puis recreee par Flyway a chaque lancement ; **l'effacement refuse toute base dont
+le nom ne finit pas par `_test`**, pour qu'une URL mal reglee ne puisse jamais vider
+la base de developpement. Profil `test` : ordonnanceurs coupes
+(`app.scheduling.enabled=false`), SMS captures en memoire, aucun delai entre deux
+OTP.
+
+| Classe | Couvre |
+|---|---|
+| `GameFlowTest` | lot 6 : reprise, double clic, anti-triche, cloture, classement, gains |
+| `TicketConcurrencyTest` | lots 3 et 5 : solde jamais negatif, plafonds, idempotence |
+| `VoteConcurrencyTest` | lot 5 : votes simultanes tous comptes |
+| `CounterWithdrawalTest` | lot 7 : retrait au guichet, OTP, retrait en ligne |
+
+**Defauts trouves par les tests et corriges.** Chacun a ete reproduit (le test
+echoue sans la correction) avant d'etre corrige :
+
+1. *Plafond total de tickets depasse sous concurrence* (4 vendus pour 2). Sous
+   REPEATABLE READ, la recherche par cle d'idempotence, faite avant le verrou du
+   quiz, figeait l'instantane : le comptage fait sous le verrou ignorait les achats
+   commites pendant l'attente. **L'application tourne desormais en READ COMMITTED**
+   (`spring.datasource.hikari.transaction-isolation`), ce qui supprime ce piege
+   partout ; les verrous pessimistes restent la protection des invariants.
+2. *Un meme code OTP utilisable deux fois en parallele* (deux retraits ouverts avec
+   un code). La consommation est maintenant atomique (`OtpCodeRepository.consume`).
+3. *Votes simultanes perdus* (1 sur 4 compte) : `lu + 1` perdait des votes, et
+   l'insertion du vote suivie de l'increment interbloquait deux votants (meme
+   promotion de verrou qu'au lot 6, regle 4). Le sujet est verrouille avant le vote
+   et le compteur incremente par la base.
+4. *Rejeux simultanes d'un achat refuses en 409* au lieu de renvoyer le ticket : la
+   cle d'idempotence est re-verifiee sous le verrou du quiz.
+
 ---
 
 ## 8. Points ouverts
+
+- **Epuisement du pool de connexions sous charge (decouvert par les tests, non
+  corrige).** Toute ecriture tient une connexion et en demande une seconde pour
+  l'audit (`AuditWriter`, `REQUIRES_NEW`) — de meme `QuestionStatsRecorder`, appele
+  avant la liberation de la connexion. Avec un pool de 10, une dizaine d'achats
+  simultanes suffit : tout se fige 30 s, puis les traces d'audit sont perdues
+  (l'echec est avale). Les tests de concurrence sont volontairement limites a 4
+  appels paralleles en attendant. Pistes : ecrire l'audit apres la fin de la
+  transaction (connexion deja rendue), ou un pool dedie a l'audit.
 
 - Cadre légal haïtien du jeu payant : licence, âge minimum 18+, jeu responsable
   (plafond de dépense, auto-exclusion), fiscalité des gains.

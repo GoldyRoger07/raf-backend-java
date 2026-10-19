@@ -74,6 +74,17 @@ public class TicketService {
         Quiz quiz = quizRepository.findByIdForUpdate(quizId)
                 .orElseThrow(() -> ApiException.notFound("Quiz"));
 
+        // Second controle, sous le verrou : deux envois simultanes de la meme cle
+        // ont tous deux manque le premier. Le second attendait le verrou ; il voit
+        // maintenant le ticket commite par l'autre (READ COMMITTED) et le renvoie,
+        // au lieu de buter sur la contrainte d'unicite.
+        if (idempotencyKey != null) {
+            Optional<Ticket> replay = ticketRepository.findByIdempotencyKey(idempotencyKey);
+            if (replay.isPresent()) {
+                return replay.get();
+            }
+        }
+
         if (!quiz.acceptsTickets()) {
             throw new ApiException(ErrorCode.QUIZ_TICKETS_CLOSED);
         }
