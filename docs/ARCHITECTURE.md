@@ -619,9 +619,48 @@ ajuster). Le plafond journalier ignore desormais les demandes `AWAITING_OTP` et
 Toutes ces operations passent par `WalletService` et laissent une trace
 d'audit, comme les autres mouvements d'argent.
 
+### Rapprochement comptable (livre)
+
+| Methode | Endpoint | Acces |
+|---|---|---|
+| POST | `/api/admin/reconciliation/runs` | admin |
+| GET | `/api/admin/reconciliation/runs` | admin |
+| GET | `/api/admin/reconciliation/runs/{id}` | admin |
+
+Execute chaque nuit a 3 h, heure d'Haiti (`app.reconciliation.cron`), et a la
+demande. Migration `V8__reconciliation.sql` : tables `reconciliation_runs` et
+`reconciliation_findings`, et index sur les colonnes de lien vers les
+transactions.
+
+| Controle | Verifie |
+|---|---|
+| `LEDGER_MISMATCH` | chaque solde (credits, gains) = somme de ses transactions |
+| `BALANCE_CHAIN_BREAK` | chaque `balance_after` = precedent + montant |
+| `TICKET_DEBIT` / `TICKET_REFUND` | ticket ↔ debit, ticket rembourse ↔ remboursement |
+| `TOPUP_CREDIT` | recharge confirmee ↔ credit |
+| `WITHDRAWAL_DEBIT` / `WITHDRAWAL_REFUND` | retrait ↔ gel des gains, rejet ↔ restitution |
+| `PRIZE_PAYMENT` | rang recompense ↔ versement |
+| `UNEXPECTED_MOVEMENT` | aucun mouvement sur une operation qui ne devait pas en produire |
+| `ORPHAN_TRANSACTION` | aucun mouvement sans operation qui le reference (hors `ADJUSTMENT`) |
+
+Les liens verifient le type, le solde, le montant **et le proprietaire** du
+mouvement. Chaque controle est une seule instruction SQL, lue par InnoDB sur un
+instantane coherent ; comme une operation et son mouvement sont toujours commites
+ensemble, le rapprochement peut tourner en pleine activite sans faux positif.
+
+Il **ne corrige rien** : un ecart revele une erreur de code ou une modification
+manuelle de la base, et merite une enquete. Il alerte (journal d'erreurs, audit
+`RECONCILIATION_DISCREPANCIES`) et conserve le detail des 500 premiers ecarts. Les
+totaux de chaque execution donnent aussi le passif de la plateforme : la somme des
+gains retirables dus aux joueurs.
+
+> Premier passage sur la base de developpement : il a retrouve seul la trace du
+> bug de concurrence du lot 3 (21 septembre, avant correction) — 9 debits de 100
+> enregistres sur un solde de 500, avec des `balance_after` en double.
+
 ### Tests d'integration
 
-`./mvnw test` lance 32 tests contre le **MySQL local**, base `raf_test` (identifiants
+`./mvnw test` lance 39 tests contre le **MySQL local**, base `raf_test` (identifiants
 de `.env.dev.properties`, URL modifiable par `TEST_DB_URL`). La base est videe
 puis recreee par Flyway a chaque lancement ; **l'effacement refuse toute base dont
 le nom ne finit pas par `_test`**, pour qu'une URL mal reglee ne puisse jamais vider
@@ -635,6 +674,7 @@ OTP.
 | `TicketConcurrencyTest` | lots 3 et 5 : solde jamais negatif, plafonds, idempotence, charge superieure au pool |
 | `VoteConcurrencyTest` | lot 5 : votes simultanes tous comptes |
 | `CounterWithdrawalTest` | lot 7 : retrait au guichet, OTP, retrait en ligne |
+| `ReconciliationTest` | rapprochement : bilan propre, puis chaque falsification detectee |
 
 **Defauts trouves par les tests et corriges.** Chacun a ete reproduit (le test
 echoue sans la correction) avant d'etre corrige :
@@ -680,8 +720,9 @@ echoue sans la correction) avant d'etre corrige :
   (plafond de dépense, auto-exclusion), fiscalité des gains.
 - `RateLimiter` compte en mémoire : sur plusieurs instances, le plafond réel serait
   multiplié par le nombre d'instances. À déplacer dans Redis avant de scaler.
-- Rapprochement comptable : aucun état ne compare encore la somme des transactions
-  aux soldes. À ajouter avant la mise en production réelle.
+- Rapprochement comptable : l'alerte passe par le journal d'erreurs et l'audit ;
+  a brancher sur une notification (email aux administrateurs) avec le module
+  notification.
 - App mobile native → ajouter FCM à côté du web push.
 - SMS transactionnel (OTP) : opérateur et coût à arbitrer.
 - Réutilisation d'une question déjà servie : délai de quarantaine à définir.
