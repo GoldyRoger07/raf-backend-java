@@ -98,6 +98,18 @@ public enum ErrorCode {
             "Seuls les detenteurs d'un ticket peuvent voter pour le sujet."),
     VOTE_ALREADY_CAST(HttpStatus.CONFLICT, "Vous avez deja vote pour ce quiz."),
 
+    GAME_NOT_PLAYABLE(HttpStatus.CONFLICT, "Ce quiz n'est pas ouvert au jeu pour le moment."),
+    GAME_NO_TICKET(HttpStatus.FORBIDDEN,
+            "Aucun ticket disponible pour ce quiz. Achetez-en un pour jouer."),
+    GAME_SESSION_CLOSED(HttpStatus.CONFLICT, "Cette partie est terminee."),
+    GAME_TIME_EXPIRED(HttpStatus.CONFLICT, "Le temps imparti pour cette partie est ecoule."),
+    GAME_REVIEW_LOCKED(HttpStatus.FORBIDDEN,
+            "Le corrige sera disponible a la cloture du quiz."),
+    GAME_RESULTS_NOT_READY(HttpStatus.CONFLICT,
+            "Le classement sera publie a la cloture du quiz."),
+    GAME_STILL_RUNNING(HttpStatus.CONFLICT,
+            "Des parties sont encore en cours : le classement sera calcule a leur fin."),
+
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "Ressource introuvable."),
     CONFLICT(HttpStatus.CONFLICT, "L'operation entre en conflit avec l'etat actuel."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Une erreur interne est survenue.");

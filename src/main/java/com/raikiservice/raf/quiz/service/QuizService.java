@@ -42,8 +42,10 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Toutes les transitions passent par ici. Aucun autre service ne modifie
  * {@code quiz.status}, a deux exceptions documentees : {@link TicketService}
  * declenche le passage en SCHEDULED quand le seuil de joueurs est atteint (il
- * detient deja le verrou du quiz a cet instant), et le lot 6 declenchera le
- * passage en CLOSING quand un joueur depassera le score minimum.
+ * detient deja le verrou du quiz a cet instant), et {@code RankingService}
+ * (module game) fait passer COMPUTING -> FINISHED en figeant le classement, sous
+ * le meme verrou que le versement des gains. Le passage en CLOSING est
+ * declenche par le jeu, mais via {@link #triggerClosing}.
  */
 @Slf4j
 @Service
@@ -221,15 +223,19 @@ public class QuizService {
     /**
      * Declenche le compte a rebours de cloture.
      *
-     * <p>Appele au lot 6 par le premier joueur qui depasse le score minimum. Les
+     * <p>Appele par le jeu quand un joueur depasse le score minimum. Les
      * inscriptions et les parties restent ouvertes pendant le decompte.
+     *
+     * <p>Etat et seuil sont re-verifies sous verrou : deux parties qui franchissent
+     * le seuil en meme temps ne lancent qu'un seul compte a rebours.
      */
     @Transactional
-    public Quiz triggerClosing(Long quizId, Integer triggeredByScore) {
+    public Quiz triggerClosing(Long quizId, int triggeredByScore) {
         Quiz quiz = quizRepository.findByIdForUpdate(quizId)
                 .orElseThrow(() -> ApiException.notFound("Quiz"));
 
-        if (quiz.getStatus() != QuizStatus.RUNNING) {
+        if (quiz.getStatus() != QuizStatus.RUNNING
+                || triggeredByScore <= quiz.getMinScoreThreshold()) {
             return quiz;
         }
 

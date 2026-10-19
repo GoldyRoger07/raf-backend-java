@@ -37,6 +37,27 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
     @Query("select q from Quiz q where q.id = :id")
     Optional<Quiz> findByIdForUpdate(@Param("id") Long id);
 
+    /**
+     * Verrou partage pris au lancement d'une partie : plusieurs parties peuvent
+     * demarrer en parallele, mais la cloture (verrou exclusif) attend qu'elles
+     * soient enregistrees, et une partie ne demarre jamais sur un quiz deja clos.
+     */
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("select q from Quiz q where q.id = :id")
+    Optional<Quiz> findByIdForShare(@Param("id") Long id);
+
+    /**
+     * Seuil de cloture du quiz s'il tourne encore. Projection scalaire : le quiz
+     * n'entre pas dans le contexte de persistance, et le verrou pris ensuite par
+     * {@code QuizService#triggerClosing} reste la premiere lecture de l'entite.
+     */
+    @Query("select q.minScoreThreshold from Quiz q where q.id = :id and q.status = :status")
+    Optional<Integer> findMinScoreThreshold(@Param("id") Long id,
+            @Param("status") QuizStatus status);
+
+    @Query("select q.id from Quiz q where q.status = :status")
+    List<Long> findIdsByStatus(@Param("status") QuizStatus status);
+
     @Query("select q from Quiz q where q.status = :status and q.scheduledStartAt <= :now")
     List<Quiz> findDueToStart(@Param("status") QuizStatus status, @Param("now") Instant now);
 
