@@ -6,6 +6,8 @@ import java.util.List;
 
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
+import com.raikiservice.raf.notification.service.NotificationMessages;
+import com.raikiservice.raf.notification.service.NotificationService;
 import com.raikiservice.raf.reconciliation.domain.ReconciliationFinding;
 import com.raikiservice.raf.reconciliation.domain.ReconciliationRun;
 import com.raikiservice.raf.reconciliation.domain.ReconciliationStatus;
@@ -51,6 +53,7 @@ public class ReconciliationService {
     private final ReconciliationFindingRepository findingRepository;
     private final WalletService walletService;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     @Transactional
     public ReconciliationRunResponse run(ReconciliationTrigger trigger, Long actorId) {
@@ -132,9 +135,15 @@ public class ReconciliationService {
                         run.getId());
                 auditService.record(actorId, "RECONCILIATION_DISCREPANCIES", "ReconciliationRun",
                         String.valueOf(run.getId()), null, run.getFindingCount() + " ecart(s)");
+                notificationService.notifyAdmins(NotificationMessages.reconciliationAlert(
+                        run.getId(), "ecarts releves", run.getFindingCount(), null));
             }
-            case FAILED -> auditService.record(actorId, "RECONCILIATION_FAILED", "ReconciliationRun",
-                    String.valueOf(run.getId()), null, run.getErrorMessage());
+            case FAILED -> {
+                auditService.record(actorId, "RECONCILIATION_FAILED", "ReconciliationRun",
+                        String.valueOf(run.getId()), null, run.getErrorMessage());
+                notificationService.notifyAdmins(NotificationMessages.reconciliationAlert(
+                        run.getId(), "controle interrompu", 0, run.getErrorMessage()));
+            }
         }
     }
 

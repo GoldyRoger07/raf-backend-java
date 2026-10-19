@@ -12,6 +12,8 @@ import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.common.settings.SettingKeys;
 import com.raikiservice.raf.common.settings.SettingsService;
+import com.raikiservice.raf.notification.service.NotificationMessages;
+import com.raikiservice.raf.notification.service.NotificationService;
 import com.raikiservice.raf.wallet.domain.BalanceType;
 import com.raikiservice.raf.wallet.domain.PaymentProvider;
 import com.raikiservice.raf.wallet.domain.WalletTransaction;
@@ -47,6 +49,7 @@ public class WithdrawalService {
     private final OtpService otpService;
     private final SettingsService settingsService;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     /** Envoie le code de confirmation sur le telephone verifie du joueur. */
     @Transactional
@@ -163,6 +166,8 @@ public class WithdrawalService {
 
         auditService.record(adminId, "WITHDRAWAL_APPROVED", "WithdrawalRequest",
                 String.valueOf(withdrawalId));
+        notificationService.notifyUser(request.getUser().getId(),
+                NotificationMessages.withdrawalApproved(request));
 
         return request;
     }
@@ -226,6 +231,9 @@ public class WithdrawalService {
         request.setPayoutReference(payoutReference);
         request.setPaidAt(Instant.now());
 
+        notificationService.notifyUser(request.getUser().getId(),
+                NotificationMessages.withdrawalPaid(request));
+
         auditService.record(adminId, "WITHDRAWAL_PAID", "WithdrawalRequest",
                 String.valueOf(withdrawalId), null,
                 request.getProvider() == PaymentProvider.MANUAL
@@ -255,6 +263,9 @@ public class WithdrawalService {
         request.setReviewedByAdminId(adminId);
         request.setReviewedAt(Instant.now());
         request.setRefundTransactionId(refund.getId());
+
+        notificationService.notifyUser(request.getUser().getId(),
+                NotificationMessages.withdrawalRejected(request, reason));
 
         auditService.record(adminId, "WITHDRAWAL_REJECTED", "WithdrawalRequest",
                 String.valueOf(withdrawalId), null, reason);

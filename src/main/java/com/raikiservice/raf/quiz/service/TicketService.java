@@ -11,6 +11,8 @@ import com.raikiservice.raf.auth.repository.UserRepository;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
+import com.raikiservice.raf.notification.service.NotificationMessages;
+import com.raikiservice.raf.notification.service.NotificationService;
 import com.raikiservice.raf.quiz.domain.Quiz;
 import com.raikiservice.raf.quiz.domain.QuizStatus;
 import com.raikiservice.raf.quiz.domain.Ticket;
@@ -47,6 +49,7 @@ public class TicketService {
     private final UserRepository userRepository;
     private final WalletService walletService;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     /**
      * Achete un ticket.
@@ -170,6 +173,9 @@ public class TicketService {
 
         log.info("Quiz {} : seuil de {} joueurs atteint, demarrage programme a {}",
                 quiz.getId(), quiz.getMinPlayers(), quiz.getScheduledStartAt());
+
+        notificationService.notifyUsers(ticketRepository.findHolderIds(quiz.getId()),
+                NotificationMessages.quizScheduled(quiz));
     }
 
     /** Remboursement integral, utilise a l'annulation d'un quiz. */

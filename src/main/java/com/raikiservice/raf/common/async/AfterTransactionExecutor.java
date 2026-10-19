@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -26,21 +27,27 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *
  * <p>Contrepartie : une trace en file d'attente est perdue si le processus meurt a
  * cet instant. L'arret normal, lui, vide la file.
+ *
+ * <p>Cette instance sert a l'audit et aux statistiques. Les notifications ont la
+ * leur ({@code NotificationExecutor}) : un envoi de masse lent ne doit pas retarder
+ * les traces d'audit.
  */
 @Slf4j
+@Primary
 @Component
 public class AfterTransactionExecutor implements DisposableBean {
-
-    private static final int THREADS = 2;
-    private static final int QUEUE_CAPACITY = 10_000;
 
     private final ThreadPoolExecutor executor;
 
     public AfterTransactionExecutor() {
+        this("after-tx-", 2, 10_000);
+    }
+
+    protected AfterTransactionExecutor(String threadPrefix, int threads, int queueCapacity) {
         AtomicInteger counter = new AtomicInteger();
-        this.executor = new ThreadPoolExecutor(THREADS, THREADS, 0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(QUEUE_CAPACITY), runnable -> {
-                    Thread thread = new Thread(runnable, "after-tx-" + counter.incrementAndGet());
+        this.executor = new ThreadPoolExecutor(threads, threads, 0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(queueCapacity), runnable -> {
+                    Thread thread = new Thread(runnable, threadPrefix + counter.incrementAndGet());
                     thread.setDaemon(true);
                     return thread;
                 });

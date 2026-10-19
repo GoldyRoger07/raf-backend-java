@@ -15,6 +15,8 @@ import com.raikiservice.raf.question.domain.QuestionStatus;
 import com.raikiservice.raf.question.repository.QuestionRepository;
 import com.raikiservice.raf.question.service.CategoryService;
 import com.raikiservice.raf.question.service.QuestionService;
+import com.raikiservice.raf.notification.service.NotificationMessages;
+import com.raikiservice.raf.notification.service.NotificationService;
 import com.raikiservice.raf.quiz.domain.Quiz;
 import com.raikiservice.raf.quiz.domain.QuizQuestionPool;
 import com.raikiservice.raf.quiz.domain.QuizStatus;
@@ -64,6 +66,7 @@ public class QuizService {
     private final WalletService walletService;
     private final MediaService mediaService;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public Quiz require(Long id) {
@@ -217,6 +220,9 @@ public class QuizService {
                 QuizStatus.SCHEDULED.name(), frozen + " questions figees");
         log.info("Quiz {} demarre avec un vivier de {} questions", quizId, frozen);
 
+        notificationService.notifyUsers(ticketRepository.findHolderIds(quizId),
+                NotificationMessages.quizStarted(quiz));
+
         return quiz;
     }
 
@@ -247,6 +253,9 @@ public class QuizService {
         auditService.record(null, "QUIZ_CLOSING_TRIGGERED", "Quiz", String.valueOf(quizId),
                 null, "score declencheur : " + triggeredByScore);
         log.info("Quiz {} : score minimum depasse, cloture le {}", quizId, quiz.getEndsAt());
+
+        notificationService.notifyUsers(ticketRepository.findHolderIds(quizId),
+                NotificationMessages.quizClosing(quiz));
 
         return quiz;
     }
@@ -284,6 +293,9 @@ public class QuizService {
 
         auditService.record(actorId, "QUIZ_CANCELLED", "Quiz", String.valueOf(quizId),
                 null, reason + " (" + refunded + " ticket(s) rembourse(s))");
+
+        notificationService.notifyUsers(ticketRepository.findBuyerIds(quizId),
+                NotificationMessages.quizCancelled(quiz, reason));
         return quiz;
     }
 

@@ -676,9 +676,50 @@ gains retirables dus aux joueurs.
 > bug de concurrence du lot 3 (21 septembre, avant correction) — 9 debits de 100
 > enregistres sur un solde de 500, avec des `balance_after` en double.
 
+### Notifications (livre)
+
+| Methode | Endpoint | Acces |
+|---|---|---|
+| GET | `/api/notifications?unreadOnly=` | authentifie |
+| GET | `/api/notifications/unread-count` | authentifie |
+| POST | `/api/notifications/{id}/read` , `/api/notifications/read-all` | authentifie |
+| GET / PUT | `/api/notifications/preferences` | authentifie |
+| GET | `/api/notifications/push/public-key` | authentifie |
+| POST / DELETE | `/api/notifications/push/subscriptions` | authentifie |
+
+Migration `V9__notifications.sql` : `notifications`, `notification_preferences`,
+`push_subscriptions`. Trois canaux : **in-app** (toujours enregistre, c'est
+l'historique), **email** (Resend, ou console en dev) et **push navigateur** (Web
+Push signe VAPID ; sans cles, journalise). Chaque type a ses canaux par defaut ;
+le joueur coupe ou active l'email et le push type par type.
+
+| Type | Declencheur | Canaux par defaut |
+|---|---|---|
+| `QUIZ_SCHEDULED` | seuil de joueurs atteint (detenteurs de ticket) | push |
+| `QUIZ_STARTED` | demarrage du quiz | push |
+| `QUIZ_CLOSING` | score minimum depasse, compte a rebours | push |
+| `QUIZ_CANCELLED` | annulation et remboursement (tous les acheteurs) | email, push |
+| `PRIZE_WON` | classement fige, rang recompense | email, push |
+| `QUIZ_RESULTS` | classement fige, rang non recompense | push |
+| `TOPUP_CONFIRMED` | recharge confirmee | push |
+| `WITHDRAWAL_APPROVED` / `_PAID` / `_REJECTED` | traitement d'un retrait (guichet compris) | push ; email pour verse et refuse |
+| `ADMIN_RECONCILIATION_ALERT` | ecart ou echec du rapprochement (administrateurs) | email |
+
+L'email est reserve a l'argent et a ce que le joueur doit savoir hors de
+l'application : un email a chaque detenteur de ticket au demarrage d'un quiz serait
+du bruit, et couterait cher.
+
+**Rien ne part avant le commit.** L'envoi est enregistre aupres de la transaction
+metier et n'a lieu que si elle est validee (verifie par un test) : un quiz dont
+l'annulation echoue n'annonce pas de remboursement. Il se fait ensuite sur une file
+dediee (`NotificationExecutor`), separee de celle de l'audit, sans transaction
+englobante : aucune connexion n'est tenue pendant les appels a Resend ou au service
+push. Un abonnement revoque par le navigateur (404 / 410) est supprime.
+
+
 ### Tests d'integration
 
-`./mvnw test` lance 44 tests contre le **MySQL local**, base `raf_test` (identifiants
+`./mvnw test` lance 52 tests contre le **MySQL local**, base `raf_test` (identifiants
 de `.env.dev.properties`, URL modifiable par `TEST_DB_URL`). La base est videe
 puis recreee par Flyway a chaque lancement ; **l'effacement refuse toute base dont
 le nom ne finit pas par `_test`**, pour qu'une URL mal reglee ne puisse jamais vider
@@ -693,6 +734,7 @@ OTP.
 | `VoteConcurrencyTest` | lot 5 : votes simultanes tous comptes |
 | `CounterWithdrawalTest` | lot 7 : retrait au guichet, OTP, retrait en ligne |
 | `CashWithdrawalTest` | lot 7 : retrait en especes demande par le joueur |
+| `NotificationTest` | canaux, preferences, aucun envoi si la transaction est annulee |
 | `ReconciliationTest` | rapprochement : bilan propre, puis chaque falsification detectee |
 
 **Defauts trouves par les tests et corriges.** Chacun a ete reproduit (le test
@@ -739,9 +781,6 @@ echoue sans la correction) avant d'etre corrige :
   (plafond de dépense, auto-exclusion), fiscalité des gains.
 - `RateLimiter` compte en mémoire : sur plusieurs instances, le plafond réel serait
   multiplié par le nombre d'instances. À déplacer dans Redis avant de scaler.
-- Rapprochement comptable : l'alerte passe par le journal d'erreurs et l'audit ;
-  a brancher sur une notification (email aux administrateurs) avec le module
-  notification.
 - App mobile native → ajouter FCM à côté du web push.
 - SMS transactionnel (OTP) : opérateur et coût à arbitrer.
 - Réutilisation d'une question déjà servie : délai de quarantaine à définir.
@@ -752,5 +791,7 @@ echoue sans la correction) avant d'etre corrige :
   finalisation tant que des signalements ne sont pas traités.
 - Limitation de débit sur `/api/game/start` et corrélation IP / appareil entre
   comptes : pas encore faites (IP et user-agent sont déjà enregistrés par partie).
-- Notifications de fin de quiz et de gains : à brancher avec le module
-  notification.
+- Notifications : le frontend doit fournir le service worker qui affiche les push
+  (charge utile JSON : `title`, `body`, `url`, `type`, `data`). Pas encore de
+  regroupement : un joueur detenteur de tickets sur plusieurs quiz recoit un push
+  par evenement.

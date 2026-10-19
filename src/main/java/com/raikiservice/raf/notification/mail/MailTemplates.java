@@ -44,6 +44,19 @@ public final class MailTemplates {
                 "Si vous n'etes pas a l'origine de ce changement, contactez-nous immediatement.");
     }
 
+    /** Email d'une notification : titre, message et lien vers l'ecran concerne. */
+    public static String notification(String firstName, String title, String body,
+            String buttonLabel, String buttonUrl) {
+        return wrap(escape(title),
+                """
+                <p>Bonjour %s,</p>
+                <p>%s</p>
+                """.formatted(escape(firstName), escape(body)),
+                buttonLabel, buttonUrl,
+                "Vous pouvez choisir les emails que vous recevez dans les preferences de "
+                        + "notification de votre compte RAF.");
+    }
+
     private static String wrap(String title, String body, String buttonLabel, String buttonUrl,
             String footer) {
         String button = buttonLabel == null ? ""

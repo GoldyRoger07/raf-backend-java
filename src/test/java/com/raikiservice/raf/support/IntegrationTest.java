@@ -37,6 +37,12 @@ public abstract class IntegrationTest {
     @Autowired
     protected TestInfrastructure.CapturingSmsSender sms;
 
+    @Autowired
+    protected TestInfrastructure.CapturingMailSender mails;
+
+    @Autowired
+    protected TestInfrastructure.CapturingPushSender pushes;
+
     protected static void assertApiError(ErrorCode expected, ThrowingCallable call) {
         assertThatThrownBy(call)
                 .isInstanceOf(ApiException.class)

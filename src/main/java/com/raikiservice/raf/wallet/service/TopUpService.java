@@ -7,6 +7,8 @@ import com.raikiservice.raf.auth.repository.UserRepository;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
+import com.raikiservice.raf.notification.service.NotificationMessages;
+import com.raikiservice.raf.notification.service.NotificationService;
 import com.raikiservice.raf.wallet.domain.BalanceType;
 import com.raikiservice.raf.wallet.domain.PaymentProvider;
 import com.raikiservice.raf.wallet.domain.TopUpRequest;
@@ -39,6 +41,7 @@ public class TopUpService {
     private final UserRepository userRepository;
     private final WalletService walletService;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     @Transactional
     public TopUpRequest createManual(Long adminId, Long userId, long amountHtg, String reference,
@@ -105,6 +108,9 @@ public class TopUpService {
         if (rawPayload != null) {
             request.setRawPayload(rawPayload);
         }
+
+        notificationService.notifyUser(request.getUser().getId(), NotificationMessages
+                .topUpConfirmed(request.getId(), request.getCredits(), request.getAmountHtg()));
 
         auditService.record(adminId, "TOPUP_CONFIRMED", "TopUpRequest",
                 String.valueOf(request.getId()), null,

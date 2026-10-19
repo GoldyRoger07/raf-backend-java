@@ -11,6 +11,8 @@ import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.common.settings.SettingKeys;
 import com.raikiservice.raf.common.settings.SettingsService;
+import com.raikiservice.raf.notification.service.NotificationMessages;
+import com.raikiservice.raf.notification.service.NotificationService;
 import com.raikiservice.raf.wallet.domain.BalanceType;
 import com.raikiservice.raf.wallet.domain.PaymentProvider;
 import com.raikiservice.raf.wallet.domain.WalletTransaction;
@@ -58,6 +60,7 @@ public class CounterWithdrawalService {
     private final OtpService otpService;
     private final SettingsService settingsService;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     @Transactional
     public WithdrawalRequest initiate(Long adminId, Long userId, long amountHtg, String note) {
@@ -172,6 +175,8 @@ public class CounterWithdrawalService {
         request.setReviewedAt(now);
         request.setPaidAt(now);
         request.setPayoutReference(receiptReference);
+
+        notificationService.notifyUser(userId, NotificationMessages.withdrawalPaid(request));
 
         auditService.record(adminId, "COUNTER_WITHDRAWAL_PAID", "WithdrawalRequest",
                 String.valueOf(withdrawalId), null,

@@ -17,6 +17,9 @@ import com.raikiservice.raf.game.domain.QuizRanking;
 import com.raikiservice.raf.game.repository.GameSessionRepository;
 import com.raikiservice.raf.game.repository.QuizRankingRepository;
 import com.raikiservice.raf.game.web.dto.LeaderboardResponse;
+import com.raikiservice.raf.notification.service.NotificationMessage;
+import com.raikiservice.raf.notification.service.NotificationMessages;
+import com.raikiservice.raf.notification.service.NotificationService;
 import com.raikiservice.raf.quiz.domain.Quiz;
 import com.raikiservice.raf.quiz.domain.QuizReward;
 import com.raikiservice.raf.quiz.domain.QuizStatus;
@@ -53,6 +56,7 @@ public class RankingService {
     private final RewardService rewardService;
     private final WalletService walletService;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     /**
      * Fige le classement et verse les gains, si le quiz est pret.
@@ -133,6 +137,17 @@ public class RankingService {
 
         quiz.setStatus(QuizStatus.FINISHED);
         quiz.setFinishedAt(now);
+
+        long rate = walletService.htgRate();
+        List<NotificationMessage.Delivery> deliveries = new ArrayList<>();
+        for (QuizRanking ranking : rankings) {
+            deliveries.add(new NotificationMessage.Delivery(ranking.getUser().getId(),
+                    ranking.getRewardCredits() > 0
+                            ? NotificationMessages.prizeWon(quiz, ranking.getRank(),
+                                    ranking.getRewardCredits(), rate)
+                            : NotificationMessages.quizResults(quiz, ranking.getRank(), rankings.size())));
+        }
+        notificationService.notify(deliveries);
 
         auditService.record(actorId, "QUIZ_FINISHED", "Quiz", String.valueOf(quizId),
                 QuizStatus.COMPUTING.name(),

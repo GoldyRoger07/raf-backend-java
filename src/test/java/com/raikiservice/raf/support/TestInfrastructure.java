@@ -44,6 +44,67 @@ public class TestInfrastructure {
         return new CapturingSmsSender();
     }
 
+    @Bean
+    @Primary
+    CapturingMailSender capturingMailSender() {
+        return new CapturingMailSender();
+    }
+
+    @Bean
+    @Primary
+    CapturingPushSender capturingPushSender() {
+        return new CapturingPushSender();
+    }
+
+    /** Emails envoyes, par destinataire. */
+    public static class CapturingMailSender implements com.raikiservice.raf.notification.mail.MailSender {
+
+        public record Mail(String to, String subject, String html) {
+        }
+
+        private final java.util.List<Mail> sent = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        @Override
+        public void send(String to, String subject, String htmlBody) {
+            sent.add(new Mail(to, subject, htmlBody));
+        }
+
+        public java.util.List<Mail> to(String email) {
+            return sent.stream().filter(mail -> mail.to().equals(email)).toList();
+        }
+    }
+
+    /**
+     * Push envoyes, par utilisateur. {@link #revoke} simule un navigateur qui a
+     * retire son abonnement (reponse 410 du service push).
+     */
+    public static class CapturingPushSender implements com.raikiservice.raf.notification.push.PushSender {
+
+        public record Push(Long userId, String endpoint, String payload) {
+        }
+
+        private final java.util.List<Push> sent = new java.util.concurrent.CopyOnWriteArrayList<>();
+        private final java.util.Set<String> revoked = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+        @Override
+        public Result send(com.raikiservice.raf.notification.domain.PushSubscription subscription,
+                String jsonPayload) {
+            if (revoked.contains(subscription.getEndpoint())) {
+                return Result.GONE;
+            }
+            sent.add(new Push(subscription.getUserId(), subscription.getEndpoint(), jsonPayload));
+            return Result.SENT;
+        }
+
+        public void revoke(String endpoint) {
+            revoked.add(endpoint);
+        }
+
+        public java.util.List<Push> to(Long userId) {
+            return sent.stream().filter(push -> push.userId().equals(userId)).toList();
+        }
+    }
+
     private static void assertTestDatabase(Flyway flyway) {
         try (Connection connection = flyway.getConfiguration().getDataSource().getConnection()) {
             String database = connection.getCatalog();

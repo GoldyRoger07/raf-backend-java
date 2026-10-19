@@ -18,7 +18,18 @@ public record AppProperties(
         Mail mail,
         Otp otp,
         Verification verification,
-        ImageKit imagekit) {
+        ImageKit imagekit,
+        Push push) {
+
+    /** Web Push (VAPID). Sans cles, les push sont journalises au lieu d'etre envoyes. */
+    public record Push(String vapidPublicKey, String vapidPrivateKey, String vapidSubject) {
+
+        public boolean isConfigured() {
+            return vapidPublicKey != null && !vapidPublicKey.isBlank()
+                    && vapidPrivateKey != null && !vapidPrivateKey.isBlank()
+                    && !vapidPublicKey.startsWith("CHANGE_ME");
+        }
+    }
 
     public record ImageKit(String publicKey, String privateKey, String urlEndpoint) {
 

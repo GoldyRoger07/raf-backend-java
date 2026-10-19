@@ -35,6 +35,15 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
     boolean existsByQuizIdAndUserIdAndStatusNot(Long quizId, Long userId, TicketStatus status);
 
+    /** Joueurs detenant au moins un ticket valable : destinataires des annonces du quiz. */
+    @Query("select distinct t.user.id from Ticket t where t.quiz.id = :quizId "
+            + "and t.status <> com.raikiservice.raf.quiz.domain.TicketStatus.REFUNDED")
+    List<Long> findHolderIds(@Param("quizId") Long quizId);
+
+    /** Tous les acheteurs, rembourses compris : destinataires de l'annonce d'annulation. */
+    @Query("select distinct t.user.id from Ticket t where t.quiz.id = :quizId")
+    List<Long> findBuyerIds(@Param("quizId") Long quizId);
+
     /**
      * Identifiants des tickets encore jouables, du plus ancien au plus recent.
      *
