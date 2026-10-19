@@ -1,0 +1,13 @@
+question;reponse_a;reponse_b;reponse_c;reponse_d;bonne_reponse;difficulte;explication
+En quelle annee Haiti a-t-elle proclame son independance ?;1802;1803;1804;1805;C;FACILE;Proclamee le 1er janvier 1804 aux Gonaives.
+Quelle est la capitale d'Haiti ?;Cap-Haitien;Port-au-Prince;Jacmel;Les Cayes;B;FACILE;
+Qui a dirige la bataille de Vertieres ?;Toussaint Louverture;Jean-Jacques Dessalines;Francois Capois;Henri Christophe;C;DIFFICILE;Capois-La-Mort s'y est illustre.
+Quel est le point culminant d'Haiti ?;Pic Macaya;Pic la Selle;Morne Bourbon;Massif du Nord;B;MOYEN;2680 metres.
+La citadelle Laferriere est situee pres de Milot.;Vrai;Faux;;;A;FACILE;
+Combien de departements compte Haiti ?;8;9;10;12;C;MOYEN;
+Quelle langue est officielle avec le francais ?;L'espagnol;Le creole haitien;L'anglais;Le taino;B;FACILE;
+Cette ligne n'a pas de bonne reponse valide;Un;Deux;Trois;Quatre;Z;MOYEN;
+;Un;Deux;Trois;Quatre;A;MOYEN;Enonce vide volontaire
+Question avec difficulte inconnue ?;Un;Deux;Trois;Quatre;A;TRES_DUR;
+Quelle est la capitale d'Haiti ?;Cap-Haitien;Port-au-Prince;Jacmel;Les Cayes;B;FACILE;Doublon volontaire
+Quel fleuve traverse la plaine de l'Artibonite ?;L'Artibonite;Le Massacre;La Grande Riviere;Les Trois Rivieres;A;MOYEN;

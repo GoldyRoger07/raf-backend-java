@@ -31,3 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Secrets locaux (ne jamais committer)
+.env.properties
+.env.dev.properties
+.env.prod.properties
+!.env.properties.example
