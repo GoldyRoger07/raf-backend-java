@@ -3,6 +3,7 @@ package com.raikiservice.raf.quiz.web;
 import java.util.List;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
+import com.raikiservice.raf.quiz.domain.GameMode;
 import com.raikiservice.raf.quiz.domain.QuizStatus;
 import com.raikiservice.raf.quiz.service.QuizService;
 import com.raikiservice.raf.quiz.service.RewardService;
@@ -11,6 +12,7 @@ import com.raikiservice.raf.quiz.web.dto.CancelQuizDto;
 import com.raikiservice.raf.quiz.web.dto.QuizDto;
 import com.raikiservice.raf.quiz.web.dto.QuizResponse;
 import com.raikiservice.raf.quiz.web.dto.RewardTierDto;
+import com.raikiservice.raf.quiz.web.dto.SoloQuizDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,7 +44,7 @@ public class AdminQuizController {
     private final VoteService voteService;
 
     @PostMapping
-    @Operation(summary = "Creer un quiz en brouillon")
+    @Operation(summary = "Creer un quiz de groupe en brouillon")
     public ResponseEntity<QuizResponse> create(@AuthenticationPrincipal UserPrincipal admin,
             @Valid @RequestBody QuizDto request) {
         Long id = quizService.create(admin.getId(), request).getId();
@@ -50,18 +52,43 @@ public class AdminQuizController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Modifier un quiz encore en brouillon")
+    @Operation(summary = "Modifier un quiz de groupe encore en brouillon")
     public QuizResponse update(@AuthenticationPrincipal UserPrincipal admin,
             @PathVariable Long id, @Valid @RequestBody QuizDto request) {
         quizService.update(admin.getId(), id, request);
         return quizService.view(id);
     }
 
+    @PostMapping("/solo")
+    @Operation(summary = "Creer un quiz solo en brouillon")
+    public ResponseEntity<QuizResponse> createSolo(@AuthenticationPrincipal UserPrincipal admin,
+            @Valid @RequestBody SoloQuizDto request) {
+        Long id = quizService.createSolo(admin.getId(), request).getId();
+        return ResponseEntity.status(HttpStatus.CREATED).body(quizService.view(id));
+    }
+
+    @PutMapping("/solo/{id}")
+    @Operation(summary = "Modifier un quiz solo encore en brouillon")
+    public QuizResponse updateSolo(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long id, @Valid @RequestBody SoloQuizDto request) {
+        quizService.updateSolo(admin.getId(), id, request);
+        return quizService.view(id);
+    }
+
+    @PostMapping("/{id}/close")
+    @Operation(summary = "Fermer un quiz solo : plus aucune partie ne peut y etre lancee")
+    public QuizResponse closeSolo(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long id) {
+        quizService.closeSolo(admin.getId(), id);
+        return quizService.view(id);
+    }
+
     @GetMapping
-    @Operation(summary = "Lister les quiz par statut")
+    @Operation(summary = "Lister les quiz par statut, et eventuellement par mode de jeu")
     public Page<QuizResponse> list(@RequestParam(defaultValue = "DRAFT") QuizStatus status,
+            @RequestParam(required = false) GameMode mode,
             @PageableDefault(size = 20) Pageable pageable) {
-        return quizService.viewByStatus(status, pageable);
+        return quizService.viewByStatus(status, mode, pageable);
     }
 
     @GetMapping("/{id}")
@@ -98,7 +125,7 @@ public class AdminQuizController {
     }
 
     @PostMapping("/{id}/publish")
-    @Operation(summary = "Publier le quiz : mise en vente des tickets")
+    @Operation(summary = "Publier le quiz : mise en vente des tickets (groupe) ou ouverture au jeu (solo)")
     public QuizResponse publish(@AuthenticationPrincipal UserPrincipal admin,
             @PathVariable Long id,
             @RequestParam(required = false) Integer voteDurationMinutes) {

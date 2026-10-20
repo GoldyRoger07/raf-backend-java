@@ -5,6 +5,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.raikiservice.raf.auth.domain.User;
+import com.raikiservice.raf.quiz.domain.PlayMode;
 import com.raikiservice.raf.quiz.domain.Quiz;
 import com.raikiservice.raf.quiz.domain.QuizTopic;
 import com.raikiservice.raf.quiz.domain.TopicMode;
@@ -40,7 +41,7 @@ class VoteConcurrencyTest extends IntegrationTest {
 
         Quiz quiz = quizService.create(null, new QuizDto("Quiz vote " + UUID.randomUUID(), null,
                 "Culture generale", TopicMode.VOTE, null, null, TestData.TICKET_PRICE, 1000,
-                null, null, 0, 60, 3, 10, 1000, 1));
+                null, null, 0, PlayMode.BATCH, TestData.QUESTION_SECONDS, 3, 10, 1000, 1));
         rewardService.configure(null, quiz, List.of(new RewardTierDto(1, 1, 100, null)));
         quizService.configureTopics(null, quiz.getId(), List.of(first, second));
         quizService.publish(null, quiz.getId(), 60);

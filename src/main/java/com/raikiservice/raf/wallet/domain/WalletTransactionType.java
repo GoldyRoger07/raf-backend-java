@@ -5,7 +5,9 @@ public enum WalletTransactionType {
     TOPUP,
     /** Achat d'un ticket de quiz : debite le solde CREDIT. */
     TICKET_PURCHASE,
-    /** Gain d'un quiz : credite le solde WINNINGS. */
+    /** Lancement d'une partie solo : debite le solde CREDIT. */
+    SOLO_ENTRY,
+    /** Gain d'un quiz (rang au classement, ou sans-faute en solo) : credite le solde WINNINGS. */
     PRIZE,
     /** Demande de retrait : debite (gele) le solde WINNINGS. */
     WITHDRAWAL,

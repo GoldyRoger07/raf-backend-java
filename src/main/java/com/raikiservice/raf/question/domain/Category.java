@@ -2,6 +2,7 @@ package com.raikiservice.raf.question.domain;
 
 import com.raikiservice.raf.common.domain.AuditableEntity;
 import com.raikiservice.raf.media.domain.MediaFile;
+import com.raikiservice.raf.quiz.domain.GameMode;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -37,4 +38,16 @@ public class Category extends AuditableEntity {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    /** Le sujet peut servir a un quiz de groupe. */
+    @Column(name = "group_enabled", nullable = false)
+    private boolean groupEnabled = true;
+
+    /** Le sujet peut servir a un quiz solo. */
+    @Column(name = "solo_enabled", nullable = false)
+    private boolean soloEnabled = true;
+
+    public boolean isAvailableFor(GameMode mode) {
+        return active && (mode == GameMode.SOLO ? soloEnabled : groupEnabled);
+    }
 }

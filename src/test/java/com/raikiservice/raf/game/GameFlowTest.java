@@ -1,21 +1,28 @@
 package com.raikiservice.raf.game;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 import com.raikiservice.raf.auth.domain.User;
 import com.raikiservice.raf.common.error.ErrorCode;
+import com.raikiservice.raf.game.domain.GameSession;
+import com.raikiservice.raf.game.domain.GameSessionQuestion;
 import com.raikiservice.raf.game.domain.GameSessionStatus;
+import com.raikiservice.raf.game.repository.GameSessionQuestionRepository;
 import com.raikiservice.raf.game.repository.GameSessionRepository;
 import com.raikiservice.raf.game.service.GameService;
 import com.raikiservice.raf.game.service.RankingService;
+import com.raikiservice.raf.game.web.dto.AnswerQuestionDto;
 import com.raikiservice.raf.game.web.dto.GameResultResponse;
 import com.raikiservice.raf.game.web.dto.GameReviewResponse;
 import com.raikiservice.raf.game.web.dto.GameStartResponse;
+import com.raikiservice.raf.game.web.dto.GameTurnResponse;
 import com.raikiservice.raf.game.web.dto.LeaderboardResponse;
 import com.raikiservice.raf.game.web.dto.SubmitGameDto;
 import com.raikiservice.raf.game.web.dto.SubmitGameDto.AnswerDto;
 import com.raikiservice.raf.question.repository.QuestionRepository;
+import com.raikiservice.raf.quiz.domain.PlayMode;
 import com.raikiservice.raf.quiz.domain.QuizStatus;
 import com.raikiservice.raf.quiz.domain.TicketStatus;
 import com.raikiservice.raf.quiz.repository.QuizRepository;
@@ -35,8 +42,8 @@ import org.springframework.data.domain.PageRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Lot 6 : deroule d'une partie, controles anti-triche, cloture, classement et
- * versement des gains.
+ * Lot 6 : deroule d'une partie (BATCH et SEQUENTIAL), controles anti-triche,
+ * cloture, classement et versement des gains.
  */
 class GameFlowTest extends IntegrationTest {
 
@@ -49,6 +56,7 @@ class GameFlowTest extends IntegrationTest {
     @Autowired private TicketService ticketService;
     @Autowired private QuizRepository quizRepository;
     @Autowired private GameSessionRepository gameSessionRepository;
+    @Autowired private GameSessionQuestionRepository gameSessionQuestionRepository;
     @Autowired private QuestionRepository questionRepository;
     @Autowired private WalletTransactionRepository walletTransactionRepository;
 
@@ -86,6 +94,11 @@ class GameFlowTest extends IntegrationTest {
         GameStartResponse game = gameService.start(player.getId(), quizId, IP, UA);
 
         assertThat(game.resumed()).isFalse();
+        assertThat(game.playMode()).isEqualTo(PlayMode.BATCH);
+        assertThat(game.questionDurationSeconds()).isEqualTo(TestData.QUESTION_SECONDS);
+        assertThat(game.durationSeconds()).isEqualTo(3 * TestData.QUESTION_SECONDS);
+        assertThat(game.totalQuestions()).isEqualTo(3);
+        assertThat(game.current()).isNull();
         assertThat(game.questions()).hasSize(3);
         assertThat(game.questions()).allSatisfy(q -> assertThat(q.choices()).hasSize(4));
         // Le DTO des propositions n'a structurellement pas de champ "correct".
@@ -189,7 +202,34 @@ class GameFlowTest extends IntegrationTest {
 
     @Test
     void claimingMoreTimeThanReallyElapsedInvalidatesTheGame() throws Exception {
-        assertInvalidated((game, sleepMs) -> List.of(answer(game, 0, true, 30_000)));
+        assertInvalidated((game, sleepMs) -> List.of(answer(game, 0, true, 15_000)));
+    }
+
+    @Test
+    void spendingMoreThanTheQuestionTimerInvalidatesTheGame() throws Exception {
+        long overTimer = (TestData.QUESTION_SECONDS + 2) * 1_000L;
+        assertInvalidated((game, sleepMs) -> List.of(
+                answer(game, 0, true, 100),
+                answer(game, 1, true, 100 + overTimer)));
+    }
+
+    @Test
+    void aQuestionLeftUnansweredCountsAsWrong() throws Exception {
+        User player = data.player();
+        Long quizId = data.runningQuiz(categoryId, 3, 1000, 1, player);
+        GameStartResponse game = gameService.start(player.getId(), quizId, IP, UA);
+        Thread.sleep(600);
+
+        GameResultResponse result = gameService.submit(player.getId(), new SubmitGameDto(
+                game.sessionId(), List.of(
+                        answer(game, 0, true, 200),
+                        new AnswerDto(game.questions().get(1).id(), null, 400L),
+                        answer(game, 2, true, 600)), null));
+
+        assertThat(result.status()).isEqualTo(GameSessionStatus.SUBMITTED);
+        assertThat(result.score()).isEqualTo(20);
+        assertThat(result.correctCount()).isEqualTo(2);
+        assertThat(result.answeredCount()).isEqualTo(2);
     }
 
     @Test
@@ -210,6 +250,156 @@ class GameFlowTest extends IntegrationTest {
         assertThat(result.status()).isEqualTo(GameSessionStatus.SUBMITTED);
         assertThat(result.score()).isEqualTo(50);
         assertThat(gameSessionRepository.findById(game.sessionId()).orElseThrow().isFlagged()).isTrue();
+    }
+
+    // --- Question par question (SEQUENTIAL) ------------------------------------
+
+    @Test
+    void sequentialStartRevealsOnlyTheCurrentQuestion() {
+        User player = data.player();
+        Long quizId = data.runningQuiz(PlayMode.SEQUENTIAL, categoryId, 3, 1000, 1, player);
+
+        GameStartResponse game = gameService.start(player.getId(), quizId, IP, UA);
+
+        assertThat(game.playMode()).isEqualTo(PlayMode.SEQUENTIAL);
+        assertThat(game.totalQuestions()).isEqualTo(3);
+        assertThat(game.questions()).isEmpty();
+        assertThat(game.current().question().position()).isEqualTo(1);
+        assertThat(game.current().question().choices()).hasSize(4);
+        assertThat(game.current().remainingMs())
+                .isPositive()
+                .isLessThanOrEqualTo(TestData.QUESTION_SECONDS * 1_000L);
+
+        // La reprise renvoie la meme question, sans relancer son chrono.
+        GameStartResponse again = gameService.start(player.getId(), quizId, IP, UA);
+        assertThat(again.resumed()).isTrue();
+        assertThat(again.current().question().id()).isEqualTo(game.current().question().id());
+        assertThat(again.current().endsAt()).isCloseTo(game.current().endsAt(),
+                org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.MILLIS));
+    }
+
+    @Test
+    void eachAnswerServesTheNextQuestionAndTheServerScores() {
+        User player = data.player();
+        Long quizId = data.runningQuiz(PlayMode.SEQUENTIAL, categoryId, 3, 1000, 1, player);
+        GameStartResponse game = gameService.start(player.getId(), quizId, IP, UA);
+
+        GameTurnResponse first = gameService.answer(player.getId(), game.sessionId(),
+                reply(game.current(), true));
+        assertThat(first.accepted()).isTrue();
+        assertThat(first.answeredQuestions()).isEqualTo(1);
+        assertThat(first.next().question().position()).isEqualTo(2);
+        assertThat(first.result()).isNull();
+
+        GameTurnResponse second = gameService.answer(player.getId(), game.sessionId(),
+                reply(first.next(), false));
+        AnswerQuestionDto last = reply(second.next(), true);
+        GameTurnResponse third = gameService.answer(player.getId(), game.sessionId(), last);
+
+        assertThat(third.next()).isNull();
+        assertThat(third.result().status()).isEqualTo(GameSessionStatus.SUBMITTED);
+        assertThat(third.result().score()).isEqualTo(20);
+        assertThat(third.result().correctCount()).isEqualTo(2);
+        assertThat(third.result().answeredCount()).isEqualTo(3);
+
+        // Rejeu de la derniere reponse : meme resultat, rien de recalcule.
+        GameTurnResponse replay = gameService.answer(player.getId(), game.sessionId(), last);
+        assertThat(replay.accepted()).isTrue();
+        assertThat(replay.result().score()).isEqualTo(20);
+    }
+
+    @Test
+    void eachModeRefusesTheOthersEndpoint() {
+        User player = data.player();
+        Long sequential = data.runningQuiz(PlayMode.SEQUENTIAL, categoryId, 3, 1000, 1, player);
+        Long batch = data.runningQuiz(categoryId, 3, 1000, 1, player);
+        GameStartResponse stepGame = gameService.start(player.getId(), sequential, IP, UA);
+        GameStartResponse batchGame = gameService.start(player.getId(), batch, IP, UA);
+
+        assertApiError(ErrorCode.GAME_WRONG_MODE, () -> gameService.submit(player.getId(),
+                new SubmitGameDto(stepGame.sessionId(), List.of(), null)));
+        assertApiError(ErrorCode.GAME_WRONG_MODE, () -> gameService.answer(player.getId(),
+                batchGame.sessionId(), new AnswerQuestionDto(batchGame.questions().get(0).id(), null)));
+    }
+
+    @Test
+    void anAnswerAfterTheTimerCountsAsUnanswered() {
+        User player = data.player();
+        Long quizId = data.runningQuiz(PlayMode.SEQUENTIAL, categoryId, 3, 1000, 1, player);
+        GameStartResponse game = gameService.start(player.getId(), quizId, IP, UA);
+        servedSecondsAgo(game.sessionId(), 1, TestData.QUESTION_SECONDS + 5);
+
+        GameTurnResponse late = gameService.answer(player.getId(), game.sessionId(),
+                reply(game.current(), true));
+        assertThat(late.accepted()).isFalse();
+        assertThat(late.next().question().position()).isEqualTo(2);
+
+        // Passer les deux dernieres : la partie se termine sans aucune reponse.
+        GameTurnResponse skipped = gameService.answer(player.getId(), game.sessionId(),
+                new AnswerQuestionDto(late.next().question().id(), null));
+        GameTurnResponse end = gameService.answer(player.getId(), game.sessionId(),
+                new AnswerQuestionDto(skipped.next().question().id(), null));
+
+        assertThat(end.result().status()).isEqualTo(GameSessionStatus.SUBMITTED);
+        assertThat(end.result().score()).isZero();
+        assertThat(end.result().answeredCount()).isZero();
+    }
+
+    @Test
+    void aReplayedAnswerIsNotAppliedToTheNextQuestion() {
+        User player = data.player();
+        Long quizId = data.runningQuiz(PlayMode.SEQUENTIAL, categoryId, 3, 1000, 1, player);
+        GameStartResponse game = gameService.start(player.getId(), quizId, IP, UA);
+        AnswerQuestionDto first = reply(game.current(), true);
+
+        GameTurnResponse turn = gameService.answer(player.getId(), game.sessionId(), first);
+        GameTurnResponse replay = gameService.answer(player.getId(), game.sessionId(), first);
+
+        assertThat(replay.accepted()).isTrue();
+        assertThat(replay.answeredQuestions()).isEqualTo(1);
+        assertThat(replay.next().question().id()).isEqualTo(turn.next().question().id());
+        assertThat(replay.next().endsAt()).isCloseTo(turn.next().endsAt(),
+                org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.MILLIS));
+    }
+
+    @Test
+    void aForeignChoiceInvalidatesASequentialGame() {
+        User player = data.player();
+        Long quizId = data.runningQuiz(PlayMode.SEQUENTIAL, categoryId, 3, 1000, 1, player);
+        GameStartResponse game = gameService.start(player.getId(), quizId, IP, UA);
+
+        GameTurnResponse turn = gameService.answer(player.getId(), game.sessionId(),
+                new AnswerQuestionDto(game.current().question().id(), Long.MAX_VALUE));
+
+        assertThat(turn.next()).isNull();
+        assertThat(turn.result().status()).isEqualTo(GameSessionStatus.INVALIDATED);
+        assertThat(turn.result().score()).isZero();
+    }
+
+    @Test
+    void anAbandonedSequentialGameIsScoredWithTheAnswersGiven() {
+        User player = data.player();
+        Long quizId = data.runningQuiz(PlayMode.SEQUENTIAL, categoryId, 3, 1000, 1, player);
+        GameStartResponse game = gameService.start(player.getId(), quizId, IP, UA);
+        gameService.answer(player.getId(), game.sessionId(), reply(game.current(), true));
+
+        GameSession session = gameSessionRepository.findById(game.sessionId()).orElseThrow();
+        session.setServerDeadlineAt(Instant.now().minusSeconds(1));
+        gameSessionRepository.save(session);
+
+        // L'expiration en masse ne concerne que le mode BATCH.
+        gameService.expireOverdue();
+        assertThat(gameSessionRepository.findById(game.sessionId()).orElseThrow().getStatus())
+                .isEqualTo(GameSessionStatus.IN_PROGRESS);
+
+        assertThat(gameService.findOverdueSequential()).contains(game.sessionId());
+        assertThat(gameService.completeOverdue(game.sessionId())).isTrue();
+        assertThat(gameService.completeOverdue(game.sessionId())).isFalse();
+
+        GameSession closed = gameSessionRepository.findById(game.sessionId()).orElseThrow();
+        assertThat(closed.getStatus()).isEqualTo(GameSessionStatus.SUBMITTED);
+        assertThat(closed.getScore()).isEqualTo(10);
+        assertThat(closed.getAnsweredCount()).isEqualTo(1);
     }
 
     // --- Cloture et classement ---------------------------------------------------
@@ -359,6 +549,20 @@ class GameFlowTest extends IntegrationTest {
         Long questionId = game.questions().get(position).id();
         return new AnswerDto(questionId,
                 correct ? data.correctChoice(questionId) : data.wrongChoice(questionId), elapsedMs);
+    }
+
+    private AnswerQuestionDto reply(GameStartResponse.CurrentQuestion current, boolean correct) {
+        Long questionId = current.question().id();
+        return new AnswerQuestionDto(questionId,
+                correct ? data.correctChoice(questionId) : data.wrongChoice(questionId));
+    }
+
+    /** Recule l'envoi d'une question, comme si son chrono avait tourne. */
+    private void servedSecondsAgo(Long sessionId, int position, long seconds) {
+        GameSessionQuestion draw = gameSessionQuestionRepository
+                .findBySessionIdOrderByPositionAsc(sessionId).get(position - 1);
+        draw.setServedAt(Instant.now().minusSeconds(seconds));
+        gameSessionQuestionRepository.save(draw);
     }
 
     private interface Answers {

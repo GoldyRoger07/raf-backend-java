@@ -4,6 +4,8 @@ import java.time.Instant;
 
 import com.raikiservice.raf.game.domain.GameSession;
 import com.raikiservice.raf.game.domain.GameSessionStatus;
+import com.raikiservice.raf.quiz.domain.GameMode;
+import com.raikiservice.raf.quiz.domain.PlayMode;
 
 /** Vue back-office d'une partie, avec les signaux d'abus. */
 public record AdminGameSessionResponse(
@@ -15,6 +17,8 @@ public record AdminGameSessionResponse(
         String playerName,
         Long ticketId,
         GameSessionStatus status,
+        GameMode gameMode,
+        PlayMode playMode,
         Instant startedAt,
         Instant serverDeadlineAt,
         Instant submittedAt,
@@ -22,6 +26,7 @@ public record AdminGameSessionResponse(
         Integer score,
         Integer correctCount,
         Integer answeredCount,
+        boolean won,
         boolean flagged,
         String flagReason,
         String invalidationReason,
@@ -36,8 +41,10 @@ public record AdminGameSessionResponse(
                 session.getUser().getId(),
                 session.getUser().getEmail(),
                 session.getUser().fullName(),
-                session.getTicket().getId(),
+                session.getTicket() == null ? null : session.getTicket().getId(),
                 session.getStatus(),
+                session.getGameMode(),
+                session.getPlayMode(),
                 session.getStartedAt(),
                 session.getServerDeadlineAt(),
                 session.getSubmittedAt(),
@@ -45,6 +52,7 @@ public record AdminGameSessionResponse(
                 session.getScore(),
                 session.getCorrectCount(),
                 session.getAnsweredCount(),
+                session.isWon(),
                 session.isFlagged(),
                 session.getFlagReason(),
                 session.getInvalidationReason(),

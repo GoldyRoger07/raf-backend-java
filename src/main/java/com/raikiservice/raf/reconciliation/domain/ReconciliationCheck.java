@@ -14,6 +14,8 @@ public enum ReconciliationCheck {
     WITHDRAWAL_DEBIT("Retrait sans debit correspondant des gains"),
     WITHDRAWAL_REFUND("Retrait rejete sans restitution des gains"),
     PRIZE_PAYMENT("Gain du classement sans versement correspondant"),
+    SOLO_ENTRY_DEBIT("Partie solo sans debit d'entree correspondant"),
+    SOLO_PRIZE_PAYMENT("Sans-faute en solo sans versement correspondant"),
     UNEXPECTED_MOVEMENT("Mouvement lie a une operation qui ne devait pas en produire"),
     ORPHAN_TRANSACTION("Mouvement d'argent sans operation metier qui le reference");
 

@@ -45,6 +45,10 @@ public class RewardService {
 
     @Transactional
     public List<QuizReward> configure(Long actorId, Quiz quiz, List<RewardTierDto> tiers) {
+        if (quiz.isSolo()) {
+            throw new ApiException(ErrorCode.QUIZ_INVALID_STATE,
+                    "Un quiz solo n'a pas de classement : son prix se regle sur le quiz.");
+        }
         validate(tiers);
 
         quizRewardRepository.deleteByQuizId(quiz.getId());

@@ -17,6 +17,8 @@ import com.raikiservice.raf.question.service.CategoryService;
 import com.raikiservice.raf.question.service.QuestionService;
 import com.raikiservice.raf.notification.service.NotificationMessages;
 import com.raikiservice.raf.notification.service.NotificationService;
+import com.raikiservice.raf.quiz.domain.GameMode;
+import com.raikiservice.raf.quiz.domain.PlayMode;
 import com.raikiservice.raf.quiz.domain.Quiz;
 import com.raikiservice.raf.quiz.domain.QuizQuestionPool;
 import com.raikiservice.raf.quiz.domain.QuizStatus;
@@ -29,6 +31,7 @@ import com.raikiservice.raf.quiz.repository.QuizTopicRepository;
 import com.raikiservice.raf.quiz.repository.TicketRepository;
 import com.raikiservice.raf.quiz.web.dto.QuizDto;
 import com.raikiservice.raf.quiz.web.dto.QuizResponse;
+import com.raikiservice.raf.quiz.web.dto.SoloQuizDto;
 import com.raikiservice.raf.wallet.service.WalletService;
 
 import lombok.RequiredArgsConstructor;
@@ -73,17 +76,26 @@ public class QuizService {
         return quizRepository.findById(id).orElseThrow(() -> ApiException.notFound("Quiz"));
     }
 
+    /** @param mode null : les deux modes */
     @Transactional(readOnly = true)
-    public Page<Quiz> byStatus(QuizStatus status, Pageable pageable) {
-        return quizRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
+    public Page<Quiz> byStatus(QuizStatus status, GameMode mode, Pageable pageable) {
+        return mode == null
+                ? quizRepository.findByStatusOrderByCreatedAtDesc(status, pageable)
+                : quizRepository.findByGameModeAndStatusOrderByCreatedAtDesc(mode, status, pageable);
     }
 
     /** Quiz visibles d'un joueur : tout sauf les brouillons. */
     @Transactional(readOnly = true)
-    public Page<Quiz> visibleToPlayers(Pageable pageable) {
-        return quizRepository.findByStatusInOrderByCreatedAtDesc(
-                List.of(QuizStatus.REGISTRATION, QuizStatus.SCHEDULED, QuizStatus.RUNNING,
-                        QuizStatus.CLOSING, QuizStatus.COMPUTING, QuizStatus.FINISHED),
+    /**
+     * Quiz montres aux joueurs. Un quiz de groupe reste visible apres sa cloture
+     * (classement, corrige) ; un quiz solo, seulement tant qu'il est ouvert.
+     */
+    public Page<Quiz> visibleToPlayers(GameMode mode, Pageable pageable) {
+        List<QuizStatus> statuses = mode == GameMode.SOLO
+                ? List.of(QuizStatus.RUNNING)
+                : List.of(QuizStatus.REGISTRATION, QuizStatus.SCHEDULED, QuizStatus.RUNNING,
+                        QuizStatus.CLOSING, QuizStatus.COMPUTING, QuizStatus.FINISHED);
+        return quizRepository.findByGameModeAndStatusInOrderByCreatedAtDesc(mode, statuses,
                 pageable);
     }
 
@@ -103,6 +115,7 @@ public class QuizService {
     @Transactional
     public Quiz update(Long actorId, Long id, QuizDto request) {
         Quiz quiz = require(id);
+        assertMode(quiz, GameMode.GROUP);
 
         // Un quiz publie a deja des tickets vendus sur la foi de ses regles :
         // prix, seuil et recompenses ne peuvent plus bouger.
@@ -120,6 +133,7 @@ public class QuizService {
     @Transactional
     public List<QuizTopic> configureTopics(Long actorId, Long quizId, List<Long> categoryIds) {
         Quiz quiz = require(quizId);
+        assertMode(quiz, GameMode.GROUP);
         assertDraft(quiz);
 
         if (categoryIds == null || categoryIds.size() < 2) {
@@ -132,7 +146,7 @@ public class QuizService {
 
         List<QuizTopic> topics = new ArrayList<>();
         for (Long categoryId : categoryIds) {
-            Category category = categoryService.require(categoryId);
+            Category category = categoryService.requireAvailable(categoryId, GameMode.GROUP);
 
             QuizTopic topic = new QuizTopic();
             topic.setQuiz(quiz);
@@ -148,7 +162,8 @@ public class QuizService {
     }
 
     /**
-     * Publie le quiz : les tickets partent en vente.
+     * Publie le quiz : les tickets partent en vente (GROUP), ou le quiz s'ouvre
+     * directement au jeu (SOLO, voir {@link #openSolo}).
      *
      * <p>Trois verrous avant publication, parce qu'apres il sera trop tard :
      * recompenses coherentes, sujet exploitable, vivier de questions suffisant.
@@ -157,6 +172,10 @@ public class QuizService {
     public Quiz publish(Long actorId, Long quizId, Integer voteDurationMinutes) {
         Quiz quiz = require(quizId);
         assertDraft(quiz);
+
+        if (quiz.isSolo()) {
+            return openSolo(actorId, quiz);
+        }
 
         if (rewardService.forQuiz(quizId).isEmpty()) {
             throw new ApiException(ErrorCode.QUIZ_NO_REWARDS);
@@ -167,6 +186,7 @@ public class QuizService {
                 throw new ApiException(ErrorCode.QUIZ_NO_TOPIC,
                         "Choisissez une categorie ou passez le quiz en mode vote.");
             }
+            CategoryService.assertAvailable(quiz.getSelectedCategory(), GameMode.GROUP);
             assertPoolSufficient(quiz, quiz.getSelectedCategory().getId());
         } else {
             List<QuizTopic> topics = quizTopicRepository
@@ -177,6 +197,7 @@ public class QuizService {
             // Chaque sujet candidat doit pouvoir accueillir le quiz : sinon le vote
             // peut designer une categorie sur laquelle il sera impossible de jouer.
             for (QuizTopic topic : topics) {
+                CategoryService.assertAvailable(topic.getCategory(), GameMode.GROUP);
                 assertPoolSufficient(quiz, topic.getCategory().getId());
             }
 
@@ -192,6 +213,120 @@ public class QuizService {
                 QuizStatus.DRAFT.name(), QuizStatus.REGISTRATION.name());
         return quiz;
     }
+
+    // --- Solo ---------------------------------------------------------------------
+
+    @Transactional
+    public Quiz createSolo(Long actorId, SoloQuizDto request) {
+        Quiz quiz = new Quiz();
+        quiz.setCreatedBy(actorId);
+        quiz.setSlug(uniqueSlug(request.title()));
+        applySoloFields(quiz, request);
+
+        Quiz saved = quizRepository.save(quiz);
+        auditService.record(actorId, "QUIZ_CREATED", "Quiz", String.valueOf(saved.getId()),
+                null, "Solo : " + request.title());
+        return saved;
+    }
+
+    @Transactional
+    public Quiz updateSolo(Long actorId, Long id, SoloQuizDto request) {
+        Quiz quiz = require(id);
+        assertMode(quiz, GameMode.SOLO);
+
+        // Comme en groupe : une fois ouvert, des joueurs ont paye sur la foi de
+        // ces regles. Pour les changer, fermer ce quiz et en ouvrir un autre.
+        if (quiz.getStatus() != QuizStatus.DRAFT) {
+            throw new ApiException(ErrorCode.QUIZ_INVALID_STATE,
+                    "Un quiz solo ouvert ne peut plus etre modifie. Fermez-le et creez-en un nouveau.");
+        }
+
+        applySoloFields(quiz, request);
+        auditService.record(actorId, "QUIZ_UPDATED", "Quiz", String.valueOf(id), null,
+                "Solo : " + request.title());
+        return quiz;
+    }
+
+    /**
+     * Ouvre un quiz solo : le vivier est fige, comme au demarrage d'un quiz de
+     * groupe, et les parties peuvent etre lancees aussitot.
+     */
+    private Quiz openSolo(Long actorId, Quiz quiz) {
+        Category category = resolveCategory(quiz);
+        CategoryService.assertAvailable(category, GameMode.SOLO);
+        assertPoolSufficient(quiz, category.getId());
+
+        int frozen = freezePool(quiz, category.getId());
+        quiz.setStartedAt(Instant.now());
+        quiz.setStatus(QuizStatus.RUNNING);
+
+        auditService.record(actorId, "QUIZ_PUBLISHED", "Quiz", String.valueOf(quiz.getId()),
+                QuizStatus.DRAFT.name(), QuizStatus.RUNNING.name() + " (solo, " + frozen
+                        + " questions figees)");
+        log.info("Quiz solo {} ouvert avec un vivier de {} questions", quiz.getId(), frozen);
+        return quiz;
+    }
+
+    /**
+     * Ferme un quiz solo : plus aucune partie ne peut y etre lancee. Les parties
+     * en cours vont a leur terme, et le corrige devient consultable.
+     *
+     * <p>Verrou exclusif : les lancements en vol (verrou partage) sont enregistres
+     * avant la fermeture, aucun ne passe apres.
+     */
+    @Transactional
+    public Quiz closeSolo(Long actorId, Long quizId) {
+        Quiz quiz = quizRepository.findByIdForUpdate(quizId)
+                .orElseThrow(() -> ApiException.notFound("Quiz"));
+        assertMode(quiz, GameMode.SOLO);
+
+        if (quiz.getStatus() != QuizStatus.RUNNING) {
+            throw new ApiException(ErrorCode.QUIZ_INVALID_STATE,
+                    "Seul un quiz solo ouvert peut etre ferme.");
+        }
+
+        Instant now = Instant.now();
+        quiz.setEndsAt(now);
+        quiz.setFinishedAt(now);
+        quiz.setStatus(QuizStatus.FINISHED);
+
+        auditService.record(actorId, "QUIZ_CLOSED", "Quiz", String.valueOf(quizId),
+                QuizStatus.RUNNING.name(), QuizStatus.FINISHED.name());
+        return quiz;
+    }
+
+    private void applySoloFields(Quiz quiz, SoloQuizDto request) {
+        quiz.setGameMode(GameMode.SOLO);
+        quiz.setTitle(request.title().trim());
+        quiz.setDescription(request.description());
+        quiz.setTopicMode(TopicMode.ADMIN);
+        quiz.setSelectedCategory(
+                categoryService.requireAvailable(request.categoryId(), GameMode.SOLO));
+        quiz.setBanner(request.bannerMediaId() == null ? null
+                : mediaService.require(request.bannerMediaId()));
+        quiz.setTicketPriceCredits(request.entryPriceCredits());
+        quiz.setSoloPrizeCredits(request.prizeCredits());
+        // Chaque partie engage de l'argent et un sans-faute en rapporte : le joueur
+        // ne doit jamais voir une question avant son tour.
+        quiz.setPlayMode(PlayMode.SEQUENTIAL);
+        quiz.setQuestionDurationSeconds(request.questionDurationSeconds());
+        quiz.setQuestionsPerGame(request.questionsPerGame());
+        // Sans objet en solo (pas de seuil de joueurs ni de cloture declenchee),
+        // mais les colonnes sont obligatoires.
+        quiz.setMinPlayers(1);
+        quiz.setStartDelayMinutes(0);
+        quiz.setMinScoreThreshold(0);
+    }
+
+    private static void assertMode(Quiz quiz, GameMode expected) {
+        if (quiz.getGameMode() != expected) {
+            throw new ApiException(ErrorCode.QUIZ_INVALID_STATE, expected == GameMode.SOLO
+                    ? "Action reservee aux quiz solo."
+                    : "Action reservee aux quiz de groupe.");
+        }
+    }
+
+    // --- Groupe ----------------------------------------------------------------
 
     /**
      * Demarre le quiz : fige le vivier de questions, puis ouvre le jeu.
@@ -322,13 +457,13 @@ public class QuizService {
     }
 
     @Transactional(readOnly = true)
-    public Page<QuizResponse> viewVisible(Pageable pageable) {
-        return visibleToPlayers(pageable).map(this::toResponse);
+    public Page<QuizResponse> viewVisible(GameMode mode, Pageable pageable) {
+        return visibleToPlayers(mode, pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public Page<QuizResponse> viewByStatus(QuizStatus status, Pageable pageable) {
-        return byStatus(status, pageable).map(this::toResponse);
+    public Page<QuizResponse> viewByStatus(QuizStatus status, GameMode mode, Pageable pageable) {
+        return byStatus(status, mode, pageable).map(this::toResponse);
     }
 
     QuizResponse toResponse(Quiz quiz) {
@@ -388,7 +523,7 @@ public class QuizService {
         quiz.setThemeLabel(request.themeLabel());
         quiz.setTopicMode(request.topicMode() == null ? TopicMode.ADMIN : request.topicMode());
         quiz.setSelectedCategory(request.categoryId() == null ? null
-                : categoryService.require(request.categoryId()));
+                : categoryService.requireAvailable(request.categoryId(), GameMode.GROUP));
         quiz.setBanner(request.bannerMediaId() == null ? null
                 : mediaService.require(request.bannerMediaId()));
         quiz.setTicketPriceCredits(request.ticketPriceCredits());
@@ -396,7 +531,8 @@ public class QuizService {
         quiz.setMaxTicketsTotal(request.maxTicketsTotal());
         quiz.setMaxTicketsPerPlayer(request.maxTicketsPerPlayer());
         quiz.setStartDelayMinutes(request.startDelayMinutes());
-        quiz.setGameDurationSeconds(request.gameDurationSeconds());
+        quiz.setPlayMode(request.playMode() == null ? PlayMode.SEQUENTIAL : request.playMode());
+        quiz.setQuestionDurationSeconds(request.questionDurationSeconds());
         quiz.setQuestionsPerGame(request.questionsPerGame());
         quiz.setPointsPerCorrect(request.pointsPerCorrect());
         quiz.setMinScoreThreshold(request.minScoreThreshold());

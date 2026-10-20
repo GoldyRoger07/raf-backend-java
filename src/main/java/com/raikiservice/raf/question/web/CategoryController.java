@@ -6,7 +6,9 @@ import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.auth.web.dto.MessageResponse;
 import com.raikiservice.raf.question.service.CategoryService;
 import com.raikiservice.raf.question.web.dto.CategoryDto;
+import com.raikiservice.raf.question.web.dto.CategoryModesDto;
 import com.raikiservice.raf.question.web.dto.CategoryResponse;
+import com.raikiservice.raf.quiz.domain.GameMode;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,11 +20,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -41,9 +45,9 @@ public class CategoryController {
     private final CategoryService categoryService;
 
     @GetMapping
-    @Operation(summary = "Lister les categories actives")
-    public List<CategoryResponse> listActive() {
-        return categoryService.listActive();
+    @Operation(summary = "Lister les categories actives, eventuellement celles d'un mode de jeu")
+    public List<CategoryResponse> listActive(@RequestParam(required = false) GameMode mode) {
+        return categoryService.listActive(mode);
     }
 
     @GetMapping("/{id}")
@@ -81,6 +85,16 @@ public class CategoryController {
         return categoryService.update(
                 actor.getId(), id, request.name(), request.description(),
                 request.parentId(), request.mediaId(), request.active());
+    }
+
+    /** Decision commerciale (ou se joue l'argent) : reservee aux administrateurs. */
+    @PatchMapping("/{id}/modes")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Rendre le sujet disponible ou non en mode En groupe et en mode Solo")
+    public CategoryResponse configureModes(@AuthenticationPrincipal UserPrincipal actor,
+            @PathVariable Long id, @RequestBody CategoryModesDto request) {
+        return categoryService.configureModes(actor.getId(), id, request.groupEnabled(),
+                request.soloEnabled());
     }
 
     @DeleteMapping("/{id}")

@@ -45,6 +45,10 @@ public class Quiz extends AuditableEntity {
     private QuizStatus status = QuizStatus.DRAFT;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "game_mode", nullable = false, length = 10)
+    private GameMode gameMode = GameMode.GROUP;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "topic_mode", nullable = false, length = 10)
     private TopicMode topicMode = TopicMode.ADMIN;
 
@@ -52,6 +56,7 @@ public class Quiz extends AuditableEntity {
     @JoinColumn(name = "selected_category_id")
     private Category selectedCategory;
 
+    /** GROUP : prix d'un ticket. SOLO : prix d'une partie, debite au lancement. */
     @Column(name = "ticket_price_credits", nullable = false)
     private int ticketPriceCredits;
 
@@ -76,14 +81,23 @@ public class Quiz extends AuditableEntity {
     @Column(name = "started_at")
     private Instant startedAt;
 
-    @Column(name = "game_duration_seconds", nullable = false)
-    private int gameDurationSeconds = 120;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "play_mode", nullable = false, length = 20)
+    private PlayMode playMode = PlayMode.SEQUENTIAL;
+
+    /** Chrono de chaque question : la partie dure au plus N fois cette valeur. */
+    @Column(name = "question_duration_seconds", nullable = false)
+    private int questionDurationSeconds = 5;
 
     @Column(name = "questions_per_game", nullable = false)
     private int questionsPerGame = 40;
 
     @Column(name = "points_per_correct", nullable = false)
     private int pointsPerCorrect = 10;
+
+    /** SOLO : prix verse pour un sans-faute. Null en GROUP. */
+    @Column(name = "solo_prize_credits")
+    private Long soloPrizeCredits;
 
     /** Premier joueur a le depasser : declenche le compte a rebours de cloture. */
     @Column(name = "min_score_threshold", nullable = false)
@@ -113,12 +127,19 @@ public class Quiz extends AuditableEntity {
     @Column(name = "created_by")
     private Long createdBy;
 
-    /** Les tickets sont en vente pendant l'inscription et jusqu'a la cloture. */
+    public boolean isSolo() {
+        return gameMode == GameMode.SOLO;
+    }
+
+    /**
+     * Les tickets sont en vente pendant l'inscription et jusqu'a la cloture. Un
+     * quiz solo n'en vend jamais : chaque partie est payee a son lancement.
+     */
     public boolean acceptsTickets() {
-        return status == QuizStatus.REGISTRATION
+        return gameMode == GameMode.GROUP && (status == QuizStatus.REGISTRATION
                 || status == QuizStatus.SCHEDULED
                 || status == QuizStatus.RUNNING
-                || status == QuizStatus.CLOSING;
+                || status == QuizStatus.CLOSING);
     }
 
     /** Une partie ne peut etre lancee que quand le quiz tourne. */

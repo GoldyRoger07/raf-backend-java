@@ -52,8 +52,9 @@ public class DashboardService {
         long credits = count("SELECT COALESCE(SUM(credit_balance), 0) FROM wallets");
         long winnings = count("SELECT COALESCE(SUM(winnings_balance), 0) FROM wallets");
 
+        // Ventes de jeu : tickets de groupe et parties solo.
         long ticketSales = -count("SELECT COALESCE(SUM(amount), 0) FROM wallet_transactions "
-                + "WHERE type = 'TICKET_PURCHASE' AND created_at >= ?", since30);
+                + "WHERE type IN ('TICKET_PURCHASE', 'SOLO_ENTRY') AND created_at >= ?", since30);
         long prizes = count("SELECT COALESCE(SUM(amount), 0) FROM wallet_transactions "
                 + "WHERE type = 'PRIZE' AND created_at >= ?", since30);
         long topUps = count("SELECT COALESCE(SUM(amount), 0) FROM wallet_transactions "

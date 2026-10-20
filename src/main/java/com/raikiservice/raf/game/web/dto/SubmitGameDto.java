@@ -8,11 +8,13 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 /**
- * Reponses d'une partie, envoyees en une fois a la fin du chrono.
+ * Reponses d'une partie BATCH, envoyees en une fois a la fin.
  *
  * <p>Les reponses sont attendues dans l'ordre du tirage : le jeu interdit de
  * sauter une question, la reponse n correspond donc forcement a la question n.
- * Le client n'envoie aucun score : il serait ignore.
+ * Une question dont le chrono a expire sans reponse est envoyee avec
+ * {@code choiceId} null et l'instant de l'expiration en {@code elapsedMs}. Le
+ * client n'envoie aucun score : il serait ignore.
  */
 public record SubmitGameDto(
 
@@ -31,7 +33,7 @@ public record SubmitGameDto(
             @NotNull
             Long questionId,
 
-            @NotNull
+            /** Null : chrono expire sans reponse. */
             Long choiceId,
 
             /** Temps ecoule depuis le debut de la partie, mesure par le client. */

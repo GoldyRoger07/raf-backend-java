@@ -15,7 +15,8 @@ import com.raikiservice.raf.reconciliation.domain.ReconciliationCheck;
  * <p><strong>Pas de faux positif en pleine activite.</strong> Chaque controle tient
  * en une seule instruction, et InnoDB lit une instruction sur un instantane
  * coherent. Or une operation metier et son mouvement d'argent sont toujours
- * commites ensemble (ticket et debit, retrait et gel, classement et gain) : une
+ * commites ensemble (ticket et debit, partie solo et debit d'entree, sans-faute et
+ * prix, retrait et gel, classement et gain) : une
  * instruction voit les deux, ou aucun des deux.
  */
 final class ReconciliationQueries {
@@ -62,6 +63,11 @@ final class ReconciliationQueries {
                 "WINNINGS", "b.amount_credits"));
         queries.add(link(ReconciliationCheck.PRIZE_PAYMENT, "quiz_rankings", "QuizRanking",
                 "transaction_id", "b.reward_credits > 0", "PRIZE", "WINNINGS", "b.reward_credits"));
+        queries.add(link(ReconciliationCheck.SOLO_ENTRY_DEBIT, "game_sessions", "GameSession",
+                "entry_transaction_id", "b.game_mode = 'SOLO'", "SOLO_ENTRY", "CREDIT",
+                "-b.entry_price_credits"));
+        queries.add(link(ReconciliationCheck.SOLO_PRIZE_PAYMENT, "game_sessions", "GameSession",
+                "prize_transaction_id", "b.won = TRUE", "PRIZE", "WINNINGS", "b.prize_credits"));
 
         // Un mouvement la ou il ne devait pas y en avoir.
         queries.add(unexpected("tickets", "Ticket", "refund_transaction_id",
@@ -75,6 +81,8 @@ final class ReconciliationQueries {
                 "b.status <> 'REJECTED'", "Retrait non rejete portant une restitution"));
         queries.add(unexpected("quiz_rankings", "QuizRanking", "transaction_id",
                 "b.reward_credits = 0", "Rang non recompense portant un versement"));
+        queries.add(unexpected("game_sessions", "GameSession", "prize_transaction_id",
+                "b.won = FALSE", "Partie solo perdue portant un versement"));
 
         // Dans l'autre sens : de l'argent a bouge sans operation qui l'explique. Les
         // ajustements (ADJUSTMENT) sont exclus : ils n'ont pas d'operation metier,
@@ -92,8 +100,13 @@ final class ReconciliationQueries {
                    OR (t.type = 'WITHDRAWAL'
                         AND NOT EXISTS (SELECT 1 FROM withdrawal_requests b
                                         WHERE b.debit_transaction_id = t.id))
+                   OR (t.type = 'SOLO_ENTRY'
+                        AND NOT EXISTS (SELECT 1 FROM game_sessions b
+                                        WHERE b.entry_transaction_id = t.id))
                    OR (t.type = 'PRIZE'
-                        AND NOT EXISTS (SELECT 1 FROM quiz_rankings b WHERE b.transaction_id = t.id))
+                        AND NOT EXISTS (SELECT 1 FROM quiz_rankings b WHERE b.transaction_id = t.id)
+                        AND NOT EXISTS (SELECT 1 FROM game_sessions b
+                                        WHERE b.prize_transaction_id = t.id))
                    OR (t.type = 'REFUND'
                         AND NOT EXISTS (SELECT 1 FROM tickets b WHERE b.refund_transaction_id = t.id)
                         AND NOT EXISTS (SELECT 1 FROM withdrawal_requests b

@@ -13,11 +13,13 @@ Web Push VAPID, ImageKit (médias).
 | Sujet | Décision |
 |---|---|
 | Déroulé du quiz | **Asynchrone** : le quiz est ouvert sur une fenêtre, chaque joueur lance sa partie quand il veut |
-| Durée d'une partie | Définie par quiz (défaut 120 s), chrono **faisant autorité côté serveur** |
-| Temps par question | Aucun. Pas de skip : le joueur reste sur la question tant qu'il n'a pas répondu |
+| Durée d'une partie | N questions × chrono par question ; échéance **faisant autorité côté serveur** |
+| Temps par question | Chrono par question défini par quiz (défaut 5 s). On passe à la suivante dès la réponse ou à l'expiration ; une question expirée compte comme fausse |
+| Déroulement | Choisi **par quiz** : `BATCH` (tirage complet, soumission groupée) ou `SEQUENTIAL` (une question à la fois, chrono imposé par le serveur) — voir §4 |
 | Barème | Points fixes par bonne réponse, pas de malus |
 | Anti-triche | **Révélation différée** : questions envoyées sans corrigé, partie hors-ligne, score recalculé au submit, corrigé détaillé seulement après la clôture du quiz |
-| Tickets | 1 ticket = 1 partie. Plafond **par joueur** et plafond **total** par quiz (null = illimité) |
+| Modes de jeu | **En groupe** (`GROUP`) : tickets, classement, récompenses par rang. **Solo** (`SOLO`) : partie payée en crédits au lancement, prix fixe pour un sans-faute, une partie par sujet et par jour — voir §4.1 |
+| Tickets | Mode En groupe uniquement. 1 ticket = 1 partie. Plafond **par joueur** et plafond **total** par quiz (null = illimité) |
 | Score retenu | Le **meilleur** score du joueur sur le quiz |
 | Départage | À score égal, le joueur ayant **démarré sa partie en premier** est prioritaire |
 | Démarrage | Seuil de joueurs atteint → démarrage `start_delay_minutes` plus tard |
@@ -120,7 +122,9 @@ com.raikiservice.raf
 
 ### 3.3 Banque de questions
 
-**categories** — `id, name, slug UNIQUE, parent_id, media_id, active`
+**categories** — `id, name, slug UNIQUE, parent_id, media_id, active, group_enabled, solo_enabled`
+
+→ `group_enabled` / `solo_enabled` : le sujet est proposé, ou non, dans chaque mode de jeu (interrupteurs admin).
 
 **questions**
 
@@ -148,7 +152,10 @@ com.raikiservice.raf
 | max_tickets_per_player | INT nullable |
 | start_delay_minutes | délai entre seuil atteint et démarrage |
 | threshold_reached_at / scheduled_start_at / started_at | DATETIME |
-| game_duration_seconds | défaut 120 |
+| game_mode | GROUP ou SOLO |
+| solo_prize_credits | SOLO : prix d'un sans-faute (ticket_price_credits = prix d'une partie) |
+| play_mode | BATCH ou SEQUENTIAL (défaut SEQUENTIAL ; toujours SEQUENTIAL en SOLO) |
+| question_duration_seconds | chrono par question, défaut 5 |
 | questions_per_game | INT |
 | points_per_correct | INT |
 | min_score_threshold | déclencheur du compte à rebours final |
@@ -178,21 +185,31 @@ com.raikiservice.raf
 | Colonne | Notes |
 |---|---|
 | id, quiz_id, user_id | |
-| ticket_id | UNIQUE — 1 ticket = 1 session |
+| ticket_id | UNIQUE — 1 ticket = 1 session (NULL en SOLO) |
+| game_mode, category_id | mode et sujet joué, copiés du quiz |
+| solo_day | SOLO : jour civil (Haïti) ; UNIQUE(user_id, category_id, solo_day) |
+| entry_price_credits, entry_transaction_id | SOLO : prix de la partie et son débit |
+| prize_credits, won, prize_transaction_id | SOLO : prix d'un sans-faute, et son versement |
 | status | IN_PROGRESS, SUBMITTED, EXPIRED, INVALIDATED |
+| play_mode, question_duration_seconds | copiés depuis le quiz au démarrage |
+| duration_seconds | N × chrono par question |
 | started_at | **fait autorité, sert au départage** |
-| server_deadline_at | started_at + durée + marge réseau |
+| server_deadline_at | BATCH : started_at + durée + marge réseau. SEQUENTIAL : started_at + N × (chrono + marge par question) + marge réseau |
 | submitted_at, client_duration_ms | |
 | score, correct_count, answered_count | recalculés côté serveur |
 | ip, user_agent | détection d'abus |
 
 **game_session_questions** — le tirage figé du joueur
 
-`id, session_id, question_id, position, correct_choice_id`
+`id, session_id, question_id, position, correct_choice_id, served_at`
+
+→ `served_at` (SEQUENTIAL) : envoi de la question au joueur, départ de son chrono.
 
 → snapshot : une modification ultérieure de la question ne change pas le score déjà calculé.
 
 **game_answers** — `id, session_id, question_id, choice_id, is_correct, elapsed_ms, points_awarded`
+
+→ `choice_id` NULL : question expirée sans réponse (comptée fausse).
 
 **quiz_rankings** — classement figé à la clôture
 
@@ -223,34 +240,73 @@ com.raikiservice.raf
 ## 4. Déroulé d'une partie (anti-triche)
 
 **Modèle retenu : révélation différée.** Le corrigé ne quitte jamais le serveur
-pendant la partie, et la partie se joue entièrement hors-ligne.
+pendant la partie. Chaque question a son propre chrono (`question_duration_seconds`,
+par quiz) : on passe à la suivante dès que le joueur répond, ou à l'expiration du
+chrono. Le quiz choisit l'un des deux déroulements suivants (`play_mode`).
+
+#### BATCH — tirage complet, soumission groupée
 
 ```
 POST /api/game/start           (ticket valide requis)
 
   serveur : tire N questions du pool, fige le tirage, pose started_at + deadline
-  → { sessionId, durationSeconds,
-      questions: [ { id, texte, choix: [ { id, texte } ] } ] }
+  → { sessionId, playMode: BATCH, questionDurationSeconds, totalQuestions,
+      questions: [ { id, texte, choix: [ { id, texte } ] } ], current: null }
                                             ↑ aucun indicateur de bonne réponse
 
-  Le front joue les 120 s en LOCAL — zéro latence, zéro appel réseau.
+  Le front joue en LOCAL, question par question, avec le chrono par question.
   À chaque clic il affiche « réponse enregistrée », sans ✓ ni ✗.
 
 POST /api/game/submit
-  → { sessionId, reponses: [ { questionId, choixId, elapsedMs } ] }
+  → { sessionId, reponses: [ { questionId, choixId | null, elapsedMs } ] }
   ← { score, correctCount, answeredCount }     ← PAS le détail des réponses
+
+  Une question expirée est envoyée avec choixId null et elapsedMs = instant
+  de l'expiration.
 
   Validations serveur — toute violation ⇒ session INVALIDATED :
     1. session IN_PROGRESS et appartenant à l'appelant
     2. maintenant ≤ server_deadline_at (+ marge réseau)
-    3. chaque questionId appartient bien au tirage de la session
-    4. pas de doublon de réponse ; elapsedMs croissants et ≤ durée
-    5. score recalculé depuis correct_choice_id — la valeur du client est ignorée
-
-GET /api/game/{sessionId}/review
-  Corrigé détaillé question par question.
-  Accessible UNIQUEMENT si quiz.status = FINISHED (403 sinon).
+    3. la réponse n porte sur la question n du tirage
+    4. elapsedMs croissants, ≤ durée totale, écart entre deux réponses ≤ chrono
+    5. dernier elapsedMs ≤ temps réellement écoulé côté serveur
+    6. score recalculé depuis correct_choice_id — la valeur du client est ignorée
 ```
+
+**Limite assumée.** Les temps par question sont *déclarés* par le client : le
+serveur ne borne réellement que la durée totale. Un client trafiqué voit tout le
+tirage dès le départ et peut répartir le temps à sa guise (passer 1 s sur les
+questions faciles pour en garder davantage sur les difficiles). À réserver aux
+quiz où cet enjeu est acceptable.
+
+#### SEQUENTIAL — une question à la fois, chrono imposé par le serveur
+
+```
+POST /api/game/start
+  → { sessionId, playMode: SEQUENTIAL, totalQuestions, questions: [],
+      current: { question, endsAt, remainingMs } }     ← la question 1 seule
+
+POST /api/game/{sessionId}/answer
+  → { questionId, choiceId | null }      null = passer / chrono expiré
+  ← { accepted, answeredQuestions, totalQuestions,
+      next: { question, endsAt, remainingMs } | null,
+      result: { score, ... } | null }     ← résultat à la dernière question
+```
+
+- Le serveur horodate l'envoi de chaque question (`served_at`). Une réponse
+  arrivée après `served_at + chrono + game.question_grace_ms` (défaut 1 500 ms)
+  est enregistrée **sans choix** (`accepted: false`) et la question compte fausse.
+- La question n+1 n'est envoyée qu'avec la réponse à la question n : le joueur ne
+  voit jamais une question avant son tour, ni ne peut répartir son temps.
+- `questionId` rend l'envoi rejouable : un nouvel essai réseau d'une réponse déjà
+  enregistrée renvoie l'état courant sans rien appliquer à la question suivante.
+  Un choix étranger à la question invalide la partie.
+- Reprise (`/start` à nouveau) : sans effet de bord, elle renvoie la question en
+  cours et son temps restant (0 si elle a expiré pendant l'absence ; le client
+  envoie alors une réponse vide pour passer à la suivante).
+- Partie abandonnée (onglet fermé) : à l'échéance, `GameScheduler` la corrige
+  avec les réponses déjà données — elles ont été validées une à une. En BATCH, au
+  contraire, une partie non soumise expire sans compter.
 
 ### Pourquoi pas de vérification côté client
 
@@ -274,10 +330,43 @@ Trois barrières :
 3. `times_served` / `times_correct` : un taux de réussite anormal sur une question
    déjà beaucoup servie signale une fuite.
 
-**À durcir ensuite** : limitation de débit sur `/game/start`, détection des temps de
+**À durcir ensuite** : limitation de débit sur `/game/start` et `/game/{id}/answer`, détection des temps de
 réaction impossibles (< 400 ms répétés), corrélation IP / appareil entre comptes.
 
 ---
+
+### 4.1 Mode Solo
+
+Un quiz solo est créé par l'admin (`POST /api/admin/quizzes/solo`) : un sujet
+**proposé en Solo**, un prix par partie, un prix pour un sans-faute, un nombre de
+questions et un chrono. Il se joue toujours **question par question**
+(SEQUENTIAL) : chaque partie engage de l'argent, le joueur ne doit voir aucune
+question avant son tour.
+
+```
+DRAFT ──publish──▶ RUNNING (vivier figé, ouvert en continu) ──close──▶ FINISHED
+```
+
+- **Lancement** (`POST /api/game/start`, même endpoint qu'en groupe) : débit de
+  `ticket_price_credits` sur le solde CREDIT (`SOLO_ENTRY`). Pas de ticket. Email
+  vérifié exigé, comme à l'achat d'un ticket.
+- **Une partie par sujet et par jour** (jour civil d'Haïti), tous quiz solo
+  confondus. La clé d'idempotence du débit porte la règle
+  (`solo:{joueur}:{sujet}:{jour}`) : deux clics simultanés se sérialisent sur le
+  verrou du portefeuille et ne paient qu'une fois. La contrainte
+  `uk_game_sessions_solo_day` la double en base. Un rechargement reprend la
+  partie en cours. `GET /api/game/solo/played-today` liste les sujets déjà joués.
+- **Sans-faute** = toutes les questions du tirage justes : le prix est versé
+  aussitôt sur le solde WINNINGS (`PRIZE`, clé `solo-prize:session:{id}`). Le
+  joueur sait s'il a gagné, pas quelle réponse était fausse : le corrigé reste
+  verrouillé jusqu'à la fermeture du quiz.
+- Pas de classement, de récompenses par rang, ni de clôture déclenchée par un
+  score. Une partie gagnée ne peut plus être invalidée (le prix est parti).
+- Désactiver un sujet en Solo bloque aussitôt les nouvelles parties sur ce sujet.
+  En groupe, l'interrupteur est vérifié à la création, aux sujets du vote et à la
+  publication, mais n'affecte pas un quiz déjà publié (tickets vendus).
+- Le rapprochement contrôle le débit d'entrée (`SOLO_ENTRY_DEBIT`) et le versement
+  du prix (`SOLO_PRIZE_PAYMENT`) de chaque partie solo.
 
 ## 5. Cycle de vie du quiz
 
@@ -515,7 +604,8 @@ traitement est sans effet, mais ShedLock sera necessaire avant de scaler.
 | Methode | Endpoint | Acces |
 |---|---|---|
 | POST | `/api/game/start` | joueur avec ticket |
-| POST | `/api/game/submit` | joueur |
+| POST | `/api/game/submit` | joueur, partie BATCH |
+| POST | `/api/game/{sessionId}/answer` | joueur, partie SEQUENTIAL |
 | GET | `/api/game/sessions?quizId=` | joueur |
 | GET | `/api/game/{sessionId}/review` | joueur, quiz FINISHED |
 | GET | `/api/quizzes/{id}/leaderboard` | joueur, quiz FINISHED |
@@ -558,7 +648,7 @@ solde GAINS, le tout dans une transaction sous le verrou du quiz.
 1. *Ordre des verrous* : quiz (partage) puis ticket au demarrage ; partie puis
    quiz au submit et a l'invalidation. Le verrou partage au demarrage fait
    attendre la cloture (exclusive) : aucune partie ne demarre sur un quiz clos.
-2. *Le submit ne charge jamais le quiz* : duree et bareme sont copies dans la
+2. *Le submit (et `/answer`) ne charge jamais le quiz* : mode, chrono et bareme sont copies dans la
    partie, et le seuil est lu par projection scalaire. Ainsi le verrou de
    `triggerClosing` reste la premiere lecture du quiz (regle 1 du lot 3).
 3. *Sous REPEATABLE READ, une lecture simple ne voit pas ce qu'une transaction
@@ -571,6 +661,31 @@ solde GAINS, le tout dans une transaction sous le verrou du quiz.
    `times_served` dans la meme transaction exigerait un verrou exclusif, et deux
    parties partageant une question s'interbloqueraient. Les compteurs sont donc
    ecrits apres le commit, dans une transaction separee (`QuestionStatsRecorder`).
+
+**Mode Solo (V11).** `V11__solo_mode.sql` ajoute les interrupteurs de mode sur
+`categories`, `game_mode` et `solo_prize_credits` sur `quizzes`, et sur
+`game_sessions` les colonnes solo (ticket rendu facultatif, jour, débit d'entrée,
+prix). Voir §4.1.
+
+| Methode | Endpoint | Acces |
+|---|---|---|
+| POST / PUT | `/api/admin/quizzes/solo` , `/api/admin/quizzes/solo/{id}` | admin |
+| POST | `/api/admin/quizzes/{id}/publish` (solo : ouverture directe) | admin |
+| POST | `/api/admin/quizzes/{id}/close` | admin, quiz solo |
+| GET | `/api/admin/quizzes?status=&mode=` | admin |
+| GET | `/api/quizzes?mode=` (GROUP ou SOLO) | joueur |
+| GET | `/api/categories?mode=` (GROUP ou SOLO) | joueur |
+| PATCH | `/api/categories/{id}/modes` | admin |
+| GET | `/api/game/solo/played-today` | joueur |
+
+**Chrono par question (V10).** `V10__question_timer.sql` remplace
+`quizzes.game_duration_seconds` par `play_mode` + `question_duration_seconds`.
+Les quiz existants passent en BATCH, leur duree repartie entre les questions
+(minimum 3 s). Les parties existantes gardent un "chrono par question" egal a
+leur duree totale, ce qui neutralise le nouveau controle pour elles. Ajoute
+`game_session_questions.served_at`, rend `game_answers.choice_id` nullable et
+cree le parametre `game.question_grace_ms`. Le mode est fige dans la partie au
+demarrage : tous les joueurs d'un quiz jouent selon les memes regles.
 
 ### Lot 7 - Paiements (a venir)
 

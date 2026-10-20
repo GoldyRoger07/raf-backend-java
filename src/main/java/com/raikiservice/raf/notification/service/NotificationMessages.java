@@ -60,6 +60,16 @@ public final class NotificationMessages {
                 "/quiz/" + quiz.getId() + "/classement");
     }
 
+    /** Sans-faute en solo : meme type que les gains du classement, memes preferences. */
+    public static NotificationMessage soloPrizeWon(Quiz quiz, Long sessionId, long prizeCredits,
+            long htgRate) {
+        return new NotificationMessage(NotificationType.PRIZE_WON, "Sans-faute, vous avez gagne !",
+                "Toutes vos reponses a « " + quiz.getTitle() + " » sont justes : vous remportez "
+                        + prizeCredits * htgRate + " HTG, credites sur votre solde de gains.",
+                Map.of("quizId", quiz.getId(), "sessionId", sessionId, "rewardCredits", prizeCredits),
+                "/portefeuille");
+    }
+
     public static NotificationMessage quizResults(Quiz quiz, int rank, long ranked) {
         return new NotificationMessage(NotificationType.QUIZ_RESULTS, "Les resultats sont tombes",
                 "Vous terminez " + ordinal(rank) + " sur " + ranked + " a « " + quiz.getTitle()

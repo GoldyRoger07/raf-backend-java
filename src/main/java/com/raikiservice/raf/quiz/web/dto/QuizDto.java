@@ -1,5 +1,6 @@
 package com.raikiservice.raf.quiz.web.dto;
 
+import com.raikiservice.raf.quiz.domain.PlayMode;
 import com.raikiservice.raf.quiz.domain.TopicMode;
 
 import jakarta.validation.constraints.Max;
@@ -42,9 +43,12 @@ public record QuizDto(
         @Min(value = 0, message = "Le delai de demarrage ne peut pas etre negatif.")
         int startDelayMinutes,
 
-        @Min(value = 10, message = "Une partie dure au moins 10 secondes.")
-        @Max(value = 3600, message = "Une partie dure au plus une heure.")
-        int gameDurationSeconds,
+        /** SEQUENTIAL par defaut. */
+        PlayMode playMode,
+
+        @Min(value = 3, message = "Une question dure au moins 3 secondes.")
+        @Max(value = 300, message = "Une question dure au plus 5 minutes.")
+        int questionDurationSeconds,
 
         @Min(value = 1, message = "Il faut au moins une question par partie.")
         int questionsPerGame,

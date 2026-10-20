@@ -9,7 +9,9 @@ public record CategoryResponse(
         String description,
         Long parentId,
         String imageUrl,
-        boolean active) {
+        boolean active,
+        boolean groupEnabled,
+        boolean soloEnabled) {
 
     public static CategoryResponse from(Category category) {
         return new CategoryResponse(
@@ -19,6 +21,8 @@ public record CategoryResponse(
                 category.getDescription(),
                 category.getParent() == null ? null : category.getParent().getId(),
                 category.getMedia() == null ? null : category.getMedia().getUrl(),
-                category.isActive());
+                category.isActive(),
+                category.isGroupEnabled(),
+                category.isSoloEnabled());
     }
 }

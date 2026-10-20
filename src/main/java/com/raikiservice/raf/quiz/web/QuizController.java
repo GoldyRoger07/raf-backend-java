@@ -3,6 +3,7 @@ package com.raikiservice.raf.quiz.web;
 import java.util.List;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
+import com.raikiservice.raf.quiz.domain.GameMode;
 import com.raikiservice.raf.quiz.service.QuizService;
 import com.raikiservice.raf.quiz.service.TicketService;
 import com.raikiservice.raf.quiz.service.VoteService;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Vue joueur des quiz : consultation, achat de ticket, vote du sujet. */
@@ -39,9 +41,10 @@ public class QuizController {
     private final VoteService voteService;
 
     @GetMapping
-    @Operation(summary = "Lister les quiz visibles")
-    public Page<QuizResponse> list(@PageableDefault(size = 20) Pageable pageable) {
-        return quizService.viewVisible(pageable);
+    @Operation(summary = "Lister les quiz visibles d'un mode de jeu (En groupe par defaut)")
+    public Page<QuizResponse> list(@RequestParam(defaultValue = "GROUP") GameMode mode,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return quizService.viewVisible(mode, pageable);
     }
 
     @GetMapping("/{id}")

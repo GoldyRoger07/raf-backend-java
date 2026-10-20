@@ -5,9 +5,11 @@ import java.util.List;
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.common.util.RequestContext;
 import com.raikiservice.raf.game.service.GameService;
+import com.raikiservice.raf.game.web.dto.AnswerQuestionDto;
 import com.raikiservice.raf.game.web.dto.GameResultResponse;
 import com.raikiservice.raf.game.web.dto.GameReviewResponse;
 import com.raikiservice.raf.game.web.dto.GameStartResponse;
+import com.raikiservice.raf.game.web.dto.GameTurnResponse;
 import com.raikiservice.raf.game.web.dto.StartGameDto;
 import com.raikiservice.raf.game.web.dto.SubmitGameDto;
 
@@ -27,7 +29,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Parties de jeu : lancement, soumission, historique et corrige. */
+/** Parties de jeu : lancement, reponses, historique et corrige. */
 @RestController
 @RequestMapping("/api/game")
 @RequiredArgsConstructor
@@ -53,10 +55,23 @@ public class GameController {
     }
 
     @PostMapping("/submit")
-    @Operation(summary = "Soumettre les reponses : le score est recalcule par le serveur")
+    @Operation(summary = "Partie BATCH : soumettre toutes les reponses, le score est recalcule par le serveur")
     public GameResultResponse submit(@AuthenticationPrincipal UserPrincipal player,
             @Valid @RequestBody SubmitGameDto request) {
         return gameService.submit(player.getId(), request);
+    }
+
+    @PostMapping("/{sessionId}/answer")
+    @Operation(summary = "Partie SEQUENTIAL : repondre a la question en cours et recevoir la suivante")
+    public GameTurnResponse answer(@AuthenticationPrincipal UserPrincipal player,
+            @PathVariable Long sessionId, @Valid @RequestBody AnswerQuestionDto request) {
+        return gameService.answer(player.getId(), sessionId, request);
+    }
+
+    @GetMapping("/solo/played-today")
+    @Operation(summary = "Sujets deja joues en solo aujourd'hui (une partie par sujet et par jour)")
+    public List<Long> soloSubjectsPlayedToday(@AuthenticationPrincipal UserPrincipal player) {
+        return gameService.soloSubjectsPlayedToday(player.getId());
     }
 
     @GetMapping("/sessions")

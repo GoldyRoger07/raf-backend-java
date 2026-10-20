@@ -13,6 +13,7 @@ import com.raikiservice.raf.question.domain.QuestionStatus;
 import com.raikiservice.raf.question.repository.CategoryRepository;
 import com.raikiservice.raf.question.repository.QuestionRepository;
 import com.raikiservice.raf.question.web.dto.CategoryResponse;
+import com.raikiservice.raf.quiz.domain.GameMode;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,10 +28,16 @@ public class CategoryService {
     private final MediaService mediaService;
     private final AuditService auditService;
 
-    /** Les relations parent et media sont paresseuses : on convertit dans la transaction. */
+    /**
+     * Les relations parent et media sont paresseuses : on convertit dans la
+     * transaction.
+     *
+     * @param mode si renseigne, seuls les sujets proposes dans ce mode
+     */
     @Transactional(readOnly = true)
-    public List<CategoryResponse> listActive() {
+    public List<CategoryResponse> listActive(GameMode mode) {
         return categoryRepository.findByActiveTrueOrderByNameAsc().stream()
+                .filter(category -> mode == null || category.isAvailableFor(mode))
                 .map(CategoryResponse::from).toList();
     }
 
@@ -86,6 +93,55 @@ public class CategoryService {
         auditService.record(actorId, "CATEGORY_UPDATED", "Category", String.valueOf(id),
                 previous, name);
         return CategoryResponse.from(category);
+    }
+
+    /**
+     * Rend un sujet disponible, ou non, dans chaque mode de jeu.
+     *
+     * <p>Sans effet retroactif sur un quiz de groupe deja publie : ses tickets
+     * sont vendus sur la foi de ce sujet. En solo, en revanche, plus aucune
+     * partie ne peut etre lancee sur ce sujet.
+     */
+    @Transactional
+    public CategoryResponse configureModes(Long actorId, Long id, Boolean groupEnabled,
+            Boolean soloEnabled) {
+        Category category = require(id);
+        String previous = modes(category);
+
+        if (groupEnabled != null) {
+            category.setGroupEnabled(groupEnabled);
+        }
+        if (soloEnabled != null) {
+            category.setSoloEnabled(soloEnabled);
+        }
+
+        auditService.record(actorId, "CATEGORY_MODES_UPDATED", "Category", String.valueOf(id),
+                previous, modes(category));
+        return CategoryResponse.from(category);
+    }
+
+    /**
+     * Verifie qu'un sujet peut servir dans le mode donne.
+     *
+     * @return la categorie, pour enchainer
+     */
+    @Transactional(readOnly = true)
+    public Category requireAvailable(Long id, GameMode mode) {
+        Category category = require(id);
+        assertAvailable(category, mode);
+        return category;
+    }
+
+    public static void assertAvailable(Category category, GameMode mode) {
+        if (!category.isAvailableFor(mode)) {
+            throw new ApiException(ErrorCode.CATEGORY_MODE_DISABLED,
+                    "Le sujet \"" + category.getName() + "\" n'est pas propose en mode "
+                            + (mode == GameMode.SOLO ? "Solo" : "En groupe") + ".");
+        }
+    }
+
+    private static String modes(Category category) {
+        return "groupe=" + category.isGroupEnabled() + ", solo=" + category.isSoloEnabled();
     }
 
     /**

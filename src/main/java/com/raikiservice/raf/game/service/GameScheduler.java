@@ -13,7 +13,8 @@ import org.springframework.stereotype.Component;
 /**
  * Maintenance du jeu, toutes les 30 secondes :
  * <ol>
- *   <li>clot les parties echues sans soumission (EXPIRED) ;
+ *   <li>clot les parties echues : BATCH sans soumission (EXPIRED), SEQUENTIAL
+ *       abandonnees en cours de route (corrigees avec les reponses donnees) ;
  *   <li>fige le classement et verse les gains des quiz en COMPUTING dont toutes
  *       les parties sont closes.
  * </ol>
@@ -45,6 +46,22 @@ public class GameScheduler {
             }
         } catch (RuntimeException e) {
             log.error("Expiration des parties echues impossible", e);
+        }
+
+        List<Long> abandoned = List.of();
+        try {
+            abandoned = gameService.findOverdueSequential();
+        } catch (RuntimeException e) {
+            log.error("Recherche des parties abandonnees impossible", e);
+        }
+        for (Long sessionId : abandoned) {
+            try {
+                if (gameService.completeOverdue(sessionId)) {
+                    log.info("Partie {} abandonnee, close avec les reponses donnees", sessionId);
+                }
+            } catch (RuntimeException e) {
+                log.error("Cloture de la partie abandonnee {} impossible", sessionId, e);
+            }
         }
 
         List<Long> computing = quizRepository.findIdsByStatus(QuizStatus.COMPUTING);

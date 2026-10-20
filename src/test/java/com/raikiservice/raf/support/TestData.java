@@ -19,6 +19,7 @@ import com.raikiservice.raf.question.repository.QuestionRepository;
 import com.raikiservice.raf.question.service.CategoryService;
 import com.raikiservice.raf.question.service.QuestionService;
 import com.raikiservice.raf.question.web.dto.ChoiceDto;
+import com.raikiservice.raf.quiz.domain.PlayMode;
 import com.raikiservice.raf.quiz.domain.Quiz;
 import com.raikiservice.raf.quiz.domain.TopicMode;
 import com.raikiservice.raf.quiz.service.QuizService;
@@ -26,6 +27,7 @@ import com.raikiservice.raf.quiz.service.RewardService;
 import com.raikiservice.raf.quiz.service.TicketService;
 import com.raikiservice.raf.quiz.web.dto.QuizDto;
 import com.raikiservice.raf.quiz.web.dto.RewardTierDto;
+import com.raikiservice.raf.quiz.web.dto.SoloQuizDto;
 import com.raikiservice.raf.wallet.domain.BalanceType;
 import com.raikiservice.raf.wallet.repository.WalletRepository;
 import com.raikiservice.raf.wallet.service.AdjustmentService;
@@ -47,6 +49,8 @@ public class TestData {
     public static final int TICKET_PRICE = 10;
     public static final long FIRST_PRIZE = 100;
     public static final long SECOND_PRIZE = 50;
+    public static final int SOLO_ENTRY = 5;
+    public static final long SOLO_PRIZE = 40;
 
     @Autowired private UserRepository userRepository;
     @Autowired private RoleRepository roleRepository;
@@ -141,18 +145,29 @@ public class TestData {
 
     // --- Quiz -------------------------------------------------------------------
 
+    /** Chrono par question des quiz de test : large, pour ne pas dependre de la machine. */
+    public static final int QUESTION_SECONDS = 20;
+
     /**
-     * Quiz publie (mode ADMIN), recompenses (1er : 100, 2e : 50), sans tickets vendus.
+     * Quiz publie (mode ADMIN, deroulement BATCH), recompenses (1er : 100,
+     * 2e : 50), sans tickets vendus.
      *
      * @param minPlayers seuil de joueurs distincts declenchant la programmation
      */
     public Long publishedQuiz(Long categoryId, int questionsPerGame, int minScoreThreshold,
             int minPlayers, Integer maxTicketsTotal, Integer maxTicketsPerPlayer) {
+        return publishedQuiz(PlayMode.BATCH, categoryId, questionsPerGame, minScoreThreshold,
+                minPlayers, maxTicketsTotal, maxTicketsPerPlayer);
+    }
+
+    public Long publishedQuiz(PlayMode playMode, Long categoryId, int questionsPerGame,
+            int minScoreThreshold, int minPlayers, Integer maxTicketsTotal,
+            Integer maxTicketsPerPlayer) {
         long n = SEQUENCE.incrementAndGet();
         QuizDto dto = new QuizDto(
                 "Quiz " + RUN + " " + n, null, null, TopicMode.ADMIN, categoryId, null,
                 TICKET_PRICE, minPlayers, maxTicketsTotal, maxTicketsPerPlayer,
-                0, 60, questionsPerGame, 10, minScoreThreshold, 1);
+                0, playMode, QUESTION_SECONDS, questionsPerGame, 10, minScoreThreshold, 1);
 
         Quiz quiz = quizService.create(null, dto);
         rewardService.configure(null, quiz, List.of(
@@ -163,12 +178,31 @@ public class TestData {
     }
 
     /**
-     * Quiz en cours (RUNNING) : chaque joueur recoit de quoi acheter
+     * Quiz solo ouvert (RUNNING) : partie a {@link #SOLO_ENTRY} credits, sans-faute
+     * a {@link #SOLO_PRIZE}.
+     */
+    public Long soloQuiz(Long categoryId, int questionsPerGame) {
+        long n = SEQUENCE.incrementAndGet();
+        Quiz quiz = quizService.createSolo(null, new SoloQuizDto(
+                "Solo " + RUN + " " + n, null, categoryId, null, SOLO_ENTRY, SOLO_PRIZE,
+                questionsPerGame, QUESTION_SECONDS));
+        quizService.publish(null, quiz.getId(), null);
+        return quiz.getId();
+    }
+
+    /**
+     * Quiz BATCH en cours (RUNNING) : chaque joueur recoit de quoi acheter
      * {@code ticketsEach} tickets et les achete, puis le quiz est demarre.
      */
     public Long runningQuiz(Long categoryId, int questionsPerGame, int minScoreThreshold,
             int ticketsEach, User... players) {
-        Long quizId = publishedQuiz(categoryId, questionsPerGame, minScoreThreshold,
+        return runningQuiz(PlayMode.BATCH, categoryId, questionsPerGame, minScoreThreshold,
+                ticketsEach, players);
+    }
+
+    public Long runningQuiz(PlayMode playMode, Long categoryId, int questionsPerGame,
+            int minScoreThreshold, int ticketsEach, User... players) {
+        Long quizId = publishedQuiz(playMode, categoryId, questionsPerGame, minScoreThreshold,
                 players.length, null, null);
 
         for (User player : players) {

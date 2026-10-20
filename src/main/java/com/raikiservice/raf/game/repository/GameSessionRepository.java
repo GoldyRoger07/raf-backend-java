@@ -1,11 +1,13 @@
 package com.raikiservice.raf.game.repository;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 import com.raikiservice.raf.game.domain.GameSession;
 import com.raikiservice.raf.game.domain.GameSessionStatus;
+import com.raikiservice.raf.quiz.domain.PlayMode;
 
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
@@ -42,6 +44,14 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
 
     List<GameSession> findByQuizIdAndUserIdOrderByStartedAtDesc(Long quizId, Long userId);
 
+    boolean existsByUserIdAndCategoryIdAndSoloDay(Long userId, Long categoryId, LocalDate soloDay);
+
+    Optional<GameSession> findByEntryTransactionId(Long entryTransactionId);
+
+    @Query("select s.categoryId from GameSession s where s.user.id = :userId "
+            + "and s.soloDay = :day")
+    List<Long> findSoloCategoryIds(@Param("userId") Long userId, @Param("day") LocalDate day);
+
     Page<GameSession> findByQuizIdOrderByStartedAtDesc(Long quizId, Pageable pageable);
 
     Page<GameSession> findByQuizIdAndFlaggedTrueOrderByStartedAtDesc(Long quizId, Pageable pageable);
@@ -76,10 +86,19 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
             + "and s.status = com.raikiservice.raf.game.domain.GameSessionStatus.SUBMITTED")
     Optional<Integer> bestScore(@Param("quizId") Long quizId, @Param("userId") Long userId);
 
-    /** Une partie jamais soumise a temps ne compte pas : elle est close en masse. */
+    /**
+     * Une partie jamais soumise a temps ne compte pas : elle est close en masse.
+     * Reserve au mode BATCH, ou rien n'est enregistre avant le submit.
+     */
     @Modifying
     @Query("update GameSession s set s.status = com.raikiservice.raf.game.domain.GameSessionStatus.EXPIRED "
             + "where s.status = com.raikiservice.raf.game.domain.GameSessionStatus.IN_PROGRESS "
-            + "and s.serverDeadlineAt < :now")
-    int expireOverdue(@Param("now") Instant now);
+            + "and s.playMode = :mode and s.serverDeadlineAt < :now")
+    int expireOverdue(@Param("mode") PlayMode mode, @Param("now") Instant now);
+
+    /** Parties encore ouvertes au-dela de leur echeance, pour cloture une a une. */
+    @Query("select s.id from GameSession s "
+            + "where s.status = com.raikiservice.raf.game.domain.GameSessionStatus.IN_PROGRESS "
+            + "and s.playMode = :mode and s.serverDeadlineAt < :now")
+    List<Long> findOverdueIds(@Param("mode") PlayMode mode, @Param("now") Instant now);
 }

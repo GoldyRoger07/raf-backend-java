@@ -30,13 +30,17 @@ public class GameAnswer {
     @Column(name = "question_id", nullable = false)
     private Long questionId;
 
-    @Column(name = "choice_id", nullable = false)
+    /** Null : aucune reponse avant la fin du chrono de la question. */
+    @Column(name = "choice_id")
     private Long choiceId;
 
     @Column(name = "is_correct", nullable = false)
     private boolean correct;
 
-    /** Temps ecoule depuis le debut de la partie, mesure par le client. */
+    /**
+     * Temps ecoule depuis le debut de la partie : declare par le client en
+     * BATCH, mesure par le serveur en SEQUENTIAL.
+     */
     @Column(name = "elapsed_ms", nullable = false)
     private long elapsedMs;
 

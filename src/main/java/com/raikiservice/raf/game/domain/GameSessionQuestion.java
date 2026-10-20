@@ -1,5 +1,7 @@
 package com.raikiservice.raf.game.domain;
 
+import java.time.Instant;
+
 import com.raikiservice.raf.question.domain.Question;
 
 import jakarta.persistence.Column;
@@ -44,4 +46,11 @@ public class GameSessionQuestion {
 
     @Column(name = "correct_choice_id", nullable = false)
     private Long correctChoiceId;
+
+    /**
+     * SEQUENTIAL : envoi de la question au joueur, depart de son chrono. Null
+     * tant qu'elle n'a pas ete servie, et toujours null en BATCH.
+     */
+    @Column(name = "served_at")
+    private Instant servedAt;
 }

@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import com.raikiservice.raf.quiz.domain.GameMode;
 import com.raikiservice.raf.quiz.domain.Quiz;
 import com.raikiservice.raf.quiz.domain.QuizStatus;
 
@@ -24,6 +25,12 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
     Page<Quiz> findByStatusOrderByCreatedAtDesc(QuizStatus status, Pageable pageable);
 
     Page<Quiz> findByStatusInOrderByCreatedAtDesc(List<QuizStatus> statuses, Pageable pageable);
+
+    Page<Quiz> findByGameModeAndStatusOrderByCreatedAtDesc(GameMode mode, QuizStatus status,
+            Pageable pageable);
+
+    Page<Quiz> findByGameModeAndStatusInOrderByCreatedAtDesc(GameMode mode,
+            List<QuizStatus> statuses, Pageable pageable);
 
     /**
      * Verrouille le quiz avant toute operation qui touche a ses compteurs
