@@ -15,6 +15,7 @@ import com.raikiservice.raf.question.domain.Category;
 import com.raikiservice.raf.question.domain.Difficulty;
 import com.raikiservice.raf.question.domain.Question;
 import com.raikiservice.raf.question.domain.QuestionChoice;
+import com.raikiservice.raf.question.domain.QuestionSource;
 import com.raikiservice.raf.question.domain.QuestionStatus;
 import com.raikiservice.raf.question.domain.QuestionType;
 import com.raikiservice.raf.question.repository.QuestionRepository;
@@ -60,15 +61,9 @@ public class QuestionService {
     }
 
     @Transactional(readOnly = true)
-    public Page<QuestionResponse> byCategory(Long categoryId, QuestionStatus status,
+    public Page<QuestionResponse> list(QuestionStatus status, Long categoryId, QuestionSource source,
             Pageable pageable) {
-        return questionRepository.findByCategoryIdAndStatus(categoryId, status, pageable)
-                .map(QuestionResponse::from);
-    }
-
-    @Transactional(readOnly = true)
-    public Page<QuestionResponse> byStatus(QuestionStatus status, Pageable pageable) {
-        return questionRepository.findByStatus(status, pageable).map(QuestionResponse::from);
+        return questionRepository.filter(status, categoryId, source, pageable).map(QuestionResponse::from);
     }
 
     @Transactional(readOnly = true)

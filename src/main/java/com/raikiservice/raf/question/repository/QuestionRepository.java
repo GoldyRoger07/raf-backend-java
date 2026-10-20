@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import com.raikiservice.raf.question.domain.Difficulty;
 import com.raikiservice.raf.question.domain.Question;
+import com.raikiservice.raf.question.domain.QuestionSource;
 import com.raikiservice.raf.question.domain.QuestionStatus;
 
 import org.springframework.data.domain.Page;
@@ -44,7 +45,16 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     Page<Question> findByCategoryIdAndStatus(Long categoryId, QuestionStatus status,
             Pageable pageable);
 
-    Page<Question> findByStatus(QuestionStatus status, Pageable pageable);
+    /** Liste du back-office : statut obligatoire, categorie et origine facultatives. */
+    @Query("select q from Question q where q.status = :status "
+            + "and (:categoryId is null or q.category.id = :categoryId) "
+            + "and (:source is null or q.source = :source)")
+    Page<Question> filter(@Param("status") QuestionStatus status, @Param("categoryId") Long categoryId,
+            @Param("source") QuestionSource source, Pageable pageable);
+
+    /** Enonces les plus recents d'une categorie, tous statuts : a ne pas reproduire. */
+    @Query("select q.text from Question q where q.category.id = :categoryId order by q.id desc")
+    List<String> recentTexts(@Param("categoryId") Long categoryId, Pageable pageable);
 
     long countByCategoryIdAndStatus(Long categoryId, QuestionStatus status);
 

@@ -19,7 +19,21 @@ public record AppProperties(
         Otp otp,
         Verification verification,
         ImageKit imagekit,
-        Push push) {
+        Push push,
+        Ai ai) {
+
+    /**
+     * Generation de questions par IA. {@code provider} choisit l'adaptateur :
+     * {@code none} (desactive), {@code anthropic} ou {@code openai} (toute API
+     * compatible OpenAI : OpenAI, Mistral, DeepSeek, Groq, OpenRouter, Ollama...).
+     * {@code baseUrl} vide = adresse officielle du fournisseur.
+     */
+    public record Ai(String provider, String model, String apiKey, String baseUrl, Duration timeout) {
+
+        public boolean hasApiKey() {
+            return apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("CHANGE_ME");
+        }
+    }
 
     /** Web Push (VAPID). Sans cles, les push sont journalises au lieu d'etre envoyes. */
     public record Push(String vapidPublicKey, String vapidPrivateKey, String vapidSubject) {

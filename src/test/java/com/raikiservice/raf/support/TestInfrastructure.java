@@ -2,8 +2,13 @@ package com.raikiservice.raf.support;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 
 import com.raikiservice.raf.notification.sms.SmsSender;
+import com.raikiservice.raf.question.ai.AiGenerationException;
+import com.raikiservice.raf.question.ai.GeneratedQuestion;
+import com.raikiservice.raf.question.ai.GenerationRequest;
+import com.raikiservice.raf.question.ai.QuestionGenerator;
 
 import org.flywaydb.core.Flyway;
 import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy;
@@ -54,6 +59,72 @@ public class TestInfrastructure {
     @Primary
     CapturingPushSender capturingPushSender() {
         return new CapturingPushSender();
+    }
+
+    @Bean
+    @Primary
+    FakeQuestionGenerator fakeQuestionGenerator() {
+        return new FakeQuestionGenerator();
+    }
+
+    /**
+     * Generateur IA pilote par le test : renvoie les questions preparees, ou
+     * l'echec demande, et garde la derniere demande recue.
+     */
+    public static class FakeQuestionGenerator implements QuestionGenerator {
+
+        private List<GeneratedQuestion> next = List.of();
+        private AiGenerationException failure;
+        private boolean configured = true;
+        private GenerationRequest lastRequest;
+
+        /** A appeler en debut de test : le contexte (donc ce bean) est partage. */
+        public void reset() {
+            next = List.of();
+            failure = null;
+            configured = true;
+            lastRequest = null;
+        }
+
+        public void willReturn(List<GeneratedQuestion> questions) {
+            this.next = questions;
+        }
+
+        public void willFail(String message) {
+            this.failure = new AiGenerationException(message);
+        }
+
+        public void setConfigured(boolean configured) {
+            this.configured = configured;
+        }
+
+        public GenerationRequest lastRequest() {
+            return lastRequest;
+        }
+
+        @Override
+        public String provider() {
+            return "fake";
+        }
+
+        @Override
+        public String model() {
+            return "fake-model";
+        }
+
+        @Override
+        public boolean isConfigured() {
+            return configured;
+        }
+
+        @Override
+        public List<GeneratedQuestion> generate(GenerationRequest request) {
+            lastRequest = request;
+            if (failure != null) {
+                throw failure;
+            }
+            return next;
+        }
     }
 
     /** Emails envoyes, par destinataire. */

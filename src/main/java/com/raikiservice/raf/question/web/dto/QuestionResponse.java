@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.raikiservice.raf.question.domain.Difficulty;
 import com.raikiservice.raf.question.domain.Question;
+import com.raikiservice.raf.question.domain.QuestionSource;
 import com.raikiservice.raf.question.domain.QuestionStatus;
 import com.raikiservice.raf.question.domain.QuestionType;
 
@@ -28,7 +29,9 @@ public record QuestionResponse(
         int timesCorrect,
         Double successRate,
         List<ChoiceView> choices,
-        Instant createdAt) {
+        Instant createdAt,
+        QuestionSource source,
+        String aiModel) {
 
     public record ChoiceView(Long id, String text, boolean correct, int position, String imageUrl) {
     }
@@ -57,6 +60,8 @@ public record QuestionResponse(
                                 choice.getPosition(),
                                 choice.getMedia() == null ? null : choice.getMedia().getUrl()))
                         .toList(),
-                question.getCreatedAt());
+                question.getCreatedAt(),
+                question.getSource(),
+                question.getAiModel());
     }
 }

@@ -59,6 +59,14 @@ public class Question extends AuditableEntity {
     @Column(nullable = false, length = 2)
     private String lang = "fr";
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private QuestionSource source = QuestionSource.MANUAL;
+
+    /** Modele qui a genere la question (source AI), pour comparer les modeles a la relecture. */
+    @Column(name = "ai_model", length = 100)
+    private String aiModel;
+
     /**
      * Statistiques d'usage, alimentees au lot 6.
      *

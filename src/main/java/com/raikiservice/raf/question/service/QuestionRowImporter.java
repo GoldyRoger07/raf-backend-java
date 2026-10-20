@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.raikiservice.raf.question.domain.Difficulty;
 import com.raikiservice.raf.question.domain.Question;
+import com.raikiservice.raf.question.domain.QuestionSource;
 import com.raikiservice.raf.question.domain.QuestionStatus;
 import com.raikiservice.raf.question.domain.QuestionType;
 import com.raikiservice.raf.question.web.dto.ChoiceDto;
@@ -37,11 +38,27 @@ public class QuestionRowImporter {
 
         Question question = questionService.createEntity(actorId, categoryId, text, type,
                 difficulty, explanation, null, choices);
+        question.setSource(QuestionSource.IMPORT);
 
         if (publishDirectly) {
             question.setStatus(QuestionStatus.PUBLISHED);
         }
 
+        return question.getId();
+    }
+
+    /**
+     * Enregistre une question generee par IA, toujours en brouillon : elle ne
+     * rejoint le vivier qu'une fois relue et publiee par un humain.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Long importGenerated(Long actorId, Long categoryId, String text, QuestionType type,
+            Difficulty difficulty, String explanation, List<ChoiceDto> choices, String aiModel) {
+
+        Question question = questionService.createEntity(actorId, categoryId, text, type,
+                difficulty, explanation, null, choices);
+        question.setSource(QuestionSource.AI);
+        question.setAiModel(aiModel);
         return question.getId();
     }
 }

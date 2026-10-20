@@ -2,9 +2,12 @@ package com.raikiservice.raf.question.web;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.auth.web.dto.MessageResponse;
+import com.raikiservice.raf.question.domain.QuestionSource;
 import com.raikiservice.raf.question.domain.QuestionStatus;
+import com.raikiservice.raf.question.service.QuestionGenerationService;
 import com.raikiservice.raf.question.service.QuestionImportService;
 import com.raikiservice.raf.question.service.QuestionService;
+import com.raikiservice.raf.question.web.dto.GenerateQuestionsDto;
 import com.raikiservice.raf.question.web.dto.QuestionDto;
 import com.raikiservice.raf.question.web.dto.QuestionResponse;
 
@@ -45,6 +48,7 @@ public class AdminQuestionController {
 
     private final QuestionService questionService;
     private final QuestionImportService questionImportService;
+    private final QuestionGenerationService questionGenerationService;
 
     @PostMapping
     @Operation(summary = "Creer une question")
@@ -77,15 +81,14 @@ public class AdminQuestionController {
     }
 
     @GetMapping
-    @Operation(summary = "Lister les questions par statut, ou par categorie")
+    @Operation(summary = "Lister les questions par statut, categorie et origine")
     public Page<QuestionResponse> list(
             @RequestParam(defaultValue = "PUBLISHED") QuestionStatus status,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) QuestionSource source,
             @PageableDefault(size = 20) Pageable pageable) {
 
-        return categoryId == null
-                ? questionService.byStatus(status, pageable)
-                : questionService.byCategory(categoryId, status, pageable);
+        return questionService.list(status, categoryId, source, pageable);
     }
 
     @GetMapping("/search")
@@ -119,6 +122,21 @@ public class AdminQuestionController {
             @RequestParam(defaultValue = "false") boolean publishDirectly) {
 
         return questionImportService.importCsv(actor.getId(), categoryId, file, publishDirectly);
+    }
+
+    @GetMapping("/ai/status")
+    @Operation(summary = "Etat de la generation par IA : fournisseur, modele, plafonds")
+    public QuestionGenerationService.Status aiStatus() {
+        return questionGenerationService.status();
+    }
+
+    @PostMapping("/ai/generate")
+    @Operation(summary = "Generer des questions par IA dans une categorie (enregistrees en brouillon)")
+    public QuestionGenerationService.Report generate(@AuthenticationPrincipal UserPrincipal actor,
+            @Valid @RequestBody GenerateQuestionsDto request) {
+
+        return questionGenerationService.generate(actor.getId(), request.categoryId(), request.count(),
+                request.difficulty(), request.type(), request.instructions());
     }
 
     @GetMapping("/pool-status")

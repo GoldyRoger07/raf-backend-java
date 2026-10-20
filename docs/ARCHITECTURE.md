@@ -135,9 +135,12 @@ com.raikiservice.raf
 
 **questions**
 
-`id, category_id, text TEXT, type (SINGLE_CHOICE | TRUE_FALSE), difficulty (EASY | MEDIUM | HARD), media_id, explanation, status (DRAFT | PUBLISHED | ARCHIVED), lang CHAR(2) DEFAULT 'fr', times_served INT, times_correct INT, created_by, created_at`
+`id, category_id, text TEXT, type (SINGLE_CHOICE | TRUE_FALSE), difficulty (EASY | MEDIUM | HARD), media_id, explanation, status (DRAFT | PUBLISHED | ARCHIVED), lang CHAR(2) DEFAULT 'fr', source (MANUAL | IMPORT | AI), ai_model, times_served INT, times_correct INT, created_by, created_at`
 
 → `times_served` / `times_correct` permettent de recalibrer la difficulté réelle.
+→ `source` : origine de la question (saisie, import CSV, IA) ; `ai_model` garde le modèle qui l'a générée. Les questions antérieures à V13 sont `MANUAL`.
+
+**ai_generation_runs** — `id, actor_id, category_id, provider, model, requested, created_count, duplicates, rejected, error, duration_ms, created_at` : une ligne par demande de génération, réussie ou non (plafond journalier, comparaison des modèles).
 
 **question_choices** — `id, question_id, text, is_correct BOOLEAN, position, media_id`
 
@@ -899,6 +902,43 @@ une erreur de manipulation le priverait de ses droits sans recours. Un compte
 garde au moins un role (`ROLES_REQUIRED`), et le dernier super-administrateur
 actif ne peut pas etre retrogade ni suspendu (`LAST_SUPER_ADMIN`, defense en
 profondeur : avec la premiere regle, ce cas suppose deja une anomalie).
+
+### Generation de questions par IA
+
+Un moyen de plus d'alimenter la banque, a cote de la saisie et de l'import CSV.
+
+| Methode | Endpoint | Acces |
+|---|---|---|
+| GET | `/api/admin/questions/ai/status` | moderateur, admin |
+| POST | `/api/admin/questions/ai/generate` | moderateur, admin |
+| GET | `/api/admin/questions?source=AI` | moderateur, admin |
+
+**Independant du fournisseur.** Le service ne connait que l'interface
+`QuestionGenerator` ; `app.ai.provider` choisit l'adaptateur :
+
+| `AI_PROVIDER` | Adaptateur | Notes |
+|---|---|---|
+| `none` (defaut) | desactive | le back-office explique comment configurer |
+| `anthropic` | API Claude | `AI_MODEL` par defaut `claude-sonnet-5-5` ; format impose par un outil a appel force |
+| `openai` | toute API compatible OpenAI | `AI_BASE_URL` choisit le fournisseur (OpenAI, Mistral, DeepSeek, Groq, OpenRouter, Ollama local) ; mode `json_object` |
+
+Variables : `AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`, `AI_BASE_URL`, `AI_TIMEOUT` (180 s).
+La consigne (`GenerationPrompt`) est la meme pour tous les modeles ; les questions
+deja dans la categorie (150 plus recentes) sont envoyees pour eviter les doublons.
+
+**Rien n'est cru sur parole.** Chaque question renvoyee est verifiee : 2 a 6
+propositions distinctes, exactement une bonne reponse, longueurs ; le type se
+deduit du nombre de propositions et doit correspondre au type demande ; une
+difficulte demandee l'emporte. Les propositions d'un QCM sont melangees (les
+modeles placent volontiers la bonne en premier). Une question en double est
+ignoree, une question fautive est rejetee avec son motif. Les questions valides
+sont enregistrees **en brouillon** (`source = AI`), chacune dans sa transaction :
+elles n'entrent dans le vivier qu'apres relecture et publication par un humain.
+
+**Garde-fous.** Parametres `ai.max_questions_per_request` (30) et
+`ai.max_requests_per_day` (20, jour d'Haiti) ; chaque demande, meme en echec,
+compte et est tracee (`ai_generation_runs`, audit `QUESTIONS_GENERATED`).
+L'appel au modele se fait hors transaction (jusqu'a une ou deux minutes).
 
 ### Tests d'integration
 
