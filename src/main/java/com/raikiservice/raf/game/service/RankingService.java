@@ -106,7 +106,7 @@ public class RankingService {
             ranking.setScore(session.getScore());
             ranking.setFirstStartedAt(session.getStartedAt());
             ranking.setRank(rank);
-            ranking.setRewardCredits(rewardFor(rewards, rank));
+            ranking.setRewardHtg(rewardFor(rewards, rank));
             rankings.add(quizRankingRepository.save(ranking));
             rank++;
         }
@@ -114,7 +114,7 @@ public class RankingService {
         long totalPaid = 0;
         int winners = 0;
         for (QuizRanking ranking : rankings) {
-            if (ranking.getRewardCredits() <= 0) {
+            if (ranking.getRewardHtg() <= 0) {
                 continue;
             }
 
@@ -122,7 +122,7 @@ public class RankingService {
             WalletTransaction credit = walletService.credit(
                     userId,
                     BalanceType.WINNINGS,
-                    ranking.getRewardCredits(),
+                    ranking.getRewardHtg(),
                     WalletTransactionType.PRIZE,
                     "QuizRanking",
                     String.valueOf(ranking.getId()),
@@ -131,20 +131,18 @@ public class RankingService {
 
             ranking.setPaidAt(now);
             ranking.setTransactionId(credit.getId());
-            totalPaid += ranking.getRewardCredits();
+            totalPaid += ranking.getRewardHtg();
             winners++;
         }
 
         quiz.setStatus(QuizStatus.FINISHED);
         quiz.setFinishedAt(now);
 
-        long rate = walletService.htgRate();
         List<NotificationMessage.Delivery> deliveries = new ArrayList<>();
         for (QuizRanking ranking : rankings) {
             deliveries.add(new NotificationMessage.Delivery(ranking.getUser().getId(),
-                    ranking.getRewardCredits() > 0
-                            ? NotificationMessages.prizeWon(quiz, ranking.getRank(),
-                                    ranking.getRewardCredits(), rate)
+                    ranking.getRewardHtg() > 0
+                            ? NotificationMessages.prizeWon(quiz, ranking.getRank(), ranking.getRewardHtg())
                             : NotificationMessages.quizResults(quiz, ranking.getRank(), rankings.size())));
         }
         notificationService.notify(deliveries);
@@ -152,8 +150,8 @@ public class RankingService {
         auditService.record(actorId, "QUIZ_FINISHED", "Quiz", String.valueOf(quizId),
                 QuizStatus.COMPUTING.name(),
                 rankings.size() + " joueur(s) classe(s), " + winners + " gagnant(s), "
-                        + totalPaid + " credits verses");
-        log.info("Quiz {} termine : {} classe(s), {} credits verses a {} gagnant(s)",
+                        + totalPaid + " HTG verses");
+        log.info("Quiz {} termine : {} classe(s), {} HTG verses a {} gagnant(s)",
                 quizId, rankings.size(), totalPaid, winners);
 
         return true;
@@ -180,7 +178,7 @@ public class RankingService {
     private long rewardFor(List<QuizReward> rewards, int rank) {
         for (QuizReward reward : rewards) {
             if (rank >= reward.getRankFrom() && rank <= reward.getRankTo()) {
-                return reward.getAmountCredits();
+                return reward.getAmountHtg();
             }
         }
         return 0;
@@ -195,11 +193,10 @@ public class RankingService {
             throw new ApiException(ErrorCode.GAME_RESULTS_NOT_READY);
         }
 
-        long rate = walletService.htgRate();
         Page<QuizRanking> page = quizRankingRepository.findByQuizIdOrderByRankAsc(quizId, pageable);
 
         List<LeaderboardResponse.Entry> entries = page.getContent().stream()
-                .map(ranking -> toEntry(ranking, viewerId, rate))
+                .map(ranking -> toEntry(ranking, viewerId))
                 .toList();
 
         Optional<QuizRanking> mine = viewerId == null ? Optional.empty()
@@ -213,17 +210,16 @@ public class RankingService {
                 page.getNumber(),
                 page.getSize(),
                 entries,
-                mine.map(ranking -> toEntry(ranking, viewerId, rate)).orElse(null));
+                mine.map(ranking -> toEntry(ranking, viewerId)).orElse(null));
     }
 
-    private LeaderboardResponse.Entry toEntry(QuizRanking ranking, Long viewerId, long rate) {
+    private LeaderboardResponse.Entry toEntry(QuizRanking ranking, Long viewerId) {
         User user = ranking.getUser();
         return new LeaderboardResponse.Entry(
                 ranking.getRank(),
                 displayName(user),
                 ranking.getScore(),
-                ranking.getRewardCredits(),
-                ranking.getRewardCredits() * rate,
+                ranking.getRewardHtg(),
                 user.getId().equals(viewerId));
     }
 

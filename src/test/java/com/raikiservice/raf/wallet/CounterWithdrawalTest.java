@@ -41,7 +41,7 @@ class CounterWithdrawalTest extends IntegrationTest {
         assertThat(request.getNetHtg()).isEqualTo(975);
         assertThat(request.getDestinationNumber()).isNull();
         assertThat(request.getProvider()).isEqualTo(PaymentProvider.MANUAL);
-        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(1000);
+        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(5000);
         assertThat(sms.lastMessage(player.getPhone())).contains("975 HTG").contains("guichet");
     }
 
@@ -54,7 +54,7 @@ class CounterWithdrawalTest extends IntegrationTest {
 
         assertApiError(ErrorCode.OTP_INVALID, () ->
                 counterWithdrawalService.confirm(agent.getId(), id, otherThan(code), null));
-        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(1000);
+        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(5000);
 
         // Double clic de l'agent : un seul debit.
         concurrently(3, () -> counterWithdrawalService.confirm(agent.getId(), id, code, "RECU-1"));
@@ -62,7 +62,7 @@ class CounterWithdrawalTest extends IntegrationTest {
 
         assertThat(paid.getStatus()).isEqualTo(WithdrawalStatus.PAID);
         assertThat(paid.getPaidAt()).isNotNull();
-        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(800);
+        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(4000);
         assertThat(walletTransactionRepository.findAll()).filteredOn(t ->
                 t.getType() == WalletTransactionType.WITHDRAWAL
                         && String.valueOf(id).equals(t.getReferenceId()))
@@ -87,7 +87,7 @@ class CounterWithdrawalTest extends IntegrationTest {
                 counterWithdrawalService.confirm(agent.getId(), first, firstCode, null));
 
         counterWithdrawalService.confirm(agent.getId(), second, secondCode, null);
-        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(800);
+        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(4000);
     }
 
     @Test
@@ -114,7 +114,7 @@ class CounterWithdrawalTest extends IntegrationTest {
 
         assertApiError(ErrorCode.WITHDRAWAL_NOT_PENDING, () ->
                 counterWithdrawalService.confirm(agent.getId(), id, code, null));
-        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(1000);
+        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(5000);
     }
 
     @Test
@@ -127,8 +127,6 @@ class CounterWithdrawalTest extends IntegrationTest {
                 counterWithdrawalService.initiate(agent.getId(), unverified.getId(), 1000, null));
         assertApiError(ErrorCode.INSUFFICIENT_FUNDS, () ->
                 counterWithdrawalService.initiate(agent.getId(), player.getId(), 50_000, null));
-        assertApiError(ErrorCode.AMOUNT_NOT_CONVERTIBLE, () ->
-                counterWithdrawalService.initiate(agent.getId(), player.getId(), 1003, null));
         assertApiError(ErrorCode.WITHDRAWAL_BELOW_MINIMUM, () ->
                 counterWithdrawalService.initiate(agent.getId(), player.getId(), 500, null));
         assertThat(sms.lastMessage(player.getPhone())).isNull();
@@ -140,14 +138,14 @@ class CounterWithdrawalTest extends IntegrationTest {
         User player = playerWithWinnings();
 
         withdrawalService.sendWithdrawalOtp(player.getId());
-        WithdrawalRequest request = withdrawalService.request(player.getId(), 300,
+        WithdrawalRequest request = withdrawalService.request(player.getId(), 1500,
                 PaymentProvider.MONCASH, player.getPhone(), sms.lastCode(player.getPhone()));
 
         assertThat(request.getStatus()).isEqualTo(WithdrawalStatus.PENDING);
-        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(700);
+        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(3500);
 
         withdrawalService.reject(agent.getId(), request.getId(), "test");
-        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(1000);
+        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(5000);
     }
 
     @Test
@@ -156,17 +154,17 @@ class CounterWithdrawalTest extends IntegrationTest {
         withdrawalService.sendWithdrawalOtp(player.getId());
         String code = sms.lastCode(player.getPhone());
 
-        concurrently(2, () -> withdrawalService.request(player.getId(), 300,
+        concurrently(2, () -> withdrawalService.request(player.getId(), 1500,
                 PaymentProvider.MONCASH, player.getPhone(), code));
 
         assertThat(withdrawalRequestRepository.findByUserIdAndStatus(
                 player.getId(), WithdrawalStatus.PENDING)).hasSize(1);
-        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(700);
+        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(3500);
     }
 
     private User playerWithWinnings() {
         User player = data.player();
-        data.credit(player.getId(), BalanceType.WINNINGS, 1000);
+        data.credit(player.getId(), BalanceType.WINNINGS, 5000);
         return player;
     }
 

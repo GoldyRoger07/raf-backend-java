@@ -130,7 +130,10 @@ public enum ErrorCode {
             "Ce compte est le dernier super-administrateur actif : il doit le rester."),
     ROLES_REQUIRED(HttpStatus.BAD_REQUEST, "Un compte doit garder au moins un role."),
 
+    SETTING_INVALID(HttpStatus.BAD_REQUEST, "Valeur de parametre invalide."),
+
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "Ressource introuvable."),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "Methode non prise en charge sur cette adresse."),
     CONFLICT(HttpStatus.CONFLICT, "L'operation entre en conflit avec l'etat actuel."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Une erreur interne est survenue.");
 

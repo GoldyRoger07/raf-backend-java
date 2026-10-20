@@ -15,7 +15,7 @@ import com.raikiservice.raf.quiz.domain.TopicMode;
  * Vue d'un quiz. Construite dans la transaction : toutes les relations sont paresseuses.
  *
  * <p>En SOLO, {@code ticketPriceCredits} est le prix d'une partie et
- * {@code soloPrizeCredits} le prix d'un sans-faute ; les champs propres au
+ * {@code soloPrizeHtg} le prix d'un sans-faute ; les champs propres au
  * groupe (seuil, recompenses, sujets soumis au vote) sont sans objet.
  */
 public record QuizResponse(
@@ -39,7 +39,6 @@ public record QuizResponse(
         int questionDurationSeconds,
         int questionsPerGame,
         int pointsPerCorrect,
-        Long soloPrizeCredits,
         Long soloPrizeHtg,
         int minScoreThreshold,
         int closingCountdownMinutes,
@@ -59,7 +58,8 @@ public record QuizResponse(
         List<RewardView> rewards,
         List<TopicView> topics) {
 
-    public record RewardView(int rankFrom, int rankTo, long amountCredits, long amountHtg,
+    /** Montant par joueur de la tranche, en HTG. */
+    public record RewardView(int rankFrom, int rankTo, long amountHtg,
             String label) {
     }
 
@@ -91,8 +91,7 @@ public record QuizResponse(
                 quiz.getQuestionDurationSeconds(),
                 quiz.getQuestionsPerGame(),
                 quiz.getPointsPerCorrect(),
-                quiz.getSoloPrizeCredits(),
-                quiz.getSoloPrizeCredits() == null ? null : quiz.getSoloPrizeCredits() * htgRate,
+                quiz.getSoloPrizeHtg(),
                 quiz.getMinScoreThreshold(),
                 quiz.getClosingCountdownMinutes(),
                 quiz.getStartDelayMinutes(),
@@ -110,7 +109,7 @@ public record QuizResponse(
                 poolSize,
                 rewards.stream()
                         .map(reward -> new RewardView(reward.getRankFrom(), reward.getRankTo(),
-                                reward.getAmountCredits(), reward.getAmountCredits() * htgRate,
+                                reward.getAmountHtg(),
                                 reward.getLabel()))
                         .toList(),
                 topics.stream()

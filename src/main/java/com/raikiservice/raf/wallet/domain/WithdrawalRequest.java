@@ -21,7 +21,7 @@ import lombok.Setter;
  *
  * <p>Les gains sont debites des la creation de la demande, pas a la validation :
  * sinon trois demandes envoyees en parallele passeraient toutes les trois le
- * controle de solde. Un rejet rend les credits au joueur.
+ * controle de solde. Un rejet rend les gourdes au joueur.
  */
 @Getter
 @Setter
@@ -33,8 +33,6 @@ public class WithdrawalRequest extends AuditableEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "amount_credits", nullable = false)
-    private long amountCredits;
 
     @Column(name = "amount_htg", nullable = false)
     private long amountHtg;

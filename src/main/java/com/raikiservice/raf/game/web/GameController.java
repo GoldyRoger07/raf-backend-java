@@ -6,8 +6,8 @@ import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.common.util.RequestContext;
 import com.raikiservice.raf.game.service.GameService;
 import com.raikiservice.raf.game.web.dto.AnswerQuestionDto;
+import com.raikiservice.raf.game.web.dto.GameOutcomeResponse;
 import com.raikiservice.raf.game.web.dto.GameResultResponse;
-import com.raikiservice.raf.game.web.dto.GameReviewResponse;
 import com.raikiservice.raf.game.web.dto.GameStartResponse;
 import com.raikiservice.raf.game.web.dto.GameTurnResponse;
 import com.raikiservice.raf.game.web.dto.StartGameDto;
@@ -82,9 +82,10 @@ public class GameController {
     }
 
     @GetMapping("/{sessionId}/review")
-    @Operation(summary = "Corrige detaille (disponible a la cloture du quiz)")
-    public GameReviewResponse review(@AuthenticationPrincipal UserPrincipal player,
+    @Operation(summary = "Corrige : juste, fausse ou sans reponse par question, sans enonce ni reponse "
+            + "(disponible a la cloture du quiz)")
+    public GameOutcomeResponse review(@AuthenticationPrincipal UserPrincipal player,
             @PathVariable Long sessionId) {
-        return gameService.review(player.getId(), sessionId, false);
+        return gameService.outcome(player.getId(), sessionId);
     }
 }

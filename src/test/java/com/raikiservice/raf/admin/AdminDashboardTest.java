@@ -33,8 +33,7 @@ class AdminDashboardTest extends IntegrationTest {
 
         PlayerSummary found = playerSearchService.search(player.getEmail().toUpperCase(),
                 PageRequest.of(0, 10)).getContent().get(0);
-        assertThat(found.winningsBalance()).isEqualTo(120);
-        assertThat(found.winningsBalanceHtg()).isEqualTo(600);
+        assertThat(found.winningsBalanceHtg()).isEqualTo(120);
         assertThat(found.phoneVerified()).isTrue();
     }
 
@@ -48,16 +47,18 @@ class AdminDashboardTest extends IntegrationTest {
         long before = dashboardService.dashboard().pending().withdrawalsToReview();
 
         User player = data.player();
-        data.credit(player.getId(), BalanceType.WINNINGS, 1000);
+        data.credit(player.getId(), BalanceType.WINNINGS, 5000);
         withdrawalService.sendWithdrawalOtp(player.getId());
-        withdrawalService.request(player.getId(), 300, PaymentProvider.MANUAL, null,
+        withdrawalService.request(player.getId(), 1500, PaymentProvider.MANUAL, null,
                 sms.lastCode(player.getPhone()));
 
         DashboardResponse dashboard = dashboardService.dashboard();
         assertThat(dashboard.pending().withdrawalsToReview()).isEqualTo(before + 1);
         assertThat(dashboard.players().total()).isPositive();
-        assertThat(dashboard.balances().winningsBalanceHtg())
-                .isEqualTo(dashboard.balances().winningsBalance() * dashboard.htgRate());
+        // Les gains sont tenus en HTG : pas de conversion par le taux du credit.
+        assertThat(dashboard.balances().winningsBalanceHtg()).isGreaterThanOrEqualTo(3500);
+        assertThat(dashboard.balances().creditBalanceHtg())
+                .isEqualTo(dashboard.balances().creditBalance() * dashboard.htgRate());
         assertThat(dashboard.quizzesByStatus()).containsKeys("DRAFT", "RUNNING", "FINISHED");
     }
 }

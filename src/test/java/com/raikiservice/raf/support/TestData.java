@@ -47,8 +47,10 @@ public class TestData {
     private static final String RUN = UUID.randomUUID().toString().substring(0, 6);
 
     public static final int TICKET_PRICE = 10;
+    /** Recompenses et prix solo : en HTG (les gains sont tenus en gourdes). */
     public static final long FIRST_PRIZE = 100;
     public static final long SECOND_PRIZE = 50;
+    /** Prix d'une partie solo, en credits. */
     public static final int SOLO_ENTRY = 5;
     public static final long SOLO_PRIZE = 40;
 
@@ -75,6 +77,10 @@ public class TestData {
 
     public User admin() {
         return user(RoleName.ADMIN, true);
+    }
+
+    public User superAdmin() {
+        return user(RoleName.SUPER_ADMIN, true);
     }
 
     public User moderator() {

@@ -73,8 +73,7 @@ public class CounterWithdrawalService {
                     "Le joueur doit d'abord verifier son numero de telephone.");
         }
 
-        long amountCredits = walletService.htgToCredits(amountHtg);
-        withdrawalService.assertWithinLimits(userId, amountCredits);
+        withdrawalService.assertWithinLimits(userId, amountHtg);
 
         long feeHtg = settingsService.getLong(
                 SettingKeys.WITHDRAWAL_COUNTER_FEE_HTG, DEFAULT_COUNTER_FEE_HTG);
@@ -86,9 +85,9 @@ public class CounterWithdrawalService {
         // Controle anticipe, pour ne pas envoyer un code qui ne pourra pas servir.
         // Le debit, a la confirmation, re-verifie le solde sous verrou.
         long available = walletService.getOrCreate(userId).balanceOf(BalanceType.WINNINGS);
-        if (available < amountCredits) {
+        if (available < amountHtg) {
             throw new ApiException(ErrorCode.INSUFFICIENT_FUNDS,
-                    "Gains disponibles : " + walletService.creditsToHtg(available) + " HTG.");
+                    "Gains disponibles : " + available + " HTG.");
         }
 
         for (WithdrawalRequest previous : withdrawalRequestRepository
@@ -101,7 +100,6 @@ public class CounterWithdrawalService {
 
         WithdrawalRequest request = new WithdrawalRequest();
         request.setUser(user);
-        request.setAmountCredits(amountCredits);
         request.setAmountHtg(amountHtg);
         request.setFeeHtg(feeHtg);
         request.setNetHtg(amountHtg - feeHtg);
@@ -151,7 +149,7 @@ public class CounterWithdrawalService {
         Long userId = user.getId();
 
         // Re-verifie a la confirmation : d'autres retraits ont pu passer entre-temps.
-        withdrawalService.assertWithinLimits(userId, request.getAmountCredits());
+        withdrawalService.assertWithinLimits(userId, request.getAmountHtg());
 
         // Verifie juste avant le debit, comme pour le retrait en ligne : un echec
         // anterieur annulerait la consommation du code.
@@ -161,7 +159,7 @@ public class CounterWithdrawalService {
         WalletTransaction debit = walletService.debit(
                 userId,
                 BalanceType.WINNINGS,
-                request.getAmountCredits(),
+                request.getAmountHtg(),
                 WalletTransactionType.WITHDRAWAL,
                 "WithdrawalRequest",
                 String.valueOf(withdrawalId),

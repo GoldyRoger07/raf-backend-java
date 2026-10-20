@@ -56,7 +56,7 @@ public class AdminGameController {
     @Operation(summary = "Corrige d'une partie, a tout moment")
     public GameReviewResponse review(@AuthenticationPrincipal UserPrincipal admin,
             @PathVariable Long sessionId) {
-        return gameService.review(admin.getId(), sessionId, true);
+        return gameService.review(sessionId);
     }
 
     @PostMapping("/game/sessions/{sessionId}/invalidate")

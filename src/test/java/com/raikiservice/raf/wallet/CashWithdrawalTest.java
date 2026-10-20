@@ -28,13 +28,13 @@ class CashWithdrawalTest extends IntegrationTest {
     void aCashRequestNeedsNoDestinationAndFreezesTheWinnings() {
         User player = playerWithWinnings();
 
-        WithdrawalRequest request = requestCash(player, 400);
+        WithdrawalRequest request = requestCash(player, 2000);
 
         assertThat(request.getStatus()).isEqualTo(WithdrawalStatus.PENDING);
         assertThat(request.getProvider()).isEqualTo(PaymentProvider.MANUAL);
         assertThat(request.getDestinationNumber()).isNull();
         assertThat(request.getNetHtg()).isEqualTo(2000 - 25);
-        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(600);
+        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(3000);
     }
 
     @Test
@@ -44,15 +44,15 @@ class CashWithdrawalTest extends IntegrationTest {
         String code = sms.lastCode(player.getPhone());
 
         assertApiError(ErrorCode.WITHDRAWAL_DESTINATION_REQUIRED, () -> withdrawalService.request(
-                player.getId(), 400, PaymentProvider.MONCASH, null, code));
-        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(1000);
+                player.getId(), 2000, PaymentProvider.MONCASH, null, code));
+        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(5000);
     }
 
     @Test
     void cashIsHandedOverOnlyWithThePlayersPickupCode() {
         User agent = data.admin();
         User player = playerWithWinnings();
-        Long id = requestCash(player, 400).getId();
+        Long id = requestCash(player, 2000).getId();
         withdrawalService.approve(agent.getId(), id);
 
         assertApiError(ErrorCode.PICKUP_CODE_REQUIRED,
@@ -69,7 +69,7 @@ class CashWithdrawalTest extends IntegrationTest {
         assertThat(paid.getStatus()).isEqualTo(WithdrawalStatus.PAID);
         assertThat(paid.getPaidAt()).isNotNull();
         // Le gel a eu lieu a la demande : la remise ne debite rien de plus.
-        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(600);
+        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(3000);
 
         assertApiError(ErrorCode.WITHDRAWAL_NOT_APPROVED,
                 () -> withdrawalService.markPaid(agent.getId(), id, null, code));
@@ -79,14 +79,14 @@ class CashWithdrawalTest extends IntegrationTest {
     void thePickupCodeIsOnlySentForAnApprovedCashWithdrawal() {
         User agent = data.admin();
         User player = playerWithWinnings();
-        Long cash = requestCash(player, 400).getId();
+        Long cash = requestCash(player, 2000).getId();
 
         assertApiError(ErrorCode.WITHDRAWAL_NOT_APPROVED,
                 () -> withdrawalService.sendPickupCode(agent.getId(), cash));
 
         withdrawalService.reject(agent.getId(), cash, "test");
         withdrawalService.sendWithdrawalOtp(player.getId());
-        WithdrawalRequest moncash = withdrawalService.request(player.getId(), 400,
+        WithdrawalRequest moncash = withdrawalService.request(player.getId(), 2000,
                 PaymentProvider.MONCASH, player.getPhone(), sms.lastCode(player.getPhone()));
         withdrawalService.approve(agent.getId(), moncash.getId());
 
@@ -107,7 +107,7 @@ class CashWithdrawalTest extends IntegrationTest {
         Long counter = counterWithdrawalService.initiate(agent.getId(), player.getId(), 1000, null)
                 .getId();
         // ... puis un code de remise est envoye pour une autre demande.
-        Long cash = requestCash(player, 400).getId();
+        Long cash = requestCash(player, 2000).getId();
         withdrawalService.approve(agent.getId(), cash);
         withdrawalService.sendPickupCode(agent.getId(), cash);
         String pickupCode = sms.lastCode(player.getPhone());
@@ -116,15 +116,15 @@ class CashWithdrawalTest extends IntegrationTest {
                 counterWithdrawalService.confirm(agent.getId(), counter, pickupCode, null));
     }
 
-    private WithdrawalRequest requestCash(User player, long credits) {
+    private WithdrawalRequest requestCash(User player, long amountHtg) {
         withdrawalService.sendWithdrawalOtp(player.getId());
-        return withdrawalService.request(player.getId(), credits, PaymentProvider.MANUAL, null,
+        return withdrawalService.request(player.getId(), amountHtg, PaymentProvider.MANUAL, null,
                 sms.lastCode(player.getPhone()));
     }
 
     private User playerWithWinnings() {
         User player = data.player();
-        data.credit(player.getId(), BalanceType.WINNINGS, 1000);
+        data.credit(player.getId(), BalanceType.WINNINGS, 5000);
         return player;
     }
 }

@@ -11,6 +11,7 @@ import com.raikiservice.raf.quiz.domain.Quiz;
 import com.raikiservice.raf.quiz.domain.QuizReward;
 import com.raikiservice.raf.quiz.repository.QuizRewardRepository;
 import com.raikiservice.raf.quiz.web.dto.RewardTierDto;
+import com.raikiservice.raf.wallet.service.WalletService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,16 +30,21 @@ import org.springframework.transaction.annotation.Transactional;
 public class RewardService {
 
     private final QuizRewardRepository quizRewardRepository;
+    private final WalletService walletService;
     private final AuditService auditService;
 
-    /** Bilan financier previsionnel d'un quiz. */
+    /**
+     * Bilan financier previsionnel d'un quiz, en HTG : les recompenses sont en
+     * gourdes, les tickets en credits convertis au taux du moment.
+     */
     public record Economics(
-            long totalRewardsCredits,
+            long totalRewardsHtg,
             int ticketPriceCredits,
+            long ticketPriceHtg,
             int minPlayers,
             long breakEvenPlayers,
-            long minRevenueCredits,
-            long marginAtMinPlayers,
+            long minRevenueHtg,
+            long marginAtMinPlayersHtg,
             boolean profitableAtMinPlayers,
             int rewardedPlaces) {
     }
@@ -60,7 +66,7 @@ public class RewardService {
             reward.setQuiz(quiz);
             reward.setRankFrom(tier.rankFrom());
             reward.setRankTo(tier.rankTo());
-            reward.setAmountCredits(tier.amountCredits());
+            reward.setAmountHtg(tier.amountHtg());
             reward.setLabel(tier.label());
             saved.add(quizRewardRepository.save(reward));
         }
@@ -68,7 +74,7 @@ public class RewardService {
         Economics economics = economics(quiz, saved);
         auditService.record(actorId, "QUIZ_REWARDS_CONFIGURED", "Quiz",
                 String.valueOf(quiz.getId()), null,
-                economics.totalRewardsCredits() + " credits sur "
+                economics.totalRewardsHtg() + " HTG sur "
                         + economics.rewardedPlaces() + " place(s)");
 
         return saved;
@@ -87,17 +93,18 @@ public class RewardService {
     public Economics economics(Quiz quiz, List<QuizReward> rewards) {
         long totalRewards = rewards.stream().mapToLong(QuizReward::totalCost).sum();
         int places = rewards.stream().mapToInt(QuizReward::places).sum();
-        int price = quiz.getTicketPriceCredits();
+        long price = quiz.getTicketPriceCredits() * walletService.htgRate();
 
         // Un ticket = une partie, mais le seuil compte des JOUEURS distincts :
         // le point d'equilibre est donc calcule sur un ticket par joueur, soit
         // l'hypothese la plus defavorable.
         long breakEven = price <= 0 ? Long.MAX_VALUE
                 : (totalRewards + price - 1) / price;
-        long minRevenue = (long) price * quiz.getMinPlayers();
+        long minRevenue = price * quiz.getMinPlayers();
 
         return new Economics(
                 totalRewards,
+                quiz.getTicketPriceCredits(),
                 price,
                 quiz.getMinPlayers(),
                 breakEven,

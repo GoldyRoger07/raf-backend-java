@@ -75,6 +75,14 @@ public class AdminQuizController {
         return quizService.view(id);
     }
 
+    @PostMapping("/{id}/duplicate")
+    @Operation(summary = "Copier un quiz (quel que soit son etat) dans un nouveau brouillon")
+    public ResponseEntity<QuizResponse> duplicate(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long id) {
+        Long copyId = quizService.duplicate(admin.getId(), id).getId();
+        return ResponseEntity.status(HttpStatus.CREATED).body(quizService.view(copyId));
+    }
+
     @PostMapping("/{id}/close")
     @Operation(summary = "Fermer un quiz solo : plus aucune partie ne peut y etre lancee")
     public QuizResponse closeSolo(@AuthenticationPrincipal UserPrincipal admin,

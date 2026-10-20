@@ -77,9 +77,9 @@ public class GameSession {
     @Column(name = "entry_transaction_id")
     private Long entryTransactionId;
 
-    /** SOLO : prix d'un sans-faute, copie du quiz au lancement. */
-    @Column(name = "prize_credits")
-    private Long prizeCredits;
+    /** SOLO : prix d'un sans-faute en HTG, copie du quiz au lancement. */
+    @Column(name = "prize_htg")
+    private Long prizeHtg;
 
     /** SOLO : sans-faute realise, prix verse ({@code prizeTransactionId}). */
     @Column(nullable = false)

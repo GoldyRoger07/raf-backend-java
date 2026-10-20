@@ -79,7 +79,7 @@ class SoloGameTest extends IntegrationTest {
         assertThat(result.gameMode()).isEqualTo(GameMode.SOLO);
         assertThat(result.correctCount()).isEqualTo(3);
         assertThat(result.won()).isTrue();
-        assertThat(result.prizeCredits()).isEqualTo(TestData.SOLO_PRIZE);
+        assertThat(result.prizeHtg()).isEqualTo(TestData.SOLO_PRIZE);
         assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(TestData.SOLO_PRIZE);
 
         // Le joueur est prevenu par email (gain = argent), apres le commit.
@@ -101,7 +101,7 @@ class SoloGameTest extends IntegrationTest {
 
         assertThat(result.correctCount()).isEqualTo(2);
         assertThat(result.won()).isFalse();
-        assertThat(result.prizeCredits()).isNull();
+        assertThat(result.prizeHtg()).isNull();
         assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isZero();
     }
 

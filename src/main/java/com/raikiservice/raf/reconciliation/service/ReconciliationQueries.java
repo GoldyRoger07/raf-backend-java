@@ -57,17 +57,17 @@ final class ReconciliationQueries {
         queries.add(link(ReconciliationCheck.WITHDRAWAL_DEBIT, "withdrawal_requests",
                 "WithdrawalRequest", "debit_transaction_id",
                 "b.status IN ('PENDING', 'APPROVED', 'PAID', 'REJECTED')", "WITHDRAWAL", "WINNINGS",
-                "-b.amount_credits"));
+                "-b.amount_htg"));
         queries.add(link(ReconciliationCheck.WITHDRAWAL_REFUND, "withdrawal_requests",
                 "WithdrawalRequest", "refund_transaction_id", "b.status = 'REJECTED'", "REFUND",
-                "WINNINGS", "b.amount_credits"));
+                "WINNINGS", "b.amount_htg"));
         queries.add(link(ReconciliationCheck.PRIZE_PAYMENT, "quiz_rankings", "QuizRanking",
-                "transaction_id", "b.reward_credits > 0", "PRIZE", "WINNINGS", "b.reward_credits"));
+                "transaction_id", "b.reward_htg > 0", "PRIZE", "WINNINGS", "b.reward_htg"));
         queries.add(link(ReconciliationCheck.SOLO_ENTRY_DEBIT, "game_sessions", "GameSession",
                 "entry_transaction_id", "b.game_mode = 'SOLO'", "SOLO_ENTRY", "CREDIT",
                 "-b.entry_price_credits"));
         queries.add(link(ReconciliationCheck.SOLO_PRIZE_PAYMENT, "game_sessions", "GameSession",
-                "prize_transaction_id", "b.won = TRUE", "PRIZE", "WINNINGS", "b.prize_credits"));
+                "prize_transaction_id", "b.won = TRUE", "PRIZE", "WINNINGS", "b.prize_htg"));
 
         // Un mouvement la ou il ne devait pas y en avoir.
         queries.add(unexpected("tickets", "Ticket", "refund_transaction_id",
@@ -80,7 +80,7 @@ final class ReconciliationQueries {
         queries.add(unexpected("withdrawal_requests", "WithdrawalRequest", "refund_transaction_id",
                 "b.status <> 'REJECTED'", "Retrait non rejete portant une restitution"));
         queries.add(unexpected("quiz_rankings", "QuizRanking", "transaction_id",
-                "b.reward_credits = 0", "Rang non recompense portant un versement"));
+                "b.reward_htg = 0", "Rang non recompense portant un versement"));
         queries.add(unexpected("game_sessions", "GameSession", "prize_transaction_id",
                 "b.won = FALSE", "Partie solo perdue portant un versement"));
 

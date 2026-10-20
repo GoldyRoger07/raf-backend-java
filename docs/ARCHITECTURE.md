@@ -17,7 +17,7 @@ Web Push VAPID, ImageKit (médias).
 | Temps par question | Chrono par question défini par quiz (défaut 5 s). On passe à la suivante dès la réponse ou à l'expiration ; une question expirée compte comme fausse |
 | Déroulement | Choisi **par quiz** : `BATCH` (tirage complet, soumission groupée) ou `SEQUENTIAL` (une question à la fois, chrono imposé par le serveur) — voir §4 |
 | Barème | Points fixes par bonne réponse, pas de malus |
-| Anti-triche | **Révélation différée** : questions envoyées sans corrigé, partie hors-ligne, score recalculé au submit, corrigé détaillé seulement après la clôture du quiz |
+| Anti-triche | **Révélation différée** : questions envoyées sans corrigé, partie hors-ligne, score recalculé au submit. Après la clôture, le joueur voit seulement juste / fausse / sans réponse par question : jamais l'énoncé ni la bonne réponse (corrigé détaillé réservé au back-office) |
 | Modes de jeu | **En groupe** (`GROUP`) : tickets, classement, récompenses par rang. **Solo** (`SOLO`) : partie payée en crédits au lancement, prix fixe pour un sans-faute, une partie par sujet et par jour — voir §4.1 |
 | Tickets | Mode En groupe uniquement. 1 ticket = 1 partie. Plafond **par joueur** et plafond **total** par quiz (null = illimité) |
 | Score retenu | Le **meilleur** score du joueur sur le quiz |
@@ -93,16 +93,23 @@ com.raikiservice.raf
 
 `id, user_id UNIQUE, credit_balance BIGINT, winnings_balance BIGINT, version INT (verrou optimiste), created_at, updated_at`
 
-→ soldes stockés **en crédits** (entiers, jamais de flottant). Conversion en HTG (×5) à l'affichage et au retrait.
+→ entiers, jamais de flottant. **Deux unités** (depuis V12) :
+- `credit_balance` en **crédits** : monnaie de jeu achetée, non retirable. Sert à payer
+  les tickets et les parties solo, dont les prix restent en crédits. Le taux
+  `credit.htg_rate` ne sert qu'aux recharges (HTG → crédits) et à l'affichage.
+- `winnings_balance` en **HTG** : gains retirables, c'est-à-dire une dette réelle de RAF.
+  Récompenses par rang, prix d'un sans-faute, retraits, leurs limites
+  (`withdrawal.min_htg`, `withdrawal.max_htg_per_day`) et les ajustements des gains
+  sont en gourdes. Changer la valeur du crédit ne réévalue donc jamais ce que RAF doit.
 
 **wallet_transactions** — journal immuable, jamais modifié après insertion
 
 | Colonne | Notes |
 |---|---|
 | id, wallet_id | |
-| type | TOPUP, TICKET_PURCHASE, PRIZE, WITHDRAWAL, REFUND, ADJUSTMENT |
+| type | TOPUP, TICKET_PURCHASE, SOLO_ENTRY, PRIZE, WITHDRAWAL, REFUND, ADJUSTMENT |
 | balance_type | CREDIT ou WINNINGS |
-| amount | BIGINT signé (+ crédit, − débit) |
+| amount | BIGINT signé (+ crédit, − débit), dans l'unité du solde : crédits (CREDIT) ou HTG (WINNINGS) |
 | balance_after | BIGINT, solde après opération |
 | reference_type / reference_id | polymorphe : ticket, retrait, recharge, classement |
 | idempotency_key | UNIQUE nullable — **bloque le double débit** |
@@ -235,6 +242,14 @@ com.raikiservice.raf
 
 **app_settings** — `key UNIQUE, value, description` (paramètres modifiables sans redéploiement).
 
+→ Back-office, page **Paramètres** (super-administrateur) : `GET /api/admin/settings`,
+`PUT /api/admin/settings/{key}` `{ value }`. Seuls les paramètres existants, en
+entier, au moins égaux à leur minimum (`SettingKeys.minValue` : 1 pour la valeur du
+crédit, les plafonds de retrait, le ratio du vivier…). Chaque modification est
+tracée (`SETTING_UPDATED`). Changer `credit.htg_rate` change la valeur en gourdes
+des crédits de jeu en circulation (les gains, en HTG, ne bougent pas) : la page
+affiche l'impact et demande confirmation.
+
 ---
 
 ## 4. Déroulé d'une partie (anti-triche)
@@ -307,6 +322,17 @@ POST /api/game/{sessionId}/answer
 - Partie abandonnée (onglet fermé) : à l'échéance, `GameScheduler` la corrige
   avec les réponses déjà données — elles ont été validées une à une. En BATCH, au
   contraire, une partie non soumise expire sans compter.
+
+#### Corrigé
+
+`GET /api/game/{sessionId}/review` (joueur, quiz terminé ou solo fermé) ne renvoie
+que le résultat de chaque question : `{ position, result: CORRECT | WRONG |
+UNANSWERED }`. Ni énoncé, ni propositions, ni bonne réponse : les questions
+restent dans le vivier et peuvent resservir, elles ne doivent pas circuler avec
+leurs réponses. Le filtrage est fait par le serveur — le masquer dans
+l'application ne protégerait rien. Le corrigé détaillé (énoncés, choix, bonne
+réponse, temps) reste servi par `GET /api/admin/game/sessions/{id}/review`, pour
+juger une partie signalée.
 
 ### Pourquoi pas de vérification côté client
 
@@ -672,6 +698,7 @@ prix). Voir §4.1.
 | POST / PUT | `/api/admin/quizzes/solo` , `/api/admin/quizzes/solo/{id}` | admin |
 | POST | `/api/admin/quizzes/{id}/publish` (solo : ouverture directe) | admin |
 | POST | `/api/admin/quizzes/{id}/close` | admin, quiz solo |
+| POST | `/api/admin/quizzes/{id}/duplicate` | admin, tout quiz : copie en brouillon (règles, récompenses, sujets du vote), sans l'historique |
 | GET | `/api/admin/quizzes?status=&mode=` | admin |
 | GET | `/api/quizzes?mode=` (GROUP ou SOLO) | joueur |
 | GET | `/api/categories?mode=` (GROUP ou SOLO) | joueur |

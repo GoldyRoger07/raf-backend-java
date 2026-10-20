@@ -20,7 +20,6 @@ public record LeaderboardResponse(
         Entry me) {
 
     /** Le nom est abrege ("Jean D.") : le classement est public pour tous les joueurs. */
-    public record Entry(int rank, String displayName, int score, long rewardCredits,
-            long rewardHtg, boolean me) {
+    public record Entry(int rank, String displayName, int score, long rewardHtg, boolean me) {
     }
 }

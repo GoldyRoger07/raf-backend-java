@@ -11,6 +11,7 @@ import java.util.Locale;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
+import com.raikiservice.raf.common.settings.SettingKeys;
 import com.raikiservice.raf.common.settings.SettingsService;
 import com.raikiservice.raf.question.domain.Difficulty;
 import com.raikiservice.raf.question.domain.QuestionType;
@@ -71,7 +72,7 @@ public class QuestionImportService {
             throw new ApiException(ErrorCode.IMPORT_FILE_INVALID, "Aucun fichier fourni.");
         }
 
-        long maxRows = settingsService.getLong("question.import_max_rows", DEFAULT_MAX_ROWS);
+        long maxRows = settingsService.getLong(SettingKeys.QUESTION_IMPORT_MAX_ROWS, DEFAULT_MAX_ROWS);
 
         int imported = 0;
         int skipped = 0;

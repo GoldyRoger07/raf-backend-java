@@ -92,8 +92,8 @@ class NotificationTest extends IntegrationTest {
             assertThat(types(third)).contains(NotificationType.QUIZ_RESULTS)
                     .doesNotContain(NotificationType.PRIZE_WON);
         });
-        // Montant en gourdes, au taux de 5 HTG le credit.
-        assertThat(inbox(first).get(0).body()).contains("1re").contains("500 HTG");
+        // Recompense fixee en gourdes : annoncee telle quelle, sans conversion.
+        assertThat(inbox(first).get(0).body()).contains("1re").contains("100 HTG");
 
         // Gain : email et push. Simple resultat : push seulement.
         assertThat(mails.to(first.getEmail())).anySatisfy(mail ->
@@ -222,9 +222,9 @@ class NotificationTest extends IntegrationTest {
 
     private void rejectAWithdrawalOf(User player, String reason) {
         User agent = data.admin();
-        data.credit(player.getId(), BalanceType.WINNINGS, 1000);
+        data.credit(player.getId(), BalanceType.WINNINGS, 5000);
         withdrawalService.sendWithdrawalOtp(player.getId());
-        WithdrawalRequest request = withdrawalService.request(player.getId(), 300,
+        WithdrawalRequest request = withdrawalService.request(player.getId(), 1500,
                 PaymentProvider.MONCASH, player.getPhone(), sms.lastCode(player.getPhone()));
         withdrawalService.reject(agent.getId(), request.getId(), reason);
     }

@@ -43,8 +43,9 @@ public class QuizRanking extends BaseEntity {
     @Column(name = "rank_position", nullable = false)
     private int rank;
 
-    @Column(name = "reward_credits", nullable = false)
-    private long rewardCredits;
+    /** En HTG. */
+    @Column(name = "reward_htg", nullable = false)
+    private long rewardHtg;
 
     @Column(name = "paid_at")
     private Instant paidAt;

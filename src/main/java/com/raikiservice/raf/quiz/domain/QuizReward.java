@@ -33,8 +33,9 @@ public class QuizReward {
     @Column(name = "rank_to", nullable = false)
     private int rankTo;
 
-    @Column(name = "amount_credits", nullable = false)
-    private long amountCredits;
+    /** Montant verse a chaque joueur de la tranche, en HTG. */
+    @Column(name = "amount_htg", nullable = false)
+    private long amountHtg;
 
     @Column(length = 120)
     private String label;
@@ -44,6 +45,6 @@ public class QuizReward {
     }
 
     public long totalCost() {
-        return (long) places() * amountCredits;
+        return (long) places() * amountHtg;
     }
 }

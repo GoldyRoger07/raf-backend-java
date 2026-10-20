@@ -75,7 +75,7 @@ public class WalletController {
 
         WithdrawalResponse response = WithdrawalResponse.from(withdrawalService.request(
                 principal.getId(),
-                request.amountCredits(),
+                request.amountHtg(),
                 request.provider(),
                 request.destinationNumber(),
                 request.otpCode()));

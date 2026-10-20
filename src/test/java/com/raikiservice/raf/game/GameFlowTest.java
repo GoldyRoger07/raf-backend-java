@@ -14,6 +14,7 @@ import com.raikiservice.raf.game.repository.GameSessionRepository;
 import com.raikiservice.raf.game.service.GameService;
 import com.raikiservice.raf.game.service.RankingService;
 import com.raikiservice.raf.game.web.dto.AnswerQuestionDto;
+import com.raikiservice.raf.game.web.dto.GameOutcomeResponse;
 import com.raikiservice.raf.game.web.dto.GameResultResponse;
 import com.raikiservice.raf.game.web.dto.GameReviewResponse;
 import com.raikiservice.raf.game.web.dto.GameStartResponse;
@@ -437,7 +438,7 @@ class GameFlowTest extends IntegrationTest {
         assertApiError(ErrorCode.GAME_RESULTS_NOT_READY,
                 () -> rankingService.leaderboard(quizId, first.getId(), PageRequest.of(0, 10)));
         assertApiError(ErrorCode.GAME_REVIEW_LOCKED,
-                () -> gameService.review(first.getId(), firstGame, false));
+                () -> gameService.outcome(first.getId(), firstGame));
 
         close(quizId);
         assertThat(rankingService.finalizeQuiz(null, quizId)).isTrue();
@@ -448,7 +449,7 @@ class GameFlowTest extends IntegrationTest {
         assertThat(board.totalRanked()).isEqualTo(3);
         assertThat(board.entries()).extracting(LeaderboardResponse.Entry::score)
                 .containsExactly(30, 20, 20);
-        assertThat(board.entries()).extracting(LeaderboardResponse.Entry::rewardCredits)
+        assertThat(board.entries()).extracting(LeaderboardResponse.Entry::rewardHtg)
                 .containsExactly(TestData.FIRST_PRIZE, TestData.SECOND_PRIZE, 0L);
         assertThat(board.me().rank()).isEqualTo(2);
         assertThat(board.entries().get(0).displayName()).endsWith(" T.");
@@ -460,7 +461,16 @@ class GameFlowTest extends IntegrationTest {
                         && t.getIdempotencyKey().startsWith("prize:quiz:" + quizId + ":"))
                 .hasSize(2);
 
-        GameReviewResponse review = gameService.review(first.getId(), firstGame, false);
+        GameOutcomeResponse outcome = gameService.outcome(first.getId(), firstGame);
+        assertThat(outcome.items()).hasSize(3).extracting(GameOutcomeResponse.Outcome::result)
+                .containsOnly(GameOutcomeResponse.Result.CORRECT);
+        // Le corrige du joueur ne porte que le resultat : ni enonce, ni reponse.
+        assertThat(GameOutcomeResponse.Outcome.class.getRecordComponents())
+                .extracting(c -> c.getName())
+                .containsExactly("position", "result");
+
+        // Le back-office garde le corrige detaille.
+        GameReviewResponse review = gameService.review(firstGame);
         assertThat(review.items()).hasSize(3).allSatisfy(item -> assertThat(item.correct()).isTrue());
     }
 

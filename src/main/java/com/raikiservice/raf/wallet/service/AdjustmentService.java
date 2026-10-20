@@ -30,9 +30,9 @@ public class AdjustmentService {
 
     @Transactional
     public WalletTransaction adjust(Long adminId, Long userId, BalanceType balanceType,
-            long signedAmountCredits, String reason) {
+            long signedAmount, String reason) {
 
-        if (signedAmountCredits == 0) {
+        if (signedAmount == 0) {
             throw new ApiException(ErrorCode.INVALID_AMOUNT, "Le montant ne peut pas etre nul.");
         }
 
@@ -41,16 +41,17 @@ public class AdjustmentService {
         String idempotencyKey = "adjustment:" + UUID.randomUUID();
         String description = "Ajustement administrateur : " + reason;
 
-        WalletTransaction transaction = signedAmountCredits > 0
-                ? walletService.credit(userId, balanceType, signedAmountCredits,
+        WalletTransaction transaction = signedAmount > 0
+                ? walletService.credit(userId, balanceType, signedAmount,
                         WalletTransactionType.ADJUSTMENT, "Admin", String.valueOf(adminId),
                         idempotencyKey, description)
-                : walletService.debit(userId, balanceType, -signedAmountCredits,
+                : walletService.debit(userId, balanceType, -signedAmount,
                         WalletTransactionType.ADJUSTMENT, "Admin", String.valueOf(adminId),
                         idempotencyKey, description);
 
         auditService.record(adminId, "WALLET_ADJUSTED", "User", String.valueOf(userId),
-                null, signedAmountCredits + " credits sur " + balanceType + " : " + reason);
+                null, signedAmount + (balanceType == BalanceType.WINNINGS ? " HTG" : " credits") + " sur "
+                        + balanceType + " : " + reason);
 
         return transaction;
     }

@@ -40,8 +40,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class WithdrawalService {
 
-    private static final long DEFAULT_MIN_CREDITS = 200L;
-    private static final long DEFAULT_MAX_PER_DAY = 20_000L;
+    private static final long DEFAULT_MIN_HTG = 1_000L;
+    private static final long DEFAULT_MAX_HTG_PER_DAY = 100_000L;
     private static final long DEFAULT_FEE_HTG = 25L;
 
     private final WithdrawalRequestRepository withdrawalRequestRepository;
@@ -61,7 +61,7 @@ public class WithdrawalService {
     }
 
     @Transactional
-    public WithdrawalRequest request(Long userId, long amountCredits, PaymentProvider provider,
+    public WithdrawalRequest request(Long userId, long amountHtg, PaymentProvider provider,
             String destinationNumber, String otpCode) {
 
         User user = loadUser(userId);
@@ -80,9 +80,8 @@ public class WithdrawalService {
             throw new ApiException(ErrorCode.WITHDRAWAL_PENDING_EXISTS);
         }
 
-        assertWithinLimits(userId, amountCredits);
+        assertWithinLimits(userId, amountHtg);
 
-        long amountHtg = walletService.creditsToHtg(amountCredits);
         long feeHtg = cash
                 ? settingsService.getLong(SettingKeys.WITHDRAWAL_COUNTER_FEE_HTG, DEFAULT_FEE_HTG)
                 : settingsService.getLong(SettingKeys.WITHDRAWAL_FEE_HTG, DEFAULT_FEE_HTG);
@@ -97,7 +96,6 @@ public class WithdrawalService {
 
         WithdrawalRequest request = new WithdrawalRequest();
         request.setUser(user);
-        request.setAmountCredits(amountCredits);
         request.setAmountHtg(amountHtg);
         request.setFeeHtg(feeHtg);
         request.setNetHtg(amountHtg - feeHtg);
@@ -112,7 +110,7 @@ public class WithdrawalService {
         WalletTransaction debit = walletService.debit(
                 userId,
                 BalanceType.WINNINGS,
-                amountCredits,
+                amountHtg,
                 WalletTransactionType.WITHDRAWAL,
                 "WithdrawalRequest",
                 String.valueOf(saved.getId()),
@@ -122,7 +120,7 @@ public class WithdrawalService {
         saved.setDebitTransactionId(debit.getId());
 
         auditService.record(userId, "WITHDRAWAL_REQUESTED", "WithdrawalRequest",
-                String.valueOf(saved.getId()), null, amountCredits + " credits");
+                String.valueOf(saved.getId()), null, amountHtg + " HTG");
 
         return saved;
     }
@@ -133,27 +131,25 @@ public class WithdrawalService {
      * plafond.
      */
     @Transactional(readOnly = true)
-    public void assertWithinLimits(Long userId, long amountCredits) {
-        if (amountCredits <= 0) {
+    public void assertWithinLimits(Long userId, long amountHtg) {
+        if (amountHtg <= 0) {
             throw new ApiException(ErrorCode.INVALID_AMOUNT);
         }
 
-        long minCredits = settingsService.getLong(
-                SettingKeys.WITHDRAWAL_MIN_CREDITS, DEFAULT_MIN_CREDITS);
-        if (amountCredits < minCredits) {
+        long minHtg = settingsService.getLong(SettingKeys.WITHDRAWAL_MIN_HTG, DEFAULT_MIN_HTG);
+        if (amountHtg < minHtg) {
             throw new ApiException(ErrorCode.WITHDRAWAL_BELOW_MINIMUM,
-                    "Le retrait minimum est de " + minCredits + " credits ("
-                            + walletService.creditsToHtg(minCredits) + " HTG).");
+                    "Le retrait minimum est de " + minHtg + " HTG.");
         }
 
         long maxPerDay = settingsService.getLong(
-                SettingKeys.WITHDRAWAL_MAX_CREDITS_PER_DAY, DEFAULT_MAX_PER_DAY);
+                SettingKeys.WITHDRAWAL_MAX_HTG_PER_DAY, DEFAULT_MAX_HTG_PER_DAY);
         long alreadyRequested = withdrawalRequestRepository.sumRequestedSince(
                 userId, Instant.now().minus(1, ChronoUnit.DAYS));
-        if (alreadyRequested + amountCredits > maxPerDay) {
+        if (alreadyRequested + amountHtg > maxPerDay) {
             throw new ApiException(ErrorCode.WITHDRAWAL_DAILY_LIMIT,
-                    "Plafond journalier de " + maxPerDay + " credits : il reste "
-                            + Math.max(0, maxPerDay - alreadyRequested) + " credit(s).");
+                    "Plafond journalier de " + maxPerDay + " HTG : il reste "
+                            + Math.max(0, maxPerDay - alreadyRequested) + " HTG.");
         }
     }
 
@@ -252,7 +248,7 @@ public class WithdrawalService {
         WalletTransaction refund = walletService.credit(
                 request.getUser().getId(),
                 BalanceType.WINNINGS,
-                request.getAmountCredits(),
+                request.getAmountHtg(),
                 WalletTransactionType.REFUND,
                 "WithdrawalRequest",
                 String.valueOf(withdrawalId),

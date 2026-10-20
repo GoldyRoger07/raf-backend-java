@@ -1,6 +1,11 @@
 package com.raikiservice.raf.common.settings;
 
+import java.util.Comparator;
+import java.util.List;
+
 import com.raikiservice.raf.common.audit.AuditService;
+import com.raikiservice.raf.common.error.ApiException;
+import com.raikiservice.raf.common.error.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +40,40 @@ public class SettingsService {
         return appSettingRepository.findByKey(key)
                 .map(AppSetting::getValue)
                 .orElse(defaultValue);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SettingResponse> list() {
+        return appSettingRepository.findAll().stream()
+                .sorted(Comparator.comparing(AppSetting::getKey))
+                .map(SettingResponse::from)
+                .toList();
+    }
+
+    /**
+     * Modification depuis le back-office : uniquement un parametre existant, et
+     * uniquement un entier au moins egal a son minimum. Une valeur illisible
+     * serait ignoree en silence a la lecture (retour a la valeur par defaut) :
+     * mieux vaut la refuser ici.
+     */
+    @Transactional
+    public SettingResponse updateByAdmin(Long actorUserId, String key, String rawValue) {
+        if (appSettingRepository.findByKey(key).isEmpty()) {
+            throw ApiException.notFound("Parametre");
+        }
+
+        long value;
+        try {
+            value = Long.parseLong(rawValue.trim());
+        } catch (NumberFormatException e) {
+            throw new ApiException(ErrorCode.SETTING_INVALID, "La valeur doit etre un nombre entier.");
+        }
+        long min = SettingKeys.minValue(key);
+        if (value < min) {
+            throw new ApiException(ErrorCode.SETTING_INVALID, "La valeur doit etre au moins " + min + ".");
+        }
+
+        return SettingResponse.from(update(actorUserId, key, String.valueOf(value)));
     }
 
     /** Modification tracee : ces valeurs pilotent des montants reels. */

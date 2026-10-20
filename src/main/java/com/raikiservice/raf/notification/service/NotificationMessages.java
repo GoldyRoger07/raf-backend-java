@@ -52,21 +52,20 @@ public final class NotificationMessages {
                         + "en credits. Motif : " + reason);
     }
 
-    public static NotificationMessage prizeWon(Quiz quiz, int rank, long rewardCredits, long htgRate) {
+    public static NotificationMessage prizeWon(Quiz quiz, int rank, long rewardHtg) {
         return new NotificationMessage(NotificationType.PRIZE_WON, "Felicitations, vous avez gagne !",
                 "Vous terminez " + ordinal(rank) + " de « " + quiz.getTitle() + " » et remportez "
-                        + rewardCredits * htgRate + " HTG, credites sur votre solde de gains.",
-                Map.of("quizId", quiz.getId(), "rank", rank, "rewardCredits", rewardCredits),
+                        + rewardHtg + " HTG, credites sur votre solde de gains.",
+                Map.of("quizId", quiz.getId(), "rank", rank, "rewardHtg", rewardHtg),
                 "/quiz/" + quiz.getId() + "/classement");
     }
 
     /** Sans-faute en solo : meme type que les gains du classement, memes preferences. */
-    public static NotificationMessage soloPrizeWon(Quiz quiz, Long sessionId, long prizeCredits,
-            long htgRate) {
+    public static NotificationMessage soloPrizeWon(Quiz quiz, Long sessionId, long prizeHtg) {
         return new NotificationMessage(NotificationType.PRIZE_WON, "Sans-faute, vous avez gagne !",
                 "Toutes vos reponses a « " + quiz.getTitle() + " » sont justes : vous remportez "
-                        + prizeCredits * htgRate + " HTG, credites sur votre solde de gains.",
-                Map.of("quizId", quiz.getId(), "sessionId", sessionId, "rewardCredits", prizeCredits),
+                        + prizeHtg + " HTG, credites sur votre solde de gains.",
+                Map.of("quizId", quiz.getId(), "sessionId", sessionId, "rewardHtg", prizeHtg),
                 "/portefeuille");
     }
 

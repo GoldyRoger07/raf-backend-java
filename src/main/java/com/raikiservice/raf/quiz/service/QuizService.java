@@ -31,6 +31,7 @@ import com.raikiservice.raf.quiz.repository.QuizTopicRepository;
 import com.raikiservice.raf.quiz.repository.TicketRepository;
 import com.raikiservice.raf.quiz.web.dto.QuizDto;
 import com.raikiservice.raf.quiz.web.dto.QuizResponse;
+import com.raikiservice.raf.quiz.web.dto.RewardTierDto;
 import com.raikiservice.raf.quiz.web.dto.SoloQuizDto;
 import com.raikiservice.raf.wallet.service.WalletService;
 
@@ -214,6 +215,64 @@ public class QuizService {
         return quiz;
     }
 
+    /**
+     * Copie un quiz, quel que soit son etat, dans un nouveau brouillon : memes
+     * regles, memes recompenses, memes sujets soumis au vote. Rien de son
+     * historique (tickets, votes, parties, vivier fige) n'est repris : le quiz
+     * d'origine garde le sien intact.
+     */
+    @Transactional
+    public Quiz duplicate(Long actorId, Long quizId) {
+        Quiz source = require(quizId);
+
+        Quiz copy = new Quiz();
+        copy.setCreatedBy(actorId);
+        String title = source.getTitle() + " (copie)";
+        copy.setTitle(title.length() > 160 ? title.substring(0, 160) : title);
+        copy.setSlug(uniqueSlug(copy.getTitle()));
+        copy.setDescription(source.getDescription());
+        copy.setThemeLabel(source.getThemeLabel());
+        copy.setBanner(source.getBanner());
+        copy.setGameMode(source.getGameMode());
+        copy.setTopicMode(source.getTopicMode());
+        // En mode vote, le sujet retenu est le resultat du vote : la copie revotera.
+        copy.setSelectedCategory(source.getTopicMode() == TopicMode.VOTE ? null : source.getSelectedCategory());
+        copy.setTicketPriceCredits(source.getTicketPriceCredits());
+        copy.setMinPlayers(source.getMinPlayers());
+        copy.setMaxTicketsTotal(source.getMaxTicketsTotal());
+        copy.setMaxTicketsPerPlayer(source.getMaxTicketsPerPlayer());
+        copy.setStartDelayMinutes(source.getStartDelayMinutes());
+        copy.setPlayMode(source.getPlayMode());
+        copy.setQuestionDurationSeconds(source.getQuestionDurationSeconds());
+        copy.setQuestionsPerGame(source.getQuestionsPerGame());
+        copy.setPointsPerCorrect(source.getPointsPerCorrect());
+        copy.setSoloPrizeHtg(source.getSoloPrizeHtg());
+        copy.setMinScoreThreshold(source.getMinScoreThreshold());
+        copy.setClosingCountdownMinutes(source.getClosingCountdownMinutes());
+        Quiz saved = quizRepository.save(copy);
+
+        for (QuizTopic topic : quizTopicRepository.findByQuizIdOrderByVoteCountDescIdAsc(quizId)) {
+            QuizTopic copied = new QuizTopic();
+            copied.setQuiz(saved);
+            copied.setCategory(topic.getCategory());
+            copied.setLabel(topic.getLabel());
+            copied.setMedia(topic.getMedia());
+            quizTopicRepository.save(copied);
+        }
+
+        List<RewardTierDto> tiers = rewardService.forQuiz(quizId).stream()
+                .map(reward -> new RewardTierDto(reward.getRankFrom(), reward.getRankTo(),
+                        reward.getAmountHtg(), reward.getLabel()))
+                .toList();
+        if (!tiers.isEmpty()) {
+            rewardService.configure(actorId, saved, tiers);
+        }
+
+        auditService.record(actorId, "QUIZ_DUPLICATED", "Quiz", String.valueOf(saved.getId()),
+                String.valueOf(quizId), copy.getTitle());
+        return saved;
+    }
+
     // --- Solo ---------------------------------------------------------------------
 
     @Transactional
@@ -305,7 +364,7 @@ public class QuizService {
         quiz.setBanner(request.bannerMediaId() == null ? null
                 : mediaService.require(request.bannerMediaId()));
         quiz.setTicketPriceCredits(request.entryPriceCredits());
-        quiz.setSoloPrizeCredits(request.prizeCredits());
+        quiz.setSoloPrizeHtg(request.prizeHtg());
         // Chaque partie engage de l'argent et un sans-faute en rapporte : le joueur
         // ne doit jamais voir une question avant son tour.
         quiz.setPlayMode(PlayMode.SEQUENTIAL);

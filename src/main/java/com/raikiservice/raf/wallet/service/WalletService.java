@@ -122,9 +122,10 @@ public class WalletService {
         long updated = current + signedAmount;
 
         if (updated < 0) {
+            String unit = balanceType == BalanceType.WINNINGS ? " HTG" : " credit(s)";
             throw new ApiException(ErrorCode.INSUFFICIENT_FUNDS,
-                    "Solde insuffisant : " + current + " credit(s) disponible(s), "
-                            + Math.abs(signedAmount) + " demande(s).");
+                    "Solde insuffisant : " + current + unit + " disponible(s), "
+                            + Math.abs(signedAmount) + unit + " demande(s).");
         }
 
         wallet.setBalanceOf(balanceType, updated);

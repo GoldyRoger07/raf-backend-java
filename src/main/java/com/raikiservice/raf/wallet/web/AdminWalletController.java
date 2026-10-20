@@ -152,7 +152,7 @@ public class AdminWalletController {
             @PathVariable Long userId, @Valid @RequestBody AdjustmentDto request) {
         return TransactionResponse.from(adjustmentService.adjust(
                 admin.getId(), userId, request.balanceType(),
-                request.amountCredits(), request.reason()));
+                request.amount(), request.reason()));
     }
 
     @GetMapping("/users/{userId}")

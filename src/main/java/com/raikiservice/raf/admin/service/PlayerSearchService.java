@@ -93,7 +93,6 @@ public class PlayerSearchService {
                 rs.getTimestamp("phone_verified_at") != null,
                 rs.getLong("credit_balance"),
                 winnings,
-                winnings * rate,
                 rs.getTimestamp("created_at").toInstant());
     }
 }

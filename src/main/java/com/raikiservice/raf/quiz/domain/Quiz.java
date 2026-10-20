@@ -95,9 +95,9 @@ public class Quiz extends AuditableEntity {
     @Column(name = "points_per_correct", nullable = false)
     private int pointsPerCorrect = 10;
 
-    /** SOLO : prix verse pour un sans-faute. Null en GROUP. */
-    @Column(name = "solo_prize_credits")
-    private Long soloPrizeCredits;
+    /** SOLO : prix verse pour un sans-faute, en HTG. Null en GROUP. */
+    @Column(name = "solo_prize_htg")
+    private Long soloPrizeHtg;
 
     /** Premier joueur a le depasser : declenche le compte a rebours de cloture. */
     @Column(name = "min_score_threshold", nullable = false)

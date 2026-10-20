@@ -28,8 +28,9 @@ public record SoloQuizDto(
         @Min(value = 1, message = "Le prix d'une partie doit etre positif.")
         int entryPriceCredits,
 
+        /** En HTG : c'est ce qui arrive sur les gains, retirables, du joueur. */
         @Min(value = 1, message = "Le prix d'un sans-faute doit etre positif.")
-        long prizeCredits,
+        long prizeHtg,
 
         @Min(value = 1, message = "Il faut au moins une question par partie.")
         int questionsPerGame,

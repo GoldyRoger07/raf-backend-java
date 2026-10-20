@@ -34,6 +34,7 @@ import com.raikiservice.raf.game.repository.GameAnswerRepository;
 import com.raikiservice.raf.game.repository.GameSessionQuestionRepository;
 import com.raikiservice.raf.game.repository.GameSessionRepository;
 import com.raikiservice.raf.game.web.dto.AnswerQuestionDto;
+import com.raikiservice.raf.game.web.dto.GameOutcomeResponse;
 import com.raikiservice.raf.game.web.dto.GameResultResponse;
 import com.raikiservice.raf.game.web.dto.GameReviewResponse;
 import com.raikiservice.raf.game.web.dto.GameStartResponse;
@@ -264,7 +265,7 @@ public class GameService {
         session.setSoloDay(day);
         session.setEntryPriceCredits(quiz.getTicketPriceCredits());
         session.setEntryTransactionId(entry.getId());
-        session.setPrizeCredits(quiz.getSoloPrizeCredits());
+        session.setPrizeHtg(quiz.getSoloPrizeHtg());
 
         GameStartResponse response = deal(quiz, session, now);
         entry.setReferenceId(String.valueOf(session.getId()));
@@ -786,7 +787,7 @@ public class GameService {
         WalletTransaction prize = walletService.credit(
                 session.getUser().getId(),
                 BalanceType.WINNINGS,
-                session.getPrizeCredits(),
+                session.getPrizeHtg(),
                 WalletTransactionType.PRIZE,
                 "GameSession",
                 String.valueOf(session.getId()),
@@ -798,9 +799,9 @@ public class GameService {
 
         notificationService.notifyUser(session.getUser().getId(),
                 NotificationMessages.soloPrizeWon(session.getQuiz(), session.getId(),
-                        session.getPrizeCredits(), walletService.htgRate()));
-        log.info("Partie solo {} : sans-faute, {} credit(s) verse(s)", session.getId(),
-                session.getPrizeCredits());
+                        session.getPrizeHtg()));
+        log.info("Partie solo {} : sans-faute, {} HTG verses", session.getId(),
+                session.getPrizeHtg());
     }
 
     /**
@@ -881,22 +882,55 @@ public class GameService {
     }
 
     /**
-     * Corrige detaille. Pour un joueur, uniquement une fois le quiz termine :
-     * avant, le corrige d'un joueur deviendrait l'antiseche des suivants.
+     * Corrige du joueur : juste, fausse ou sans reponse, question par question.
+     *
+     * <p>Jamais l'enonce ni la bonne reponse : les questions restent dans le
+     * vivier, et un corrige partage deviendrait l'antiseche des suivants (et, en
+     * solo, de quiconque rejoue le sujet). Uniquement une fois le quiz termine
+     * (groupe) ou ferme (solo).
      */
     @Transactional(readOnly = true)
-    public GameReviewResponse review(Long viewerId, Long sessionId, boolean staff) {
+    public GameOutcomeResponse outcome(Long viewerId, Long sessionId) {
         GameSession session = gameSessionRepository.findById(sessionId)
                 .orElseThrow(() -> ApiException.notFound("Partie"));
 
-        if (!staff) {
-            if (!session.getUser().getId().equals(viewerId)) {
-                throw ApiException.notFound("Partie");
-            }
-            if (session.getQuiz().getStatus() != QuizStatus.FINISHED) {
-                throw new ApiException(ErrorCode.GAME_REVIEW_LOCKED);
-            }
+        if (!session.getUser().getId().equals(viewerId)) {
+            throw ApiException.notFound("Partie");
         }
+        if (session.getQuiz().getStatus() != QuizStatus.FINISHED) {
+            throw new ApiException(ErrorCode.GAME_REVIEW_LOCKED);
+        }
+
+        Map<Long, GameAnswer> answers = gameAnswerRepository.findBySessionId(sessionId).stream()
+                .collect(Collectors.toMap(GameAnswer::getQuestionId, Function.identity()));
+
+        List<GameOutcomeResponse.Outcome> items = new ArrayList<>();
+        for (GameSessionQuestion draw : gameSessionQuestionRepository.findBySessionIdOrderByPositionAsc(sessionId)) {
+            GameAnswer answer = answers.get(draw.getQuestion().getId());
+            GameOutcomeResponse.Result result = answer == null || answer.getChoiceId() == null
+                    ? GameOutcomeResponse.Result.UNANSWERED
+                    : answer.isCorrect() ? GameOutcomeResponse.Result.CORRECT : GameOutcomeResponse.Result.WRONG;
+            items.add(new GameOutcomeResponse.Outcome(draw.getPosition(), result));
+        }
+
+        return new GameOutcomeResponse(
+                session.getId(),
+                session.getQuiz().getId(),
+                session.getStatus(),
+                session.getScore(),
+                session.getCorrectCount(),
+                session.getAnsweredCount(),
+                items);
+    }
+
+    /**
+     * Corrige detaille (enonces, propositions, bonne reponse, temps), reserve au
+     * back-office : il sert a juger une partie signalee.
+     */
+    @Transactional(readOnly = true)
+    public GameReviewResponse review(Long sessionId) {
+        GameSession session = gameSessionRepository.findById(sessionId)
+                .orElseThrow(() -> ApiException.notFound("Partie"));
 
         List<GameSessionQuestion> draws =
                 gameSessionQuestionRepository.findBySessionIdOrderByPositionAsc(sessionId);

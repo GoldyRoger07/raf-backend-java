@@ -13,7 +13,6 @@ public record PlayerSummary(
         boolean emailVerified,
         boolean phoneVerified,
         long creditBalance,
-        long winningsBalance,
         long winningsBalanceHtg,
         Instant createdAt) {
 }

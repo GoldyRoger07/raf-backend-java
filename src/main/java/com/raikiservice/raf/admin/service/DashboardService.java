@@ -64,7 +64,7 @@ public class DashboardService {
                 ticketSales, ticketSales * rate,
                 count("SELECT COUNT(*) FROM tickets WHERE purchased_at >= ? AND status <> 'REFUNDED'",
                         since30),
-                prizes, prizes * rate,
+                prizes,
                 topUps, topUps * rate,
                 count("SELECT COALESCE(SUM(net_htg), 0) FROM withdrawal_requests "
                         + "WHERE status = 'PAID' AND paid_at >= ?", since30));
@@ -88,7 +88,7 @@ public class DashboardService {
                         rs.getInt("finding_count")));
 
         return new DashboardResponse(now, rate, players, quizzes,
-                new DashboardResponse.Money(credits, credits * rate, winnings, winnings * rate),
+                new DashboardResponse.Money(credits, credits * rate, winnings),
                 activity, pending, last.isEmpty() ? null : last.get(0));
     }
 

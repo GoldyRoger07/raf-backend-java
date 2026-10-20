@@ -16,8 +16,9 @@ import jakarta.validation.constraints.Pattern;
  */
 public record WithdrawalRequestDto(
 
+        /** Montant retire des gains, en HTG, frais compris. */
         @Min(value = 1, message = "Le montant doit etre positif.")
-        long amountCredits,
+        long amountHtg,
 
         @NotNull(message = "L'operateur est obligatoire.")
         PaymentProvider provider,

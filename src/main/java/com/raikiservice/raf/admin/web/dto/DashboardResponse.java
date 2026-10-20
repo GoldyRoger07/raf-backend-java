@@ -21,12 +21,12 @@ public record DashboardResponse(
     }
 
     /** Ce qui est en circulation : les gains sont ce que la plateforme doit aux joueurs. */
-    public record Money(long creditBalance, long creditBalanceHtg, long winningsBalance,
-            long winningsBalanceHtg) {
+    /** Gains : directement en HTG. */
+    public record Money(long creditBalance, long creditBalanceHtg, long winningsBalanceHtg) {
     }
 
     public record Activity(long ticketSalesCredits, long ticketSalesHtg, long ticketsSold,
-            long prizesPaidCredits, long prizesPaidHtg, long topUpsCredits, long topUpsHtg,
+            long prizesPaidHtg, long topUpsCredits, long topUpsHtg,
             long withdrawalsPaidHtg) {
     }
 

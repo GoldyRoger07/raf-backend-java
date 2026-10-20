@@ -104,9 +104,9 @@ class ReconciliationTest extends IntegrationTest {
     void aRejectedWithdrawalWithoutRefundIsDetected() {
         User agent = data.admin();
         User player = data.player();
-        data.credit(player.getId(), BalanceType.WINNINGS, 1000);
+        data.credit(player.getId(), BalanceType.WINNINGS, 5000);
         withdrawalService.sendWithdrawalOtp(player.getId());
-        WithdrawalRequest request = withdrawalService.request(player.getId(), 300,
+        WithdrawalRequest request = withdrawalService.request(player.getId(), 1500,
                 PaymentProvider.MONCASH, player.getPhone(), sms.lastCode(player.getPhone()));
         Long refundId = withdrawalService.reject(agent.getId(), request.getId(), "test")
                 .getRefundTransactionId();

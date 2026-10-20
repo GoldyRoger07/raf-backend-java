@@ -13,7 +13,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Portefeuille d'un joueur, en credits (entiers).
+ * Portefeuille d'un joueur : le solde de jeu en credits, le solde de gains en
+ * gourdes (entiers tous les deux).
  *
  * <p>Les deux soldes sont volontairement separes : voir {@link BalanceType}.
  * Toute modification passe par le service, sous verrou pessimiste, et laisse une
@@ -32,6 +33,7 @@ public class Wallet extends AuditableEntity {
     @Column(name = "credit_balance", nullable = false)
     private long creditBalance;
 
+    /** En HTG. */
     @Column(name = "winnings_balance", nullable = false)
     private long winningsBalance;
 
@@ -47,7 +49,4 @@ public class Wallet extends AuditableEntity {
         }
     }
 
-    public long totalBalance() {
-        return creditBalance + winningsBalance;
-    }
 }

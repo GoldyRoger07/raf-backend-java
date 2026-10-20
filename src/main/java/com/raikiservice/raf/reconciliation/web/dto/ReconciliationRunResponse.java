@@ -25,7 +25,6 @@ public record ReconciliationRunResponse(
         int findingCount,
         long totalCreditBalance,
         long totalCreditBalanceHtg,
-        long totalWinningsBalance,
         long totalWinningsBalanceHtg,
         String errorMessage,
         List<Finding> findings) {
@@ -50,7 +49,6 @@ public record ReconciliationRunResponse(
                 run.getTotalCreditBalance(),
                 run.getTotalCreditBalance() * htgRate,
                 run.getTotalWinningsBalance(),
-                run.getTotalWinningsBalance() * htgRate,
                 run.getErrorMessage(),
                 findings == null ? null : findings.stream()
                         .map(f -> new Finding(f.getCheck(), f.getCheck().getDescription(),

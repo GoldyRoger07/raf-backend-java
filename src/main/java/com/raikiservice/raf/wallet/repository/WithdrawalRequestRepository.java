@@ -30,7 +30,7 @@ public interface WithdrawalRequestRepository extends JpaRepository<WithdrawalReq
      * les demandes rejetees (le joueur a recupere son argent), et les retraits au
      * guichet non confirmes ou annules (rien n'a ete debite).
      */
-    @Query("select coalesce(sum(w.amountCredits), 0) from WithdrawalRequest w "
+    @Query("select coalesce(sum(w.amountHtg), 0) from WithdrawalRequest w "
             + "where w.user.id = :userId and w.createdAt >= :since "
             + "and w.status not in (com.raikiservice.raf.wallet.domain.WithdrawalStatus.REJECTED, "
             + "com.raikiservice.raf.wallet.domain.WithdrawalStatus.AWAITING_OTP, "

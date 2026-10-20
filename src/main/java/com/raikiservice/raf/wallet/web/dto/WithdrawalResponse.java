@@ -9,7 +9,6 @@ import com.raikiservice.raf.wallet.domain.WithdrawalStatus;
 public record WithdrawalResponse(
         Long id,
         Long userId,
-        long amountCredits,
         long amountHtg,
         long feeHtg,
         long netHtg,
@@ -29,7 +28,6 @@ public record WithdrawalResponse(
         return new WithdrawalResponse(
                 request.getId(),
                 request.getUser().getId(),
-                request.getAmountCredits(),
                 request.getAmountHtg(),
                 request.getFeeHtg(),
                 request.getNetHtg(),
