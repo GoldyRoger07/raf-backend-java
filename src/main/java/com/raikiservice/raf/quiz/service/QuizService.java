@@ -588,7 +588,9 @@ public class QuizService {
         quiz.setTicketPriceCredits(request.ticketPriceCredits());
         quiz.setMinPlayers(request.minPlayers());
         quiz.setMaxTicketsTotal(request.maxTicketsTotal());
-        quiz.setMaxTicketsPerPlayer(request.maxTicketsPerPlayer());
+        // Gratuit : un seul ticket par joueur. Sans cette limite, des tickets offerts
+        // a volonte permettraient de rejouer jusqu'au meilleur score.
+        quiz.setMaxTicketsPerPlayer(quiz.isFree() ? Integer.valueOf(1) : request.maxTicketsPerPlayer());
         quiz.setStartDelayMinutes(request.startDelayMinutes());
         quiz.setPlayMode(request.playMode() == null ? PlayMode.SEQUENTIAL : request.playMode());
         quiz.setQuestionDurationSeconds(request.questionDurationSeconds());

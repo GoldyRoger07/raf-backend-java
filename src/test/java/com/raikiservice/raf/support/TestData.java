@@ -184,13 +184,38 @@ public class TestData {
     }
 
     /**
+     * Quiz gratuit publie (ticket a 0 credit), memes recompenses que
+     * {@link #publishedQuiz}. Le plafond demande par joueur est ignore : un quiz
+     * gratuit en impose un seul.
+     */
+    public Long freeQuiz(Long categoryId, int questionsPerGame, int minPlayers, Integer maxTicketsPerPlayer) {
+        long n = SEQUENCE.incrementAndGet();
+        QuizDto dto = new QuizDto(
+                "Quiz gratuit " + RUN + " " + n, null, null, TopicMode.ADMIN, categoryId, null,
+                0, minPlayers, null, maxTicketsPerPlayer,
+                0, PlayMode.BATCH, QUESTION_SECONDS, questionsPerGame, 10, 1000, 1);
+
+        Quiz quiz = quizService.create(null, dto);
+        rewardService.configure(null, quiz, List.of(
+                new RewardTierDto(1, 1, FIRST_PRIZE, "1er"),
+                new RewardTierDto(2, 2, SECOND_PRIZE, "2e")));
+        quizService.publish(null, quiz.getId(), null);
+        return quiz.getId();
+    }
+
+    /**
      * Quiz solo ouvert (RUNNING) : partie a {@link #SOLO_ENTRY} credits, sans-faute
      * a {@link #SOLO_PRIZE}.
      */
     public Long soloQuiz(Long categoryId, int questionsPerGame) {
+        return soloQuiz(categoryId, questionsPerGame, SOLO_ENTRY);
+    }
+
+    /** Quiz solo ouvert ; {@code entryCredits} a 0 pour une partie gratuite. */
+    public Long soloQuiz(Long categoryId, int questionsPerGame, int entryCredits) {
         long n = SEQUENCE.incrementAndGet();
         Quiz quiz = quizService.createSolo(null, new SoloQuizDto(
-                "Solo " + RUN + " " + n, null, categoryId, null, SOLO_ENTRY, SOLO_PRIZE,
+                "Solo " + RUN + " " + n, null, categoryId, null, entryCredits, SOLO_PRIZE,
                 questionsPerGame, QUESTION_SECONDS));
         quizService.publish(null, quiz.getId(), null);
         return quiz.getId();

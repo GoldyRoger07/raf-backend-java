@@ -56,7 +56,10 @@ public class Quiz extends AuditableEntity {
     @JoinColumn(name = "selected_category_id")
     private Category selectedCategory;
 
-    /** GROUP : prix d'un ticket. SOLO : prix d'une partie, debite au lancement. */
+    /**
+     * GROUP : prix d'un ticket. SOLO : prix d'une partie, debite au lancement.
+     * 0 pour un quiz gratuit : rien n'est debite.
+     */
     @Column(name = "ticket_price_credits", nullable = false)
     private int ticketPriceCredits;
 
@@ -129,6 +132,11 @@ public class Quiz extends AuditableEntity {
 
     public boolean isSolo() {
         return gameMode == GameMode.SOLO;
+    }
+
+    /** Ticket ou partie offerts : aucun debit, mais les gains restent reels. */
+    public boolean isFree() {
+        return ticketPriceCredits == 0;
     }
 
     /**

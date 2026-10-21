@@ -28,7 +28,8 @@ public record QuizDto(
 
         Long bannerMediaId,
 
-        @Min(value = 1, message = "Le prix du ticket doit etre positif.")
+        /** 0 pour un quiz gratuit (un seul ticket par joueur). */
+        @Min(value = 0, message = "Le prix du ticket ne peut pas etre negatif.")
         int ticketPriceCredits,
 
         @Min(value = 1, message = "Le seuil de joueurs doit etre positif.")

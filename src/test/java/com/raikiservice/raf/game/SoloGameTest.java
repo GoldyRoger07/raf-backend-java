@@ -106,6 +106,24 @@ class SoloGameTest extends IntegrationTest {
     }
 
     @Test
+    void aFreeGameCostsNothingStillPaysThePrizeAndStaysOncePerDay() {
+        User player = data.player();
+        Long quizId = data.soloQuiz(categoryId, 3, 0);
+
+        // Aucun credit : la partie gratuite se lance quand meme.
+        GameResultResponse result = play(player, gameService.start(player.getId(), quizId, IP, UA), 3);
+
+        assertThat(result.won()).isTrue();
+        assertThat(data.balance(player.getId(), BalanceType.CREDIT)).isZero();
+        assertThat(data.balance(player.getId(), BalanceType.WINNINGS)).isEqualTo(TestData.SOLO_PRIZE);
+        assertApiError(ErrorCode.SOLO_ALREADY_PLAYED_TODAY,
+                () -> gameService.start(player.getId(), quizId, IP, UA));
+        assertThat(reconciliationService.run(ReconciliationTrigger.MANUAL, null).findings())
+                .filteredOn(finding -> player.getId().equals(finding.userId()))
+                .isEmpty();
+    }
+
+    @Test
     void notEnoughCreditsRefusesTheGame() {
         User player = data.player();
         Long quizId = data.soloQuiz(categoryId, 3);

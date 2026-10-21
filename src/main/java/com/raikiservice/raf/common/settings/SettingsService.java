@@ -45,6 +45,7 @@ public class SettingsService {
     @Transactional(readOnly = true)
     public List<SettingResponse> list() {
         return appSettingRepository.findAll().stream()
+                .filter(setting -> !SettingKeys.isSocial(setting.getKey()))
                 .sorted(Comparator.comparing(AppSetting::getKey))
                 .map(SettingResponse::from)
                 .toList();
@@ -58,7 +59,7 @@ public class SettingsService {
      */
     @Transactional
     public SettingResponse updateByAdmin(Long actorUserId, String key, String rawValue) {
-        if (appSettingRepository.findByKey(key).isEmpty()) {
+        if (SettingKeys.isSocial(key) || appSettingRepository.findByKey(key).isEmpty()) {
             throw ApiException.notFound("Parametre");
         }
 

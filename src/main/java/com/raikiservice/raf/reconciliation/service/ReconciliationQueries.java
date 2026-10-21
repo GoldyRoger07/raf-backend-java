@@ -47,11 +47,12 @@ final class ReconciliationQueries {
 
         // Chaque operation metier doit pointer vers le bon mouvement : bon type, bon
         // solde, bon montant, et le portefeuille de son proprietaire.
+        // Un ticket ou une partie solo offerts (prix a 0) n'ont aucun mouvement.
         queries.add(link(ReconciliationCheck.TICKET_DEBIT, "tickets", "Ticket", "transaction_id",
-                "TRUE", "TICKET_PURCHASE", "CREDIT", "-b.price_paid_credits"));
+                "b.price_paid_credits > 0", "TICKET_PURCHASE", "CREDIT", "-b.price_paid_credits"));
         queries.add(link(ReconciliationCheck.TICKET_REFUND, "tickets", "Ticket",
-                "refund_transaction_id", "b.status = 'REFUNDED'", "REFUND", "CREDIT",
-                "b.price_paid_credits"));
+                "refund_transaction_id", "b.status = 'REFUNDED' AND b.price_paid_credits > 0", "REFUND",
+                "CREDIT", "b.price_paid_credits"));
         queries.add(link(ReconciliationCheck.TOPUP_CREDIT, "topup_requests", "TopUpRequest",
                 "transaction_id", "b.status = 'CONFIRMED'", "TOPUP", "CREDIT", "b.credits"));
         queries.add(link(ReconciliationCheck.WITHDRAWAL_DEBIT, "withdrawal_requests",
@@ -64,14 +65,20 @@ final class ReconciliationQueries {
         queries.add(link(ReconciliationCheck.PRIZE_PAYMENT, "quiz_rankings", "QuizRanking",
                 "transaction_id", "b.reward_htg > 0", "PRIZE", "WINNINGS", "b.reward_htg"));
         queries.add(link(ReconciliationCheck.SOLO_ENTRY_DEBIT, "game_sessions", "GameSession",
-                "entry_transaction_id", "b.game_mode = 'SOLO'", "SOLO_ENTRY", "CREDIT",
-                "-b.entry_price_credits"));
+                "entry_transaction_id", "b.game_mode = 'SOLO' AND b.entry_price_credits > 0", "SOLO_ENTRY",
+                "CREDIT", "-b.entry_price_credits"));
         queries.add(link(ReconciliationCheck.SOLO_PRIZE_PAYMENT, "game_sessions", "GameSession",
                 "prize_transaction_id", "b.won = TRUE", "PRIZE", "WINNINGS", "b.prize_htg"));
 
         // Un mouvement la ou il ne devait pas y en avoir.
         queries.add(unexpected("tickets", "Ticket", "refund_transaction_id",
                 "b.status <> 'REFUNDED'", "Ticket non rembourse portant un remboursement"));
+        queries.add(unexpected("tickets", "Ticket", "transaction_id",
+                "b.price_paid_credits = 0", "Ticket offert portant un debit"));
+        queries.add(unexpected("tickets", "Ticket", "refund_transaction_id",
+                "b.price_paid_credits = 0", "Ticket offert portant un remboursement"));
+        queries.add(unexpected("game_sessions", "GameSession", "entry_transaction_id",
+                "b.entry_price_credits = 0", "Partie solo offerte portant un debit"));
         queries.add(unexpected("topup_requests", "TopUpRequest", "transaction_id",
                 "b.status <> 'CONFIRMED'", "Recharge non confirmee portant un credit"));
         queries.add(unexpected("withdrawal_requests", "WithdrawalRequest", "debit_transaction_id",

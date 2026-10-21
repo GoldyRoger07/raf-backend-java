@@ -18,6 +18,16 @@ public final class SettingKeys {
     public static final String AI_MAX_QUESTIONS_PER_REQUEST = "ai.max_questions_per_request";
     public static final String AI_MAX_REQUESTS_PER_DAY = "ai.max_requests_per_day";
 
+    /** Reseaux sociaux : ni des entiers ni reserves au super-administrateur, voir SocialService. */
+    public static final String INSTAGRAM_ENABLED = "social.instagram.enabled";
+    public static final String INSTAGRAM_URL = "social.instagram.url";
+    private static final String SOCIAL_PREFIX = "social.";
+
+    /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */
+    public static boolean isSocial(String key) {
+        return key.startsWith(SOCIAL_PREFIX);
+    }
+
     /**
      * Valeur minimale acceptee depuis le back-office. Tous les parametres sont des
      * entiers ; ceux qui servent de diviseur ou de seuil d'existence (valeur du

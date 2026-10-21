@@ -32,6 +32,8 @@ public record QuizResponse(
         String selectedCategoryName,
         int ticketPriceCredits,
         long ticketPriceHtg,
+        /** Ticket ou partie offerts (prix a 0). */
+        boolean free,
         int minPlayers,
         Integer maxTicketsTotal,
         Integer maxTicketsPerPlayer,
@@ -84,6 +86,7 @@ public record QuizResponse(
                 quiz.getSelectedCategory() == null ? null : quiz.getSelectedCategory().getName(),
                 quiz.getTicketPriceCredits(),
                 quiz.getTicketPriceCredits() * htgRate,
+                quiz.isFree(),
                 quiz.getMinPlayers(),
                 quiz.getMaxTicketsTotal(),
                 quiz.getMaxTicketsPerPlayer(),

@@ -25,7 +25,8 @@ public record SoloQuizDto(
 
         Long bannerMediaId,
 
-        @Min(value = 1, message = "Le prix d'une partie doit etre positif.")
+        /** 0 pour un quiz gratuit. */
+        @Min(value = 0, message = "Le prix d'une partie ne peut pas etre negatif.")
         int entryPriceCredits,
 
         /** En HTG : c'est ce qui arrive sur les gains, retirables, du joueur. */

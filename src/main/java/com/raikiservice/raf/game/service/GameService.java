@@ -240,35 +240,43 @@ public class GameService {
             throw new ApiException(ErrorCode.SOLO_ALREADY_PLAYED_TODAY);
         }
 
-        WalletTransaction entry = walletService.debit(
-                userId,
-                BalanceType.CREDIT,
-                quiz.getTicketPriceCredits(),
-                WalletTransactionType.SOLO_ENTRY,
-                "GameSession",
-                null,
-                "solo:" + userId + ":" + subject.getId() + ":" + day,
-                "Partie solo : " + quiz.getTitle());
+        // Quiz gratuit : pas de debit. Sans le verrou du portefeuille, deux clics
+        // simultanes passent tous deux le controle ci-dessus ; la contrainte unique
+        // (joueur, sujet, jour) refuse alors la seconde partie (409).
+        WalletTransaction entry = null;
+        if (!quiz.isFree()) {
+            entry = walletService.debit(
+                    userId,
+                    BalanceType.CREDIT,
+                    quiz.getTicketPriceCredits(),
+                    WalletTransactionType.SOLO_ENTRY,
+                    "GameSession",
+                    null,
+                    "solo:" + userId + ":" + subject.getId() + ":" + day,
+                    "Partie solo : " + quiz.getTitle());
 
-        // Debit deja present : une requete concurrente a paye et cree la partie
-        // pendant que celle-ci attendait le verrou du portefeuille (lecture a jour
-        // sous READ COMMITTED). On la reprend si elle est encore ouverte.
-        Optional<GameSession> concurrent = gameSessionRepository.findByEntryTransactionId(entry.getId());
-        if (concurrent.isPresent()) {
-            return concurrent
-                    .filter(session -> session.isOpenAt(now))
-                    .map(session -> view(session, true, now))
-                    .orElseThrow(() -> new ApiException(ErrorCode.SOLO_ALREADY_PLAYED_TODAY));
+            // Debit deja present : une requete concurrente a paye et cree la partie
+            // pendant que celle-ci attendait le verrou du portefeuille (lecture a jour
+            // sous READ COMMITTED). On la reprend si elle est encore ouverte.
+            Optional<GameSession> concurrent = gameSessionRepository.findByEntryTransactionId(entry.getId());
+            if (concurrent.isPresent()) {
+                return concurrent
+                        .filter(session -> session.isOpenAt(now))
+                        .map(session -> view(session, true, now))
+                        .orElseThrow(() -> new ApiException(ErrorCode.SOLO_ALREADY_PLAYED_TODAY));
+            }
         }
 
         GameSession session = newSession(quiz, user, GameMode.SOLO, now, ip, userAgent);
         session.setSoloDay(day);
         session.setEntryPriceCredits(quiz.getTicketPriceCredits());
-        session.setEntryTransactionId(entry.getId());
+        session.setEntryTransactionId(entry == null ? null : entry.getId());
         session.setPrizeHtg(quiz.getSoloPrizeHtg());
 
         GameStartResponse response = deal(quiz, session, now);
-        entry.setReferenceId(String.valueOf(session.getId()));
+        if (entry != null) {
+            entry.setReferenceId(String.valueOf(session.getId()));
+        }
         return response;
     }
 

@@ -129,17 +129,22 @@ public class TicketService {
 
         Ticket saved = ticketRepository.save(ticket);
 
-        WalletTransaction debit = walletService.debit(
-                userId,
-                BalanceType.CREDIT,
-                quiz.getTicketPriceCredits(),
-                WalletTransactionType.TICKET_PURCHASE,
-                "Ticket",
-                String.valueOf(saved.getId()),
-                "ticket:" + saved.getId(),
-                "Ticket pour le quiz " + quiz.getTitle());
+        // Quiz gratuit : pas de debit, donc pas de mouvement (un mouvement de 0
+        // n'existe pas). Le verrou du quiz suffit a faire respecter la limite d'un
+        // ticket par joueur.
+        if (!quiz.isFree()) {
+            WalletTransaction debit = walletService.debit(
+                    userId,
+                    BalanceType.CREDIT,
+                    quiz.getTicketPriceCredits(),
+                    WalletTransactionType.TICKET_PURCHASE,
+                    "Ticket",
+                    String.valueOf(saved.getId()),
+                    "ticket:" + saved.getId(),
+                    "Ticket pour le quiz " + quiz.getTitle());
 
-        saved.setTransactionId(debit.getId());
+            saved.setTransactionId(debit.getId());
+        }
 
         maybeReachThreshold(quiz);
 
@@ -185,6 +190,11 @@ public class TicketService {
                 quiz.getId(), TicketStatus.ACTIVE);
 
         for (Ticket ticket : tickets) {
+            if (ticket.getPricePaidCredits() == 0) {
+                // Ticket offert : rien a rendre.
+                ticket.setStatus(TicketStatus.REFUNDED);
+                continue;
+            }
             WalletTransaction refund = walletService.credit(
                     ticket.getUser().getId(),
                     BalanceType.CREDIT,
