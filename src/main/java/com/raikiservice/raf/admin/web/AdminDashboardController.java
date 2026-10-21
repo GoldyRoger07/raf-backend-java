@@ -1,8 +1,10 @@
 package com.raikiservice.raf.admin.web;
 
 import com.raikiservice.raf.admin.service.DashboardService;
+import com.raikiservice.raf.admin.service.GameProfitService;
 import com.raikiservice.raf.admin.service.PlayerSearchService;
 import com.raikiservice.raf.admin.web.dto.DashboardResponse;
+import com.raikiservice.raf.admin.web.dto.GameProfitResponse;
 import com.raikiservice.raf.admin.web.dto.PlayerSummary;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,12 +26,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminDashboardController {
 
     private final DashboardService dashboardService;
+    private final GameProfitService gameProfitService;
     private final PlayerSearchService playerSearchService;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Chiffres cles et travail en attente")
     public DashboardResponse dashboard() {
         return dashboardService.dashboard();
+    }
+
+    @GetMapping("/dashboard/profit")
+    @Operation(summary = "Resultat du jeu sur une periode : ventes - remboursements - gains + frais de retrait")
+    public GameProfitResponse profit(
+            @RequestParam(defaultValue = "LAST_30_DAYS") GameProfitService.Period period) {
+        return gameProfitService.profit(period);
     }
 
     @GetMapping("/players")
