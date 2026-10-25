@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
@@ -76,6 +77,14 @@ public class GlobalExceptionHandler {
                         r.getMethodParameter().getParameterName(), e.getDefaultMessage())))
                 .toArray(ApiError.FieldError[]::new);
         return badRequest(ErrorCode.VALIDATION_ERROR, request, fields);
+    }
+
+    /** Fichier au-dela de spring.servlet.multipart.max-file-size : refuse avant le controleur. */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ResponseEntity<ApiError> handleUploadTooLarge(HttpServletRequest request) {
+        return ResponseEntity.status(ErrorCode.MEDIA_TOO_LARGE.getStatus()).body(ApiError.of(
+                ErrorCode.MEDIA_TOO_LARGE, ErrorCode.MEDIA_TOO_LARGE.getDefaultMessage(),
+                request.getRequestURI()));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

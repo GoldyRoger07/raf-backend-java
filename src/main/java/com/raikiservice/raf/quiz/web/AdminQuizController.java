@@ -7,6 +7,7 @@ import com.raikiservice.raf.quiz.domain.GameMode;
 import com.raikiservice.raf.quiz.domain.QuizStatus;
 import com.raikiservice.raf.quiz.service.QuizService;
 import com.raikiservice.raf.quiz.service.RewardService;
+import com.raikiservice.raf.quiz.service.SoloEconomicsService;
 import com.raikiservice.raf.quiz.service.VoteService;
 import com.raikiservice.raf.quiz.web.dto.CancelQuizDto;
 import com.raikiservice.raf.quiz.web.dto.QuizDto;
@@ -41,6 +42,7 @@ public class AdminQuizController {
 
     private final QuizService quizService;
     private final RewardService rewardService;
+    private final SoloEconomicsService soloEconomicsService;
     private final VoteService voteService;
 
     @PostMapping
@@ -73,6 +75,24 @@ public class AdminQuizController {
             @PathVariable Long id, @Valid @RequestBody SoloQuizDto request) {
         quizService.updateSolo(admin.getId(), id, request);
         return quizService.view(id);
+    }
+
+    /**
+     * Simulation pendant la saisie d'un quiz solo : taux de sans-faute estime sur
+     * les questions publiees du sujet, et marge attendue par partie.
+     */
+    @GetMapping("/solo/economics")
+    @Operation(summary = "Simuler le bilan d'un quiz solo avant de l'enregistrer")
+    public SoloEconomicsService.SoloEconomics previewSoloEconomics(@RequestParam Long categoryId,
+            @RequestParam int entryPriceCredits, @RequestParam long prizeHtg,
+            @RequestParam int questionsPerGame) {
+        return soloEconomicsService.preview(categoryId, entryPriceCredits, prizeHtg, questionsPerGame);
+    }
+
+    @GetMapping("/{id}/solo-economics")
+    @Operation(summary = "Bilan d'un quiz solo : estimation, et taux observe une fois ouvert")
+    public SoloEconomicsService.SoloEconomics soloEconomics(@PathVariable Long id) {
+        return soloEconomicsService.forQuiz(quizService.require(id));
     }
 
     @PostMapping("/{id}/duplicate")

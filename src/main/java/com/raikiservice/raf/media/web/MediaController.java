@@ -1,17 +1,18 @@
 package com.raikiservice.raf.media.web;
 
-import java.util.Map;
+import java.util.List;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.auth.web.dto.MessageResponse;
 import com.raikiservice.raf.media.service.MediaService;
 import com.raikiservice.raf.media.web.dto.MediaResponse;
-import com.raikiservice.raf.media.web.dto.RegisterMediaDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,7 +21,6 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,30 +35,12 @@ public class MediaController {
     private final MediaService mediaService;
 
     /**
-     * Signature courte permettant au frontend de televerser directement vers
-     * ImageKit. La cle privee ne quitte jamais le serveur.
+     * L'image est verifiee, reduite et reencodee par le serveur ; la reponse
+     * donne son adresse publique et celle de sa miniature.
      */
-    @GetMapping("/auth-params")
-    @Operation(summary = "Obtenir les parametres de televersement cote client")
-    public Map<String, Object> authParams() {
-        return mediaService.authenticationParameters();
-    }
-
-    @PostMapping
-    @Operation(summary = "Enregistrer une image deja televersee par le frontend")
-    public ResponseEntity<MediaResponse> register(@AuthenticationPrincipal UserPrincipal actor,
-            @Valid @RequestBody RegisterMediaDto request) {
-
-        MediaResponse response = MediaResponse.from(mediaService.register(
-                actor.getId(), request.imagekitFileId(), request.url(), request.thumbnailUrl(),
-                request.filePath(), request.mimeType(), request.sizeBytes(), request.folder()));
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
     @PostMapping(value = "/upload", consumes = "multipart/form-data")
     @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN', 'SUPER_ADMIN')")
-    @Operation(summary = "Televerser une image via le backend")
+    @Operation(summary = "Televerser une image (JPEG, PNG, WebP, GIF ; 5 Mo au plus)")
     public ResponseEntity<MediaResponse> upload(@AuthenticationPrincipal UserPrincipal actor,
             @RequestParam("file") MultipartFile file,
             @RequestParam(defaultValue = "raf") String folder) {
@@ -67,10 +49,25 @@ public class MediaController {
                 .body(MediaResponse.from(mediaService.upload(actor.getId(), file, folder)));
     }
 
+    @GetMapping
+    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Lister les images, les plus recentes d'abord, eventuellement d'un dossier")
+    public Page<MediaResponse> list(@RequestParam(required = false) String folder,
+            @PageableDefault(size = 24) Pageable pageable) {
+        return mediaService.list(folder, pageable);
+    }
+
+    @GetMapping("/folders")
+    @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Dossiers utilises par les images")
+    public List<String> folders() {
+        return mediaService.folders();
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Consulter une image")
     public MediaResponse get(@PathVariable Long id) {
-        return MediaResponse.from(mediaService.require(id));
+        return mediaService.view(id);
     }
 
     @DeleteMapping("/{id}")

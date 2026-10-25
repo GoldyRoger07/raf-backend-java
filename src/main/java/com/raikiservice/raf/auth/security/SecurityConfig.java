@@ -59,6 +59,8 @@ public class SecurityConfig {
                                 "/api/auth/password/reset")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
+                        // Images publiques : leur nom aleatoire est leur seule protection.
+                        .requestMatchers(HttpMethod.GET, "/media/**").permitAll()
                         .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",

@@ -9,6 +9,8 @@ public record CategoryResponse(
         String description,
         Long parentId,
         String imageUrl,
+        /** Pour que le back-office garde l'image en modifiant la categorie. */
+        Long mediaId,
         boolean active,
         boolean groupEnabled,
         boolean soloEnabled) {
@@ -21,6 +23,7 @@ public record CategoryResponse(
                 category.getDescription(),
                 category.getParent() == null ? null : category.getParent().getId(),
                 category.getMedia() == null ? null : category.getMedia().getUrl(),
+                category.getMedia() == null ? null : category.getMedia().getId(),
                 category.isActive(),
                 category.isGroupEnabled(),
                 category.isSoloEnabled());

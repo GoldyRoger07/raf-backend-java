@@ -32,8 +32,13 @@ build/
 ### VS Code ###
 .vscode/
 
+### Medias televerses en developpement (app.media.storage-dir)
+/data/
+
 ### Secrets locaux (ne jamais committer)
 .env.properties
 .env.dev.properties
 .env.prod.properties
+.env
+!.env.example
 !.env.properties.example

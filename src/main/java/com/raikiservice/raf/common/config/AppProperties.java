@@ -18,7 +18,7 @@ public record AppProperties(
         Mail mail,
         Otp otp,
         Verification verification,
-        ImageKit imagekit,
+        Media media,
         Push push,
         Ai ai) {
 
@@ -45,12 +45,12 @@ public record AppProperties(
         }
     }
 
-    public record ImageKit(String publicKey, String privateKey, String urlEndpoint) {
-
-        public boolean isConfigured() {
-            return privateKey != null && !privateKey.isBlank()
-                    && publicKey != null && !publicKey.isBlank();
-        }
+    /**
+     * Images stockees sur le disque du serveur. {@code publicUrl} : adresse a
+     * laquelle le dossier {@code storageDir} est servi (nginx en Docker, le
+     * backend lui-meme en developpement).
+     */
+    public record Media(String storageDir, String publicUrl) {
     }
 
     public record Jwt(String secret, String issuer, Duration accessTokenTtl, Duration refreshTokenTtl) {

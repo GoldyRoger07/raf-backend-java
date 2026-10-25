@@ -67,10 +67,9 @@ public enum ErrorCode {
     NOT_A_CASH_WITHDRAWAL(HttpStatus.CONFLICT,
             "Ce retrait n'est pas une remise en especes."),
 
-    MEDIA_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE,
-            "L'hebergement des images n'est pas configure sur ce serveur."),
-    MEDIA_UPLOAD_FAILED(HttpStatus.BAD_GATEWAY, "Le televersement de l'image a echoue."),
+    MEDIA_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "L'enregistrement de l'image a echoue."),
     MEDIA_TYPE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "Ce type de fichier n'est pas accepte."),
+    MEDIA_IMAGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "L'image est trop grande (dimensions)."),
     MEDIA_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "Le fichier depasse la taille autorisee."),
 
     CATEGORY_HAS_QUESTIONS(HttpStatus.CONFLICT,

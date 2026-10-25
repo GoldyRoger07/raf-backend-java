@@ -58,6 +58,21 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
     long countByCategoryIdAndStatus(Long categoryId, QuestionStatus status);
 
+    /** Compteurs d'usage d'une question : sa difficulte reelle, vue par les joueurs. */
+    interface UsageStats {
+        Difficulty getDifficulty();
+
+        int getTimesServed();
+
+        int getTimesCorrect();
+    }
+
+    @Query("select q.difficulty as difficulty, q.timesServed as timesServed, "
+            + "q.timesCorrect as timesCorrect from Question q "
+            + "where q.category.id = :categoryId and q.status = :status")
+    List<UsageStats> usageStats(@Param("categoryId") Long categoryId,
+            @Param("status") QuestionStatus status);
+
     long countByCategoryIdAndStatusAndDifficulty(Long categoryId, QuestionStatus status,
             Difficulty difficulty);
 

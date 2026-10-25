@@ -4,7 +4,7 @@ Quiz payant en ligne. Les joueurs achètent des tickets avec des crédits, jouen
 partie chronométrée, et les meilleurs scores remportent des récompenses.
 
 **Stack** : Spring Boot 4.1, Java 21, MySQL 8, Flyway, JWT (JJWT), Resend (email),
-Web Push VAPID, ImageKit (médias).
+Web Push VAPID, médias stockés sur le serveur (volume Docker servi par nginx).
 
 ---
 
@@ -46,7 +46,7 @@ com.raikiservice.raf
 ├── quiz/            Quiz, sujets, votes, récompenses, tickets
 ├── game/            Sessions de jeu, réponses, scoring, classement
 ├── notification/    In-app, email (Resend), web push (VAPID)
-├── media/           Intégration ImageKit
+├── media/           Images : vérification, réencodage, stockage disque
 └── admin/           Back-office, statistiques, journal d'audit
 ```
 
@@ -235,7 +235,7 @@ com.raikiservice.raf
 
 **push_subscriptions** — `id, user_id, endpoint TEXT, p256dh, auth_key, user_agent, created_at, last_used_at`
 
-**media_files** — `id, imagekit_file_id, url, thumbnail_url, folder, mime_type, size_bytes, uploaded_by, created_at`
+**media_files** — `id, storage_key, thumbnail_key, folder, mime_type, size_bytes, width, height, uploaded_by, created_at`
 
 ### 3.7 Transverse
 
@@ -567,10 +567,16 @@ question;reponse_a;reponse_b;reponse_c;reponse_d;bonne_reponse;difficulte;explic
 `reponse_c` et `reponse_d` vides pour une question vrai/faux. Une ligne fautive est
 rejetee et motivee dans le rapport, sans interrompre l'import.
 
-**ImageKit.** Deux voies : le frontend televerse directement avec une signature
-courte obtenue sur `/api/media/auth-params` (la cle privee ne sort jamais du
-serveur), ou le backend televerse lui-meme pour les flux administratifs. Sans cles
-configurees, ces endpoints renvoient 503 avec un message explicite.
+**Medias.** Une seule voie : `POST /api/media/upload` (moderateur et plus). Le
+backend verifie le format sur le contenu (jamais le type annonce), refuse le SVG
+et les dimensions demesurees, reduit l'image a 1600 px avec une miniature de
+400 px, et la reencode (JPEG, ou PNG si transparence), ce qui efface l'EXIF. Les
+fichiers sont ecrits sous `app.media.storage-dir` avec un nom aleatoire
+(`2026/10/<uuid>.jpg`) ; la base garde ce chemin, et l'URL publique est deduite de
+`app.media.public-url`. En Docker, le dossier est le volume `media-data`, servi en
+lecture seule par le nginx de l'app joueur sous `/media/` ; en developpement, le
+backend sert `/media/**` lui-meme. Le fichier est supprime apres la validation de
+la transaction qui supprime la ligne, et efface si l'insertion echoue.
 
 **Regle de mapping a retenir.** `open-in-view=false` : la conversion entite -> DTO
 doit se faire **dans** la transaction. Les services renvoient donc des DTO, jamais

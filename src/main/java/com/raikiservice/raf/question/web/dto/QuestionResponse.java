@@ -25,6 +25,8 @@ public record QuestionResponse(
         QuestionStatus status,
         String explanation,
         String imageUrl,
+        /** Pour que le back-office garde l'image en modifiant la question. */
+        Long mediaId,
         int timesServed,
         int timesCorrect,
         Double successRate,
@@ -33,7 +35,8 @@ public record QuestionResponse(
         QuestionSource source,
         String aiModel) {
 
-    public record ChoiceView(Long id, String text, boolean correct, int position, String imageUrl) {
+    public record ChoiceView(Long id, String text, boolean correct, int position, String imageUrl,
+            Long mediaId) {
     }
 
     public static QuestionResponse from(Question question) {
@@ -49,6 +52,7 @@ public record QuestionResponse(
                 question.getStatus(),
                 question.getExplanation(),
                 question.getMedia() == null ? null : question.getMedia().getUrl(),
+                question.getMedia() == null ? null : question.getMedia().getId(),
                 question.getTimesServed(),
                 question.getTimesCorrect(),
                 rate < 0 ? null : rate,
@@ -58,7 +62,8 @@ public record QuestionResponse(
                                 choice.getText(),
                                 choice.isCorrect(),
                                 choice.getPosition(),
-                                choice.getMedia() == null ? null : choice.getMedia().getUrl()))
+                                choice.getMedia() == null ? null : choice.getMedia().getUrl(),
+                                choice.getMedia() == null ? null : choice.getMedia().getId()))
                         .toList(),
                 question.getCreatedAt(),
                 question.getSource(),

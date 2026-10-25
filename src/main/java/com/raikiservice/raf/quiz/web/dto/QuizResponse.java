@@ -25,6 +25,8 @@ public record QuizResponse(
         String description,
         String themeLabel,
         String bannerUrl,
+        /** Pour que le back-office garde la banniere en modifiant le quiz. */
+        Long bannerMediaId,
         QuizStatus status,
         GameMode gameMode,
         TopicMode topicMode,
@@ -79,6 +81,7 @@ public record QuizResponse(
                 quiz.getDescription(),
                 quiz.getThemeLabel(),
                 quiz.getBanner() == null ? null : quiz.getBanner().getUrl(),
+                quiz.getBanner() == null ? null : quiz.getBanner().getId(),
                 quiz.getStatus(),
                 quiz.getGameMode(),
                 quiz.getTopicMode(),

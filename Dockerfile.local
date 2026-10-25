@@ -1,0 +1,27 @@
+# =============================================================================
+# RAF - Image du backend, a partir d'un jar compile sur la machine :
+#
+#   .\mvnw.cmd -q package -DskipTests
+#   docker compose up -d --build
+#
+# Rien n'est telecharge pendant le build (ni Maven, ni dependances). Le
+# Dockerfile en deux etapes reste celui d'un serveur qui construit lui-meme.
+# =============================================================================
+
+FROM eclipse-temurin:21.0.12.1_1-jre-ubi9-minimal
+WORKDIR /app
+
+COPY target/raf-0.0.1-SNAPSHOT.jar app.jar
+# Dossier des images. Il appartient a l'utilisateur du conteneur : un volume
+# monte ici pour la premiere fois en reprend le proprietaire.
+RUN mkdir -p /data/media && chown 1001 /data/media
+# Jamais root dans le conteneur. L'image minimale n'a pas useradd : un
+# identifiant numerique suffit.
+USER 1001
+
+ENV APP_ENV=prod \
+    SERVER_PORT=8081 \
+    JAVA_OPTS="-XX:MaxRAMPercentage=75"
+EXPOSE 8081
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

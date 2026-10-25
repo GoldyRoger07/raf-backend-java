@@ -1,0 +1,11 @@
+# Rien de tout cela ne sert a la compilation, et les secrets ne doivent
+# jamais entrer dans une image.
+.git
+.vscode
+.idea
+target
+docs
+.env
+.env.*
+!.env.example
+*.md

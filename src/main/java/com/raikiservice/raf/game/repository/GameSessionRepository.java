@@ -70,6 +70,10 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
     /** Parties encore ouvertes : le classement attend qu'elles soient closes. */
     long countByQuizIdAndStatus(Long quizId, GameSessionStatus status);
 
+    long countByQuizIdAndStatusNot(Long quizId, GameSessionStatus status);
+
+    long countByQuizIdAndWonTrue(Long quizId);
+
     /**
      * Candidats au classement, deja dans l'ordre final : score decroissant, puis
      * debut de partie croissant (departage), puis id pour un ordre total.
