@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
  * de la transaction en cours et n'a lieu que si elle est validee : un quiz dont
  * l'annulation echoue ne doit pas annoncer un remboursement. Il se fait ensuite sur
  * le thread des notifications ({@link NotificationExecutor}), si bien qu'un envoi
- * lent (Resend, service push du navigateur) ne retarde jamais la requete.
+ * lent (serveur SMTP, service push du navigateur) ne retarde jamais la requete.
  */
 @Slf4j
 @Service

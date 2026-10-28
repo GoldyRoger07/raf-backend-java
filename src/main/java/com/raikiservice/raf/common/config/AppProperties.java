@@ -61,7 +61,7 @@ public record AppProperties(
         }
     }
 
-    public record Mail(String from, String resendApiKey) {
+    public record Mail(String from, String fromName) {
     }
 
     public record Otp(int length, Duration ttl, int maxAttempts, Duration resendCooldown) {

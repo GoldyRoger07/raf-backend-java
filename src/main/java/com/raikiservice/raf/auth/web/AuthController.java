@@ -71,16 +71,18 @@ public class AuthController {
 
     @PostMapping("/email/resend")
     @Operation(summary = "Renvoyer le lien de verification")
-    public MessageResponse resendVerification(@Valid @RequestBody ForgotPasswordRequest request) {
-        authService.resendEmailVerification(request.email());
+    public MessageResponse resendVerification(@Valid @RequestBody ForgotPasswordRequest request,
+            HttpServletRequest httpRequest) {
+        authService.resendEmailVerification(request.email(), httpRequest);
         return new MessageResponse(
                 "Si un compte non verifie correspond a cette adresse, un lien vient d'etre envoye.");
     }
 
     @PostMapping("/password/forgot")
     @Operation(summary = "Demander un lien de reinitialisation de mot de passe")
-    public MessageResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        authService.forgotPassword(request.email());
+    public MessageResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
+            HttpServletRequest httpRequest) {
+        authService.forgotPassword(request.email(), httpRequest);
         return new MessageResponse(
                 "Si un compte correspond a cette adresse, un lien vient d'etre envoye.");
     }

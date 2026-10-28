@@ -25,7 +25,7 @@ import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.common.ratelimit.RateLimiter;
 import com.raikiservice.raf.common.util.RequestContext;
-import com.raikiservice.raf.notification.mail.MailSender;
+import com.raikiservice.raf.notification.mail.TransactionalMail;
 import com.raikiservice.raf.notification.mail.MailTemplates;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,6 +44,12 @@ public class AuthService {
     private static final int MAX_LOGIN_ATTEMPTS_PER_IP = 30;
     private static final Duration LOGIN_WINDOW = Duration.ofMinutes(15);
 
+    // Emails a la demande (lien de verification, mot de passe oublie) : sans plafond,
+    // un robot pourrait inonder une boite et ruiner la reputation du domaine d'envoi.
+    private static final int MAX_EMAIL_REQUESTS_PER_ADDRESS = 3;
+    private static final int MAX_EMAIL_REQUESTS_PER_IP = 20;
+    private static final Duration EMAIL_REQUEST_WINDOW = Duration.ofHours(1);
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final RateLimiter rateLimiter;
@@ -52,7 +58,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final VerificationService verificationService;
     private final OtpService otpService;
-    private final MailSender mailSender;
+    private final TransactionalMail transactionalMail;
     private final AuditService auditService;
 
     @Transactional
@@ -164,8 +170,11 @@ public class AuthService {
      * l'endpoint est public et ne doit pas servir a enumerer les comptes.
      */
     @Transactional
-    public void resendEmailVerification(String email) {
-        userRepository.findByEmailIgnoreCase(email.trim().toLowerCase())
+    public void resendEmailVerification(String rawEmail, HttpServletRequest httpRequest) {
+        String email = rawEmail.trim().toLowerCase();
+        throttleEmailRequest("email-resend", email, httpRequest);
+
+        userRepository.findByEmailIgnoreCase(email)
                 .filter(user -> !user.isEmailVerified())
                 .ifPresent(verificationService::sendEmailVerification);
     }
@@ -196,8 +205,11 @@ public class AuthService {
 
     /** Reponse identique dans tous les cas, pour la meme raison que le renvoi de lien. */
     @Transactional
-    public void forgotPassword(String email) {
-        userRepository.findByEmailIgnoreCase(email.trim().toLowerCase())
+    public void forgotPassword(String rawEmail, HttpServletRequest httpRequest) {
+        String email = rawEmail.trim().toLowerCase();
+        throttleEmailRequest("password-forgot", email, httpRequest);
+
+        userRepository.findByEmailIgnoreCase(email)
                 .ifPresent(user -> {
                     verificationService.sendPasswordReset(user);
                     auditService.record(user.getId(), AuditAction.PASSWORD_RESET_REQUESTED, "User",
@@ -214,7 +226,7 @@ public class AuthService {
 
         auditService.record(user.getId(), AuditAction.PASSWORD_RESET_COMPLETED, "User",
                 String.valueOf(user.getId()));
-        mailSender.send(user.getEmail(), "Votre mot de passe a ete modifie - RAF",
+        transactionalMail.sendAfterCommit(user.getEmail(), "Votre mot de passe a ete modifie - RAF",
                 MailTemplates.passwordChanged(user.getFirstName()));
     }
 
@@ -232,7 +244,7 @@ public class AuthService {
         refreshTokenService.revokeAllAfterPasswordChange(userId);
 
         auditService.record(userId, AuditAction.PASSWORD_CHANGED, "User", String.valueOf(userId));
-        mailSender.send(user.getEmail(), "Votre mot de passe a ete modifie - RAF",
+        transactionalMail.sendAfterCommit(user.getEmail(), "Votre mot de passe a ete modifie - RAF",
                 MailTemplates.passwordChanged(user.getFirstName()));
     }
 
@@ -249,6 +261,19 @@ public class AuthService {
                 issued.rawToken(),
                 jwtService.accessTokenTtlSeconds(),
                 UserResponse.from(user));
+    }
+
+    /**
+     * Compte chaque demande, que l'adresse existe ou non : le refus ne revele donc
+     * rien sur les comptes enregistres.
+     */
+    private void throttleEmailRequest(String action, String email, HttpServletRequest httpRequest) {
+        String addressKey = action + ":address:" + email;
+        String ipKey = action + ":ip:" + RequestContext.clientIp(httpRequest);
+        rateLimiter.assertNotBlocked(addressKey, MAX_EMAIL_REQUESTS_PER_ADDRESS);
+        rateLimiter.assertNotBlocked(ipKey, MAX_EMAIL_REQUESTS_PER_IP);
+        rateLimiter.recordAttempt(addressKey, EMAIL_REQUEST_WINDOW);
+        rateLimiter.recordAttempt(ipKey, EMAIL_REQUEST_WINDOW);
     }
 
     private void recordFailedLogin(String accountKey, String ipKey) {

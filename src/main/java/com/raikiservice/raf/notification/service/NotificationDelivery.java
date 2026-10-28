@@ -28,7 +28,7 @@ import tools.jackson.databind.ObjectMapper;
  *
  * <p>Volontairement sans transaction englobante : chaque lecture ou ecriture en
  * base est une transaction courte, et aucune connexion n'est tenue pendant les
- * appels reseau (Resend, service push), qui peuvent durer.
+ * appels reseau (serveur SMTP, service push), qui peuvent durer.
  */
 @Slf4j
 @Component

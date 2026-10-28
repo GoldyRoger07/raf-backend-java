@@ -12,7 +12,7 @@ import com.raikiservice.raf.common.config.AppProperties;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.common.util.Hashes;
-import com.raikiservice.raf.notification.mail.MailSender;
+import com.raikiservice.raf.notification.mail.TransactionalMail;
 import com.raikiservice.raf.notification.mail.MailTemplates;
 
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class VerificationService {
 
     private final VerificationTokenRepository verificationTokenRepository;
-    private final MailSender mailSender;
+    private final TransactionalMail transactionalMail;
     private final AppProperties appProperties;
 
     @Transactional
@@ -40,7 +40,7 @@ public class VerificationService {
         String link = appProperties.frontendUrl() + "/verification-email?token="
                 + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
 
-        mailSender.send(user.getEmail(), "Confirmez votre adresse email - RAF",
+        transactionalMail.sendAfterCommit(user.getEmail(), "Confirmez votre adresse email - RAF",
                 MailTemplates.verifyEmail(user.getFirstName(), link));
     }
 
@@ -52,7 +52,7 @@ public class VerificationService {
         String link = appProperties.frontendUrl() + "/nouveau-mot-de-passe?token="
                 + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
 
-        mailSender.send(user.getEmail(), "Reinitialisation de votre mot de passe - RAF",
+        transactionalMail.sendAfterCommit(user.getEmail(), "Reinitialisation de votre mot de passe - RAF",
                 MailTemplates.resetPassword(user.getFirstName(), link));
     }
 

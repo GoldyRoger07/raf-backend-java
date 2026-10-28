@@ -3,7 +3,7 @@
 Quiz payant en ligne. Les joueurs achètent des tickets avec des crédits, jouent une
 partie chronométrée, et les meilleurs scores remportent des récompenses.
 
-**Stack** : Spring Boot 4.1, Java 21, MySQL 8, Flyway, JWT (JJWT), Resend (email),
+**Stack** : Spring Boot 4.1, Java 21, MySQL 8, Flyway, JWT (JJWT), Spring Mail / SMTP (email),
 Web Push VAPID, médias stockés sur le serveur (volume Docker servi par nginx).
 
 ---
@@ -45,7 +45,7 @@ com.raikiservice.raf
 ├── question/        Catégories, banque de questions, import CSV
 ├── quiz/            Quiz, sujets, votes, récompenses, tickets
 ├── game/            Sessions de jeu, réponses, scoring, classement
-├── notification/    In-app, email (Resend), web push (VAPID)
+├── notification/    In-app, email (SMTP), web push (VAPID)
 ├── media/           Images : vérification, réencodage, stockage disque
 └── admin/           Back-office, statistiques, journal d'audit
 ```
@@ -840,7 +840,7 @@ gains retirables dus aux joueurs.
 
 Migration `V9__notifications.sql` : `notifications`, `notification_preferences`,
 `push_subscriptions`. Trois canaux : **in-app** (toujours enregistre, c'est
-l'historique), **email** (Resend, ou console en dev) et **push navigateur** (Web
+l'historique), **email** (SMTP, ou console en dev) et **push navigateur** (Web
 Push signe VAPID ; sans cles, journalise). Chaque type a ses canaux par defaut ;
 le joueur coupe ou active l'email et le push type par type.
 
@@ -864,7 +864,7 @@ du bruit, et couterait cher.
 metier et n'a lieu que si elle est validee (verifie par un test) : un quiz dont
 l'annulation echoue n'annonce pas de remboursement. Il se fait ensuite sur une file
 dediee (`NotificationExecutor`), separee de celle de l'audit, sans transaction
-englobante : aucune connexion n'est tenue pendant les appels a Resend ou au service
+englobante : aucune connexion n'est tenue pendant les appels au serveur SMTP ou au service
 push. Un abonnement revoque par le navigateur (404 / 410) est supprime.
 
 

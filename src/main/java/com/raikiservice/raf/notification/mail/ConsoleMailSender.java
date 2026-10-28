@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
  * lien de verification ou de reinitialisation pendant les tests.
  *
  * <p>Mode par defaut tant que l'envoi reel n'est pas en place
- * ({@code app.mail.mode=console}). Le profil prod bascule sur Resend.
+ * ({@code app.mail.mode=console}). Le profil prod bascule sur SMTP.
  */
 @Slf4j
 @Component

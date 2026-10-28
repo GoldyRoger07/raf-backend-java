@@ -15,8 +15,10 @@
 #   npm run build    dans ../raf-frontend-ssr et dans ../raf-ionic
 #
 # Le site est construit depuis ../raf-frontend-ssr. Il appelle le backend depuis
-# le navigateur, a l'adresse ecrite dans son code (http://localhost:8081) : le
-# serveur Node ne parle jamais au backend.
+# le navigateur, sur sa propre origine (/api, relaye par Caddy en production) :
+# le serveur Node ne parle jamais au backend.
+#
+# Production (HTTPS, ports internes fermes) : voir docker-compose.prod.yml.
 # =============================================================================
 
 services:
@@ -80,6 +82,9 @@ services:
       # Le serveur SSR refuse toute requete dont l'en-tete Host n'est pas liste
       # (protection SSRF d'Angular). En production : le nom de domaine du site.
       NG_ALLOWED_HOSTS: ${FRONTEND_ALLOWED_HOSTS:-localhost}
+      # Le site appelle /api sur sa propre origine : en local, le serveur Node le
+      # relaie au backend. En production, Caddy s'en charge (variable videe).
+      API_PROXY_URL: http://backend:8081
     ports:
       - "${FRONTEND_HOST_PORT:-4000}:4000"
 
