@@ -145,6 +145,6 @@ class AiAdaptersTest {
     private AppProperties properties(String provider, String model, String apiKey) {
         String baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
         AppProperties.Ai ai = new AppProperties.Ai(provider, model, apiKey, baseUrl, Duration.ofSeconds(5));
-        return new AppProperties(null, null, null, null, null, null, null, null, null, ai);
+        return new AppProperties(null, null, null, null, null, null, null, null, null, null, ai);
     }
 }

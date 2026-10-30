@@ -1011,7 +1011,7 @@ echoue sans la correction) avant d'etre corrige :
 - `RateLimiter` compte en mémoire : sur plusieurs instances, le plafond réel serait
   multiplié par le nombre d'instances. À déplacer dans Redis avant de scaler.
 - App mobile native → ajouter FCM à côté du web push.
-- SMS transactionnel (OTP) : opérateur et coût à arbitrer.
+- SMS transactionnel (OTP) : Twilio (`TwilioSmsSender`, `SMS_MODE=twilio` en prod) ; coût par SMS vers Haïti à surveiller.
 - Réutilisation d'une question déjà servie : délai de quarantaine à définir.
 - Parrainage : hors périmètre initial.
 - Gains versés automatiquement à la clôture, parties signalées comprises : la

@@ -16,6 +16,7 @@ public record AppProperties(
         Jwt jwt,
         Security security,
         Mail mail,
+        Sms sms,
         Otp otp,
         Verification verification,
         Media media,
@@ -62,6 +63,25 @@ public record AppProperties(
     }
 
     public record Mail(String from, String fromName) {
+    }
+
+    /**
+     * Envoi des SMS. {@code mode} : {@code console} (journalise, defaut) ou
+     * {@code twilio}. {@code from} : numero Twilio (+1...), identifiant
+     * alphanumerique (RAF) ou Messaging Service SID (MG...).
+     */
+    public record Sms(String mode, Twilio twilio) {
+
+        public record Twilio(String accountSid, String authToken, String from) {
+
+            public boolean isConfigured() {
+                return filled(accountSid) && filled(authToken) && filled(from);
+            }
+
+            private static boolean filled(String value) {
+                return value != null && !value.isBlank() && !value.startsWith("CHANGE_ME");
+            }
+        }
     }
 
     public record Otp(int length, Duration ttl, int maxAttempts, Duration resendCooldown) {

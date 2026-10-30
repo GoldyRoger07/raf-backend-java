@@ -37,6 +37,7 @@ public enum ErrorCode {
     OTP_EXPIRED(HttpStatus.BAD_REQUEST, "Ce code a expire, demandez-en un nouveau."),
     OTP_TOO_MANY_ATTEMPTS(HttpStatus.TOO_MANY_REQUESTS, "Trop de tentatives. Demandez un nouveau code."),
     OTP_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "Patientez avant de demander un nouveau code."),
+    SMS_SEND_FAILED(HttpStatus.BAD_GATEWAY, "Le SMS n'a pas pu etre envoye. Reessayez dans un instant."),
 
     CURRENT_PASSWORD_INVALID(HttpStatus.BAD_REQUEST, "Le mot de passe actuel est incorrect."),
 
