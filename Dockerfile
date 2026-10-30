@@ -33,4 +33,9 @@ ENV APP_ENV=prod \
     JAVA_OPTS="-XX:MaxRAMPercentage=75"
 EXPOSE 8081
 
+# Lu par Docker et par Coolify (Traefik n'envoie rien a un conteneur en echec).
+# Ni curl ni wget dans l'image : requete HTTP a la main avec bash.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=5 \
+    CMD ["bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081 && printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
