@@ -2,7 +2,7 @@
 # RAF - Image du backend, a partir d'un jar compile sur la machine :
 #
 #   .\mvnw.cmd -q package -DskipTests
-#   docker compose up -d --build
+#   docker compose up -d --build      (depuis ../raf-deploy)
 #
 # Rien n'est telecharge pendant le build (ni Maven, ni dependances). Le
 # Dockerfile en deux etapes reste celui d'un serveur qui construit lui-meme.

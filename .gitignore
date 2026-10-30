@@ -43,5 +43,3 @@ build/
 !.env.example
 !.env.properties.example
 
-# Archives de scripts/backup.sh
-backups/
