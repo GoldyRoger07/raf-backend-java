@@ -36,7 +36,8 @@ public class WebPushSender implements PushSender {
             try {
                 service = new PushService(push.vapidPublicKey(), push.vapidPrivateKey(),
                         push.vapidSubject());
-            } catch (GeneralSecurityException e) {
+            } catch (GeneralSecurityException | IllegalArgumentException e) {
+                // IllegalArgumentException : cle publique mal formee (tronquee, prefixe colle, cles inversees).
                 log.error("Cles VAPID invalides : les push seront journalises au lieu d'etre envoyes", e);
             }
         } else {
