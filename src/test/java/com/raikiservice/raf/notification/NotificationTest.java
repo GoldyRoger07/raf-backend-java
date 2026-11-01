@@ -206,6 +206,23 @@ class NotificationTest extends IntegrationTest {
         assertThat(types(player)).doesNotContain(NotificationType.ADMIN_RECONCILIATION_ALERT);
     }
 
+    @Test
+    void adminsAreEmailedWhenAPlayerRequestsAWithdrawal() throws Exception {
+        User admin = data.admin();
+        User player = data.player();
+        data.credit(player.getId(), BalanceType.WINNINGS, 5000);
+
+        withdrawalService.sendWithdrawalOtp(player.getId());
+        withdrawalService.request(player.getId(), 1500, PaymentProvider.MONCASH,
+                player.getPhone(), sms.lastCode(player.getPhone()));
+
+        eventually(() -> assertThat(mails.to(admin.getEmail())).anySatisfy(mail ->
+                assertThat(mail.subject()).startsWith("Nouvelle demande de retrait")));
+        assertThat(types(admin)).contains(NotificationType.ADMIN_WITHDRAWAL_REQUESTED);
+        assertThat(types(player)).doesNotContain(NotificationType.ADMIN_WITHDRAWAL_REQUESTED);
+        assertThat(mails.to(player.getEmail())).isEmpty();
+    }
+
     // --- Outils -------------------------------------------------------------------
 
     private User subscribed(User player) {

@@ -55,7 +55,7 @@ public class NotificationPreferenceService {
     public List<PreferenceView> list(Long userId, boolean admin) {
         List<PreferenceView> views = new ArrayList<>();
         for (NotificationType type : NotificationType.values()) {
-            if (type == NotificationType.ADMIN_RECONCILIATION_ALERT && !admin) {
+            if (type.isAdminOnly() && !admin) {
                 continue;
             }
             Set<NotificationChannel> enabled = enabledChannels(userId, type);

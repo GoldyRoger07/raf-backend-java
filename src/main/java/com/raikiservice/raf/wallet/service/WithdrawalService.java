@@ -121,6 +121,8 @@ public class WithdrawalService {
 
         auditService.record(userId, "WITHDRAWAL_REQUESTED", "WithdrawalRequest",
                 String.valueOf(saved.getId()), null, amountHtg + " HTG");
+        // Part apres le commit seulement : jamais d'alerte pour une demande avortee.
+        notificationService.notifyAdmins(NotificationMessages.withdrawalRequested(saved));
 
         return saved;
     }
