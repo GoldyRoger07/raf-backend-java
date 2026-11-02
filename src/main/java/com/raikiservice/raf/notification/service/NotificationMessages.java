@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
 
+import com.raikiservice.raf.auth.domain.User;
 import com.raikiservice.raf.notification.domain.NotificationType;
 import com.raikiservice.raf.quiz.domain.Quiz;
 import com.raikiservice.raf.wallet.domain.PaymentProvider;
@@ -120,6 +121,22 @@ public final class NotificationMessages {
         return new NotificationMessage(NotificationType.ADMIN_RECONCILIATION_ALERT,
                 "Alerte comptable : " + status, body, Map.of("runId", runId),
                 "/admin/rapprochement/" + runId);
+    }
+
+    public static NotificationMessage withdrawalRequested(WithdrawalRequest request) {
+        User player = request.getUser();
+        String destination = request.getProvider() == PaymentProvider.MANUAL
+                ? "en especes au guichet"
+                : "sur " + request.getProvider() + " (" + request.getDestinationNumber() + ")";
+        return new NotificationMessage(NotificationType.ADMIN_WITHDRAWAL_REQUESTED,
+                "Nouvelle demande de retrait",
+                player.getFirstName() + " " + player.getLastName() + " (" + player.getPhone()
+                        + ") demande un retrait de " + request.getAmountHtg() + " HTG, soit "
+                        + request.getNetHtg() + " HTG nets apres " + request.getFeeHtg()
+                        + " HTG de frais, " + destination + ". Ses gains sont geles en "
+                        + "attendant votre decision.",
+                Map.of("withdrawalId", request.getId()),
+                "/admin/retraits?statut=PENDING");
     }
 
     // --- Outils -------------------------------------------------------------------

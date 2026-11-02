@@ -31,10 +31,18 @@ public enum NotificationType {
             EnumSet.of(NotificationChannel.EMAIL, NotificationChannel.PUSH)),
     /** Reserve aux administrateurs. */
     ADMIN_RECONCILIATION_ALERT("Alerte du rapprochement comptable",
+            EnumSet.of(NotificationChannel.EMAIL)),
+    /** Reserve aux administrateurs : une demande de retrait attend d'etre traitee. */
+    ADMIN_WITHDRAWAL_REQUESTED("Nouvelle demande de retrait",
             EnumSet.of(NotificationChannel.EMAIL));
 
     private final String description;
     private final Set<NotificationChannel> defaultChannels;
+
+    /** Types envoyes aux seuls administrateurs, masques dans les preferences des joueurs. */
+    public boolean isAdminOnly() {
+        return name().startsWith("ADMIN_");
+    }
 
     NotificationType(String description, Set<NotificationChannel> defaultChannels) {
         this.description = description;
