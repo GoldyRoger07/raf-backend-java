@@ -553,9 +553,12 @@ pour toute future table soumise a des ecritures concurrentes (tickets, classemen
 **La banque de questions est fermee aux joueurs.** Le role MODERATOR existe pour
 que le travail editorial n'exige pas les droits financiers.
 
-**Anti-doublon.** `questions.text_hash` porte l'unicite par categorie : empreinte
-de l'enonce normalise (sans casse, accents ni ponctuation). C'est ce qui permet de
-reimporter le meme CSV sans rien dupliquer — verifie par le test 11.
+**Anti-doublon.** `questions.text_hash` est l'empreinte de l'enonce normalise
+(sans casse, accents ni ponctuation). Depuis V17 elle n'est plus unique : la saisie
+manuelle accepte des enonces identiques (ex. meme question, medias differents).
+L'import CSV et la generation IA, eux, ecartent toujours un enonce deja present
+dans la categorie, ce qui permet de reimporter le meme CSV sans rien dupliquer —
+verifie par le test 11.
 
 **Format CSV** (separateur `;` ou `,` detecte automatiquement) :
 

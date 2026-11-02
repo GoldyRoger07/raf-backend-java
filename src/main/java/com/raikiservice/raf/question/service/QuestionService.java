@@ -83,11 +83,11 @@ public class QuestionService {
             Difficulty difficulty, String explanation, Long mediaId, List<ChoiceDto> choices) {
 
         Category category = categoryService.require(categoryId);
+        // Deux questions peuvent partager le meme enonce (ex. "Qui est sur cette
+        // image ?" avec des medias differents) : pas de controle d'unicite ici.
+        // Seuls l'import CSV et la generation IA ecartent les doublons, voir
+        // assertNotDuplicate.
         String hash = fingerprint(text);
-
-        if (questionRepository.existsByCategoryIdAndTextHash(categoryId, hash)) {
-            throw new ApiException(ErrorCode.QUESTION_DUPLICATE);
-        }
 
         Question question = new Question();
         question.setCategory(category);
@@ -116,13 +116,6 @@ public class QuestionService {
         Question question = require(id);
         String previous = question.getText();
         String hash = fingerprint(text);
-
-        Long targetCategoryId = categoryId == null ? question.getCategory().getId() : categoryId;
-        questionRepository.findByCategoryIdAndTextHash(targetCategoryId, hash)
-                .filter(existing -> !existing.getId().equals(id))
-                .ifPresent(existing -> {
-                    throw new ApiException(ErrorCode.QUESTION_DUPLICATE);
-                });
 
         if (categoryId != null) {
             question.setCategory(categoryService.require(categoryId));
@@ -260,6 +253,17 @@ public class QuestionService {
      * <p>C'est ce qui fait qu'un second import du meme fichier ne cree pas de
      * doublons, meme si l'enonce a ete legerement reformate entre-temps.
      */
+    /**
+     * Anti-doublon reserve aux creations en masse (import CSV, generation IA) :
+     * reimporter le meme fichier ne doit pas dupliquer la banque.
+     */
+    @Transactional(readOnly = true)
+    public void assertNotDuplicate(Long categoryId, String text) {
+        if (questionRepository.existsByCategoryIdAndTextHash(categoryId, fingerprint(text))) {
+            throw new ApiException(ErrorCode.QUESTION_DUPLICATE);
+        }
+    }
+
     static String fingerprint(String text) {
         String normalized = Normalizer.normalize(text.trim(), Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")

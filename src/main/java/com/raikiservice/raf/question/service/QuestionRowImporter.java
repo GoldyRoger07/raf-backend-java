@@ -36,6 +36,7 @@ public class QuestionRowImporter {
             Difficulty difficulty, String explanation, List<ChoiceDto> choices,
             boolean publishDirectly) {
 
+        questionService.assertNotDuplicate(categoryId, text);
         Question question = questionService.createEntity(actorId, categoryId, text, type,
                 difficulty, explanation, null, choices);
         question.setSource(QuestionSource.IMPORT);
@@ -55,6 +56,7 @@ public class QuestionRowImporter {
     public Long importGenerated(Long actorId, Long categoryId, String text, QuestionType type,
             Difficulty difficulty, String explanation, List<ChoiceDto> choices, String aiModel) {
 
+        questionService.assertNotDuplicate(categoryId, text);
         Question question = questionService.createEntity(actorId, categoryId, text, type,
                 difficulty, explanation, null, choices);
         question.setSource(QuestionSource.AI);

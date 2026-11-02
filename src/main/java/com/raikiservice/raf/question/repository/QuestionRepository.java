@@ -38,8 +38,6 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     @Query("update Question q set q.timesCorrect = q.timesCorrect + 1 where q.id in :ids")
     int incrementTimesCorrect(@Param("ids") Collection<Long> ids);
 
-    Optional<Question> findByCategoryIdAndTextHash(Long categoryId, String textHash);
-
     boolean existsByCategoryIdAndTextHash(Long categoryId, String textHash);
 
     Page<Question> findByCategoryIdAndStatus(Long categoryId, QuestionStatus status,
