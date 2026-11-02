@@ -23,9 +23,16 @@ public final class SettingKeys {
     public static final String INSTAGRAM_URL = "social.instagram.url";
     private static final String SOCIAL_PREFIX = "social.";
 
+    /** Numeros ou les joueurs envoient leurs recharges a distance, voir DepositNumbersService. */
+    public static final String DEPOSIT_MONCASH_ENABLED = "deposit.moncash.enabled";
+    public static final String DEPOSIT_MONCASH_NUMBER = "deposit.moncash.number";
+    public static final String DEPOSIT_NATCASH_ENABLED = "deposit.natcash.enabled";
+    public static final String DEPOSIT_NATCASH_NUMBER = "deposit.natcash.number";
+    private static final String DEPOSIT_PREFIX = "deposit.";
+
     /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */
-    public static boolean isSocial(String key) {
-        return key.startsWith(SOCIAL_PREFIX);
+    public static boolean hasOwnScreen(String key) {
+        return key.startsWith(SOCIAL_PREFIX) || key.startsWith(DEPOSIT_PREFIX);
     }
 
     /**
