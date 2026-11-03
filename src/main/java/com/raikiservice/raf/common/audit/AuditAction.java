@@ -16,6 +16,8 @@ public final class AuditAction {
     public static final String REFRESH_TOKEN_REUSE_DETECTED = "REFRESH_TOKEN_REUSE_DETECTED";
     public static final String SESSION_REVOKED = "SESSION_REVOKED";
     public static final String ACCOUNT_DELETED = "ACCOUNT_DELETED";
+    public static final String EMAIL_CHANGED = "EMAIL_CHANGED";
+    public static final String EMAIL_CHANGED_BY_ADMIN = "EMAIL_CHANGED_BY_ADMIN";
 
     private AuditAction() {
     }

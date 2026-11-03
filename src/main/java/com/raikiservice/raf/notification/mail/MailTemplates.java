@@ -44,6 +44,17 @@ public final class MailTemplates {
                 "Si vous n'etes pas a l'origine de ce changement, contactez-nous immediatement.");
     }
 
+    public static String emailChanged(String firstName, String maskedNewEmail) {
+        return wrap("Votre adresse email a ete modifiee",
+                """
+                <p>Bonjour %s,</p>
+                <p>Le support RAF a remplace l'adresse email de votre compte par %s.
+                Cette adresse ne recevra plus nos messages.</p>
+                """.formatted(escape(firstName), escape(maskedNewEmail)),
+                null, null,
+                "Si vous n'avez pas demande ce changement, contactez-nous immediatement.");
+    }
+
     public static String accountDeleted(String firstName) {
         return wrap("Votre compte a ete supprime",
                 """

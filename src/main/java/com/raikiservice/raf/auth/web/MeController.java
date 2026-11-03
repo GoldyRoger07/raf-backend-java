@@ -4,12 +4,16 @@ import java.util.List;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.auth.service.AccountDeletionService;
+import com.raikiservice.raf.auth.service.AccountEmailService;
 import com.raikiservice.raf.auth.service.AuthService;
 import com.raikiservice.raf.auth.service.RefreshTokenService;
+import com.raikiservice.raf.auth.web.dto.ChangeEmailRequest;
 import com.raikiservice.raf.auth.web.dto.DeleteAccountRequest;
 import com.raikiservice.raf.auth.web.dto.MessageResponse;
 import com.raikiservice.raf.auth.web.dto.SessionResponse;
 import com.raikiservice.raf.auth.web.dto.UserResponse;
+import com.raikiservice.raf.common.util.RequestContext;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,11 +37,21 @@ public class MeController {
     private final AuthService authService;
     private final RefreshTokenService refreshTokenService;
     private final AccountDeletionService accountDeletionService;
+    private final AccountEmailService accountEmailService;
 
     @GetMapping
     @Operation(summary = "Profil de l'utilisateur connecte")
     public UserResponse me(@AuthenticationPrincipal UserPrincipal principal) {
         return authService.currentUser(principal.getId());
+    }
+
+    /** Corrige une adresse mal saisie a l'inscription, tant qu'elle n'est pas verifiee. */
+    @PostMapping("/email")
+    @Operation(summary = "Corriger son email non verifie (mot de passe requis, nouveau lien envoye)")
+    public UserResponse correctEmail(@AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody ChangeEmailRequest request, HttpServletRequest http) {
+        return accountEmailService.correctOwnEmail(principal.getId(), request.password(), request.email(),
+                RequestContext.clientIp(http));
     }
 
     /**
