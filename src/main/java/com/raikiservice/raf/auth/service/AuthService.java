@@ -186,6 +186,7 @@ public class AuthService {
         if (user.isPhoneVerified()) {
             throw new ApiException(ErrorCode.PHONE_ALREADY_VERIFIED);
         }
+        assertEmailVerifiedFirst(user);
 
         otpService.send(user, OtpPurpose.PHONE_VERIFY, user.getPhone());
     }
@@ -197,6 +198,7 @@ public class AuthService {
         if (user.isPhoneVerified()) {
             throw new ApiException(ErrorCode.PHONE_ALREADY_VERIFIED);
         }
+        assertEmailVerifiedFirst(user);
 
         otpService.verify(user, OtpPurpose.PHONE_VERIFY, code);
         user.setPhoneVerifiedAt(Instant.now());
@@ -279,6 +281,17 @@ public class AuthService {
     private void recordFailedLogin(String accountKey, String ipKey) {
         rateLimiter.recordAttempt(accountKey, LOGIN_WINDOW);
         rateLimiter.recordAttempt(ipKey, LOGIN_WINDOW);
+    }
+
+    /**
+     * L'email d'abord, le telephone ensuite : un compte a l'adresse fausse ne doit pas
+     * aller jusqu'au retrait, et chaque SMS coute.
+     */
+    private void assertEmailVerifiedFirst(User user) {
+        if (!user.isEmailVerified()) {
+            throw new ApiException(ErrorCode.EMAIL_NOT_VERIFIED,
+                    "Confirmez d'abord votre adresse email, puis verifiez votre telephone.");
+        }
     }
 
     private void assertAccountUsable(User user) {

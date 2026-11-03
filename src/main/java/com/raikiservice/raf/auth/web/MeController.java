@@ -5,9 +5,11 @@ import java.util.List;
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.auth.service.AccountDeletionService;
 import com.raikiservice.raf.auth.service.AccountEmailService;
+import com.raikiservice.raf.auth.service.AccountPhoneService;
 import com.raikiservice.raf.auth.service.AuthService;
 import com.raikiservice.raf.auth.service.RefreshTokenService;
 import com.raikiservice.raf.auth.web.dto.ChangeEmailRequest;
+import com.raikiservice.raf.auth.web.dto.ChangePhoneRequest;
 import com.raikiservice.raf.auth.web.dto.DeleteAccountRequest;
 import com.raikiservice.raf.auth.web.dto.MessageResponse;
 import com.raikiservice.raf.auth.web.dto.SessionResponse;
@@ -38,6 +40,7 @@ public class MeController {
     private final RefreshTokenService refreshTokenService;
     private final AccountDeletionService accountDeletionService;
     private final AccountEmailService accountEmailService;
+    private final AccountPhoneService accountPhoneService;
 
     @GetMapping
     @Operation(summary = "Profil de l'utilisateur connecte")
@@ -51,6 +54,15 @@ public class MeController {
     public UserResponse correctEmail(@AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody ChangeEmailRequest request, HttpServletRequest http) {
         return accountEmailService.correctOwnEmail(principal.getId(), request.password(), request.email(),
+                RequestContext.clientIp(http));
+    }
+
+    /** Corrige un numero mal saisi a l'inscription, tant qu'il n'est pas verifie. */
+    @PostMapping("/phone")
+    @Operation(summary = "Corriger son numero non verifie (mot de passe requis)")
+    public UserResponse correctPhone(@AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody ChangePhoneRequest request, HttpServletRequest http) {
+        return accountPhoneService.correctOwnPhone(principal.getId(), request.password(), request.phone(),
                 RequestContext.clientIp(http));
     }
 
