@@ -138,6 +138,8 @@ public enum ErrorCode {
             "Ce compte est le dernier super-administrateur actif : il doit le rester."),
     ROLES_REQUIRED(HttpStatus.BAD_REQUEST, "Un compte doit garder au moins un role."),
     ACCOUNT_DELETED(HttpStatus.CONFLICT, "Ce compte a ete supprime."),
+    PHONE_CHANGE_WITHDRAWAL_PENDING(HttpStatus.CONFLICT,
+            "Un retrait est en cours sur ce compte : attendez qu'il soit paye ou refuse avant de changer le numero."),
     ACCOUNT_DELETION_WITHDRAWAL_PENDING(HttpStatus.CONFLICT,
             "Un retrait est en cours : attendez qu'il soit paye ou refuse avant de supprimer votre compte."),
     ACCOUNT_DELETION_BALANCE(HttpStatus.CONFLICT,

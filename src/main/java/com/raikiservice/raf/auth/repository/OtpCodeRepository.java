@@ -39,4 +39,9 @@ public interface OtpCodeRepository extends JpaRepository<OtpCode, Long> {
     @Modifying
     @Query("delete from OtpCode o where o.user.id = :userId")
     int deleteByUser(@Param("userId") Long userId);
+
+    /** Invalide tous les codes en attente du compte, quel que soit leur usage. */
+    @Modifying
+    @Query("update OtpCode o set o.consumedAt = :now where o.user.id = :userId and o.consumedAt is null")
+    int consumeAllPending(@Param("userId") Long userId, @Param("now") Instant now);
 }

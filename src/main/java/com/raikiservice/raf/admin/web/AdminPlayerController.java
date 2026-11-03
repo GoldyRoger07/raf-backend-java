@@ -1,5 +1,7 @@
 package com.raikiservice.raf.admin.web;
 
+import com.raikiservice.raf.admin.web.dto.AdminPhoneRequest;
+import com.raikiservice.raf.auth.service.AccountPhoneService;
 import com.raikiservice.raf.auth.domain.User;
 import com.raikiservice.raf.auth.domain.UserStatus;
 import com.raikiservice.raf.auth.repository.UserRepository;
@@ -37,6 +39,7 @@ public class AdminPlayerController {
 
     private final UserRepository userRepository;
     private final AccountEmailService accountEmailService;
+    private final AccountPhoneService accountPhoneService;
     private final AuditService auditService;
 
     @PostMapping("/{id}/test")
@@ -55,12 +58,22 @@ public class AdminPlayerController {
         return UserResponse.from(user);
     }
 
+    @PostMapping("/{id}/phone")
+    @Operation(summary = "Corriger le numero d'un joueur (repasse non verifie)")
+    public UserResponse changePhone(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long id, @Valid @RequestBody AdminPhoneRequest request) {
+        return accountPhoneService.changeByAdmin(admin.getId(), isSuperAdmin(admin), id, request.phone());
+    }
+
+    private static boolean isSuperAdmin(UserPrincipal admin) {
+        return admin.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_SUPER_ADMIN"));
+    }
+
     @PostMapping("/{id}/email")
     @Operation(summary = "Corriger l'email d'un joueur (repasse non verifie, nouveau lien envoye)")
     public UserResponse changeEmail(@AuthenticationPrincipal UserPrincipal admin,
             @PathVariable Long id, @Valid @RequestBody ChangeEmailRequest request) {
-        boolean superAdmin = admin.getAuthorities().stream()
-                .anyMatch(authority -> authority.getAuthority().equals("ROLE_SUPER_ADMIN"));
-        return accountEmailService.changeByAdmin(admin.getId(), superAdmin, id, request.email());
+        return accountEmailService.changeByAdmin(admin.getId(), isSuperAdmin(admin), id, request.email());
     }
 }

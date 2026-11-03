@@ -19,6 +19,7 @@ public final class AuditAction {
     public static final String EMAIL_CHANGED = "EMAIL_CHANGED";
     public static final String EMAIL_CHANGED_BY_ADMIN = "EMAIL_CHANGED_BY_ADMIN";
     public static final String PHONE_CHANGED = "PHONE_CHANGED";
+    public static final String PHONE_CHANGED_BY_ADMIN = "PHONE_CHANGED_BY_ADMIN";
 
     private AuditAction() {
     }

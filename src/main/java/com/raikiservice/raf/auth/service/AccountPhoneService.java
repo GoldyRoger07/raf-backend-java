@@ -1,5 +1,11 @@
 package com.raikiservice.raf.auth.service;
 
+import com.raikiservice.raf.wallet.repository.WithdrawalRequestRepository;
+import com.raikiservice.raf.wallet.domain.WithdrawalStatus;
+import com.raikiservice.raf.notification.mail.TransactionalMail;
+import com.raikiservice.raf.notification.mail.MailTemplates;
+import com.raikiservice.raf.auth.domain.RoleName;
+import java.util.EnumSet;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -40,6 +46,62 @@ public class AccountPhoneService {
     private final OtpCodeRepository otpCodeRepository;
     private final RateLimiter rateLimiter;
     private final AuditService auditService;
+    private final WithdrawalRequestRepository withdrawalRequestRepository;
+    private final TransactionalMail transactionalMail;
+
+    /** Statuts ou de l'argent et des codes sont en route vers le numero actuel. */
+    private static final EnumSet<WithdrawalStatus> WITHDRAWAL_IN_PROGRESS =
+            EnumSet.of(WithdrawalStatus.AWAITING_OTP, WithdrawalStatus.PENDING, WithdrawalStatus.APPROVED);
+
+    /**
+     * Un agent corrige le numero depuis le back-office, verifie ou non. Le numero
+     * repasse non verifie : le joueur le confirme par SMS avant son prochain retrait.
+     * Refuse si un retrait est en cours (codes et versement visent le numero actuel) ;
+     * le compte d'un membre du staff, seulement par un super-administrateur.
+     */
+    @Transactional
+    public UserResponse changeByAdmin(Long adminId, boolean adminIsSuperAdmin, Long userId, String rawPhone) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> ApiException.notFound("Joueur"));
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new ApiException(ErrorCode.ACCOUNT_DELETED);
+        }
+        boolean staff = user.getRoles().stream().anyMatch(role -> role.getName() != RoleName.PLAYER);
+        if (staff && !adminIsSuperAdmin) {
+            throw new ApiException(ErrorCode.ACCESS_DENIED,
+                    "Seul un super-administrateur peut modifier le numero d'un membre du staff.");
+        }
+        String phone = rawPhone.trim();
+        if (phone.equals(user.getPhone())) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "C'est deja le numero de ce compte.");
+        }
+        if (withdrawalRequestRepository.existsByUserIdAndStatusIn(userId, WITHDRAWAL_IN_PROGRESS)) {
+            throw new ApiException(ErrorCode.PHONE_CHANGE_WITHDRAWAL_PENDING);
+        }
+        if (userRepository.existsByPhone(phone)) {
+            throw new ApiException(ErrorCode.PHONE_ALREADY_USED);
+        }
+
+        String previous = user.getPhone();
+        boolean wasVerified = user.isPhoneVerified();
+        user.setPhone(phone);
+        user.setPhoneVerifiedAt(null);
+        otpCodeRepository.consumeAllPending(userId, Instant.now());
+
+        if (wasVerified && user.isEmailVerified()) {
+            // Un numero verifie changeait les destinataires des codes de retrait : on previent.
+            transactionalMail.sendAfterCommit(user.getEmail(), "Votre numero de telephone a ete modifie - RAF",
+                    MailTemplates.phoneChanged(user.getFirstName(), mask(phone)));
+        }
+        auditService.record(adminId, AuditAction.PHONE_CHANGED_BY_ADMIN, "User", String.valueOf(userId),
+                previous, phone);
+        return UserResponse.from(user);
+    }
+
+    /** « •••• 3456 » : quatre derniers chiffres seulement. */
+    static String mask(String phone) {
+        return phone.length() <= 4 ? phone : "•••• " + phone.substring(phone.length() - 4);
+    }
 
     @Transactional
     public UserResponse correctOwnPhone(Long userId, String password, String rawPhone, String clientIp) {

@@ -44,6 +44,18 @@ public final class MailTemplates {
                 "Si vous n'etes pas a l'origine de ce changement, contactez-nous immediatement.");
     }
 
+    public static String phoneChanged(String firstName, String maskedNewPhone) {
+        return wrap("Votre numero de telephone a ete modifie",
+                """
+                <p>Bonjour %s,</p>
+                <p>Le support RAF a remplace le numero de telephone de votre compte par %s.
+                Verifiez-le dans l'application avant votre prochain retrait : les codes de
+                retrait seront envoyes a ce numero.</p>
+                """.formatted(escape(firstName), escape(maskedNewPhone)),
+                null, null,
+                "Si vous n'avez pas demande ce changement, contactez-nous immediatement.");
+    }
+
     public static String emailChanged(String firstName, String maskedNewEmail) {
         return wrap("Votre adresse email a ete modifiee",
                 """

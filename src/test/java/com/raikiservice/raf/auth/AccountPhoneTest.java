@@ -6,6 +6,9 @@ import com.raikiservice.raf.auth.service.AccountPhoneService;
 import com.raikiservice.raf.auth.service.AuthService;
 import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.support.IntegrationTest;
+import com.raikiservice.raf.wallet.domain.BalanceType;
+import com.raikiservice.raf.wallet.domain.PaymentProvider;
+import com.raikiservice.raf.wallet.service.WithdrawalService;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +25,7 @@ class AccountPhoneTest extends IntegrationTest {
     @Autowired private AuthService authService;
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private WithdrawalService withdrawalService;
 
     @Test
     void thePhoneIsVerifiedOnlyAfterTheEmail() {
@@ -79,5 +83,35 @@ class AccountPhoneTest extends IntegrationTest {
         other.setPhone("libre-" + other.getId());
         userRepository.save(other);
         return phone;
+    }
+
+    @Test
+    void anAgentChangesAVerifiedNumberWhichMustBeVerifiedAgain() throws Exception {
+        User player = data.player(true);
+        String fresh = freeNumber();
+
+        accountPhoneService.changeByAdmin(null, false, player.getId(), fresh);
+
+        User updated = userRepository.findById(player.getId()).orElseThrow();
+        assertThat(updated.getPhone()).isEqualTo(fresh);
+        assertThat(updated.isPhoneVerified()).isFalse();
+        eventually(() -> assertThat(mails.to(player.getEmail()))
+                .anyMatch(mail -> mail.subject().contains("numero de telephone")));
+    }
+
+    @Test
+    void anAgentCannotChangeTheNumberDuringAWithdrawalNorAStaffNumber() {
+        User player = data.player(true);
+        data.credit(player.getId(), BalanceType.WINNINGS, 1500);
+        withdrawalService.sendWithdrawalOtp(player.getId());
+        withdrawalService.request(player.getId(), 1500, PaymentProvider.MONCASH,
+                player.getPhone(), sms.lastCode(player.getPhone()));
+        assertApiError(ErrorCode.PHONE_CHANGE_WITHDRAWAL_PENDING, () ->
+                accountPhoneService.changeByAdmin(null, false, player.getId(), freeNumber()));
+
+        User moderator = data.moderator();
+        assertApiError(ErrorCode.ACCESS_DENIED, () ->
+                accountPhoneService.changeByAdmin(null, false, moderator.getId(), freeNumber()));
+        accountPhoneService.changeByAdmin(null, true, moderator.getId(), freeNumber());
     }
 }
