@@ -9,6 +9,7 @@ import com.raikiservice.raf.question.service.QuestionImportService;
 import com.raikiservice.raf.question.service.QuestionService;
 import com.raikiservice.raf.question.web.dto.GenerateQuestionsDto;
 import com.raikiservice.raf.question.web.dto.QuestionDto;
+import com.raikiservice.raf.question.web.dto.QuestionNeighborsResponse;
 import com.raikiservice.raf.question.web.dto.QuestionResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -78,6 +79,12 @@ public class AdminQuestionController {
     @Operation(summary = "Consulter une question")
     public QuestionResponse get(@PathVariable Long id) {
         return questionService.get(id);
+    }
+
+    @GetMapping("/{id}/neighbors")
+    @Operation(summary = "Question precedente et suivante de la meme categorie (ordre de la liste)")
+    public QuestionNeighborsResponse neighbors(@PathVariable Long id) {
+        return questionService.neighbors(id);
     }
 
     @GetMapping

@@ -67,4 +67,27 @@ class QuestionEditTest extends IntegrationTest {
         assertThat(updated.getChoices()).extracting(QuestionChoice::getText).containsExactly("A", "B", "C");
         assertThat(updated.getChoices()).extracting(QuestionChoice::getPosition).containsExactly(1, 2, 3);
     }
+
+    @Test
+    void neighborsFollowTheListOrder() {
+        Long categoryId = data.categoryWithQuestions(3);
+        // La liste affiche les plus recentes d'abord.
+        List<Long> listed = questionRepository.findAll().stream()
+                .filter(q -> q.getCategory().getId().equals(categoryId))
+                .sorted(java.util.Comparator.comparing(Question::getCreatedAt).thenComparing(Question::getId).reversed())
+                .map(Question::getId).toList();
+
+        var middle = questionService.neighbors(listed.get(1));
+        assertThat(middle.previousId()).isEqualTo(listed.get(0));
+        assertThat(middle.nextId()).isEqualTo(listed.get(2));
+        assertThat(middle.position()).isEqualTo(2);
+        assertThat(middle.total()).isEqualTo(3);
+
+        assertThat(questionService.neighbors(listed.get(0)).previousId()).isNull();
+        assertThat(questionService.neighbors(listed.get(2)).nextId()).isNull();
+
+        // Une question archivee sort de la liste des publiees.
+        questionService.changeStatus(null, listed.get(1), QuestionStatus.ARCHIVED);
+        assertThat(questionService.neighbors(listed.get(0)).nextId()).isEqualTo(listed.get(2));
+    }
 }

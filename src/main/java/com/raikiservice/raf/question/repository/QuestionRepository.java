@@ -1,5 +1,6 @@
 package com.raikiservice.raf.question.repository;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -55,6 +56,28 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     List<String> recentTexts(@Param("categoryId") Long categoryId, Pageable pageable);
 
     long countByCategoryIdAndStatus(Long categoryId, QuestionStatus status);
+
+    // Voisins dans l'ordre de la liste du back-office (createdAt desc), l'id departageant
+    // les questions creees au meme instant (import CSV).
+
+    /** Question plus recente la plus proche : celle affichee juste avant. */
+    @Query("select q.id from Question q where q.category.id = :categoryId and q.status = :status "
+            + "and (q.createdAt > :createdAt or (q.createdAt = :createdAt and q.id > :id)) "
+            + "order by q.createdAt asc, q.id asc")
+    List<Long> newerIds(@Param("categoryId") Long categoryId, @Param("status") QuestionStatus status,
+            @Param("createdAt") Instant createdAt, @Param("id") Long id, Pageable pageable);
+
+    /** Question plus ancienne la plus proche : celle affichee juste apres. */
+    @Query("select q.id from Question q where q.category.id = :categoryId and q.status = :status "
+            + "and (q.createdAt < :createdAt or (q.createdAt = :createdAt and q.id < :id)) "
+            + "order by q.createdAt desc, q.id desc")
+    List<Long> olderIds(@Param("categoryId") Long categoryId, @Param("status") QuestionStatus status,
+            @Param("createdAt") Instant createdAt, @Param("id") Long id, Pageable pageable);
+
+    @Query("select count(q) from Question q where q.category.id = :categoryId and q.status = :status "
+            + "and (q.createdAt > :createdAt or (q.createdAt = :createdAt and q.id > :id))")
+    long countNewer(@Param("categoryId") Long categoryId, @Param("status") QuestionStatus status,
+            @Param("createdAt") Instant createdAt, @Param("id") Long id);
 
     /** Compteurs d'usage d'une question : sa difficulte reelle, vue par les joueurs. */
     interface UsageStats {

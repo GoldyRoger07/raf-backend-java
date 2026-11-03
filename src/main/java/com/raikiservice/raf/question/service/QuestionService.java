@@ -1,6 +1,7 @@
 package com.raikiservice.raf.question.service;
 
 import java.text.Normalizer;
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 
@@ -20,10 +21,12 @@ import com.raikiservice.raf.question.domain.QuestionStatus;
 import com.raikiservice.raf.question.domain.QuestionType;
 import com.raikiservice.raf.question.repository.QuestionRepository;
 import com.raikiservice.raf.question.web.dto.ChoiceDto;
+import com.raikiservice.raf.question.web.dto.QuestionNeighborsResponse;
 import com.raikiservice.raf.question.web.dto.QuestionResponse;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,6 +61,24 @@ public class QuestionService {
     @Transactional(readOnly = true)
     public QuestionResponse get(Long id) {
         return QuestionResponse.from(require(id));
+    }
+
+    /** Precedente et suivante dans la liste du back-office (meme categorie, meme statut). */
+    @Transactional(readOnly = true)
+    public QuestionNeighborsResponse neighbors(Long id) {
+        Question question = require(id);
+        Long categoryId = question.getCategory().getId();
+        QuestionStatus status = question.getStatus();
+        Instant createdAt = question.getCreatedAt();
+        Pageable first = PageRequest.of(0, 1);
+
+        Long previous = questionRepository.newerIds(categoryId, status, createdAt, id, first)
+                .stream().findFirst().orElse(null);
+        Long next = questionRepository.olderIds(categoryId, status, createdAt, id, first)
+                .stream().findFirst().orElse(null);
+        long position = questionRepository.countNewer(categoryId, status, createdAt, id) + 1;
+        long total = questionRepository.countByCategoryIdAndStatus(categoryId, status);
+        return new QuestionNeighborsResponse(previous, next, position, total);
     }
 
     @Transactional(readOnly = true)
