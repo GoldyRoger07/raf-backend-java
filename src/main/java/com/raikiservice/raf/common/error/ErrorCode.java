@@ -95,6 +95,8 @@ public enum ErrorCode {
 
     QUIZ_INVALID_STATE(HttpStatus.CONFLICT,
             "Cette action n'est pas possible dans l'etat actuel du quiz."),
+    QUIZ_HAS_REAL_PLAYERS(HttpStatus.CONFLICT,
+            "De vrais joueurs ont deja un ticket ou une partie sur ce quiz : il ne peut plus devenir un quiz de test."),
     QUIZ_TICKETS_CLOSED(HttpStatus.CONFLICT, "La vente de tickets est fermee pour ce quiz."),
     QUIZ_SOLD_OUT(HttpStatus.CONFLICT, "Tous les tickets de ce quiz ont ete vendus."),
     QUIZ_PLAYER_LIMIT(HttpStatus.CONFLICT,

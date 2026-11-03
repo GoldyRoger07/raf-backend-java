@@ -15,6 +15,7 @@ public record UserResponse(
         UserStatus status,
         boolean emailVerified,
         boolean phoneVerified,
+        boolean test,
         List<String> roles,
         Instant createdAt) {
 
@@ -28,6 +29,7 @@ public record UserResponse(
                 user.getStatus(),
                 user.isEmailVerified(),
                 user.isPhoneVerified(),
+                user.isTest(),
                 user.getRoles().stream().map(role -> role.getName().name()).sorted().toList(),
                 user.getCreatedAt());
     }

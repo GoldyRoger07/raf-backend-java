@@ -1,5 +1,7 @@
 package com.raikiservice.raf.game.web;
 
+import com.raikiservice.raf.quiz.service.QuizService;
+import com.raikiservice.raf.quiz.service.QuizAccess;
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.game.service.RankingService;
 import com.raikiservice.raf.game.web.dto.LeaderboardResponse;
@@ -20,11 +22,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class LeaderboardController {
 
     private final RankingService rankingService;
+    private final QuizAccess quizAccess;
+    private final QuizService quizService;
 
     @GetMapping("/api/quizzes/{quizId}/leaderboard")
     @Operation(summary = "Classement final d'un quiz termine")
     public LeaderboardResponse leaderboard(@AuthenticationPrincipal UserPrincipal player,
             @PathVariable Long quizId, @PageableDefault(size = 50) Pageable pageable) {
+        quizAccess.assertVisible(quizService.require(quizId), player.getId());
         return rankingService.leaderboard(quizId, player.getId(), pageable);
     }
 }

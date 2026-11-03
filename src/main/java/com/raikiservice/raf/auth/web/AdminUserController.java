@@ -1,5 +1,6 @@
 package com.raikiservice.raf.auth.web;
 
+import com.raikiservice.raf.common.web.TestFlagDto;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -109,6 +110,19 @@ public class AdminUserController {
         auditService.record(admin.getId(), "USER_ROLES_CHANGED", "User", String.valueOf(id),
                 previous, roleNames.toString());
 
+        return UserResponse.from(user);
+    }
+
+    @PostMapping("/{id}/test")
+    @Operation(summary = "Marquer ou demarquer un compte de test (activite hors tableau de bord)")
+    @Transactional
+    public UserResponse setTest(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long id, @RequestBody TestFlagDto request) {
+        User user = requireNotDeleted(id);
+        boolean previous = user.isTest();
+        user.setTest(request.test());
+        auditService.record(admin.getId(), "USER_TEST_FLAG_CHANGED", "User", String.valueOf(id),
+                String.valueOf(previous), String.valueOf(request.test()));
         return UserResponse.from(user);
     }
 

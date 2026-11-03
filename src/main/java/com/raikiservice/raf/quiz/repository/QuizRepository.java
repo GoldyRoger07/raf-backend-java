@@ -1,5 +1,6 @@
 package com.raikiservice.raf.quiz.repository;
 
+import java.util.Collection;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +32,9 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
 
     Page<Quiz> findByGameModeAndStatusInOrderByCreatedAtDesc(GameMode mode,
             List<QuizStatus> statuses, Pageable pageable);
+
+    Page<Quiz> findByGameModeAndStatusInAndTestFalseOrderByCreatedAtDesc(GameMode mode,
+            Collection<QuizStatus> statuses, Pageable pageable);
 
     /**
      * Verrouille le quiz avant toute operation qui touche a ses compteurs

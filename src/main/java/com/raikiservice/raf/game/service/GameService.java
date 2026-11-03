@@ -1,5 +1,6 @@
 package com.raikiservice.raf.game.service;
 
+import com.raikiservice.raf.quiz.service.QuizAccess;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
@@ -117,6 +118,7 @@ public class GameService {
     private final SecureRandom random = new SecureRandom();
 
     private final GameSessionRepository gameSessionRepository;
+    private final QuizAccess quizAccess;
     private final GameSessionQuestionRepository gameSessionQuestionRepository;
     private final GameAnswerRepository gameAnswerRepository;
     private final QuizRepository quizRepository;
@@ -154,6 +156,7 @@ public class GameService {
     public GameStartResponse start(Long userId, Long quizId, String ip, String userAgent) {
         Quiz quiz = quizRepository.findByIdForShare(quizId)
                 .orElseThrow(() -> ApiException.notFound("Quiz"));
+        quizAccess.assertVisible(quiz, userId);
 
         Instant now = Instant.now();
         if (!quiz.acceptsPlay() || (quiz.getEndsAt() != null && !now.isBefore(quiz.getEndsAt()))) {

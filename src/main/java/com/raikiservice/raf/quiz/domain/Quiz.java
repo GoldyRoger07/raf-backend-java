@@ -44,6 +44,10 @@ public class Quiz extends AuditableEntity {
     @Column(nullable = false, length = 20)
     private QuizStatus status = QuizStatus.DRAFT;
 
+    /** Quiz de test : invisible des joueurs, exclu du resultat du jeu (voir QuizAccess). */
+    @Column(name = "is_test", nullable = false)
+    private boolean test;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "game_mode", nullable = false, length = 10)
     private GameMode gameMode = GameMode.GROUP;

@@ -1,5 +1,6 @@
 package com.raikiservice.raf.quiz.web;
 
+import com.raikiservice.raf.common.web.TestFlagDto;
 import java.util.List;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
@@ -122,6 +123,14 @@ public class AdminQuizController {
     @GetMapping("/{id}")
     @Operation(summary = "Consulter un quiz")
     public QuizResponse get(@PathVariable Long id) {
+        return quizService.view(id);
+    }
+
+    @PostMapping("/{id}/test")
+    @Operation(summary = "Marquer ou demarquer un quiz de test (invisible des joueurs, hors comptabilite)")
+    public QuizResponse setTest(@AuthenticationPrincipal UserPrincipal admin, @PathVariable Long id,
+            @RequestBody TestFlagDto request) {
+        quizService.setTest(admin.getId(), id, request.test());
         return quizService.view(id);
     }
 

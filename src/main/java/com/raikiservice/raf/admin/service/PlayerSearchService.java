@@ -30,7 +30,7 @@ public class PlayerSearchService {
 
     private static final String SELECT = """
             SELECT u.id, u.email, u.phone, u.first_name, u.last_name, u.status,
-                   u.email_verified_at, u.phone_verified_at, u.created_at,
+                   u.email_verified_at, u.phone_verified_at, u.created_at, u.is_test,
                    COALESCE(w.credit_balance, 0) AS credit_balance,
                    COALESCE(w.winnings_balance, 0) AS winnings_balance
             FROM users u
@@ -91,6 +91,7 @@ public class PlayerSearchService {
                 rs.getString("status"),
                 rs.getTimestamp("email_verified_at") != null,
                 rs.getTimestamp("phone_verified_at") != null,
+                rs.getBoolean("is_test"),
                 rs.getLong("credit_balance"),
                 winnings,
                 rs.getTimestamp("created_at").toInstant());

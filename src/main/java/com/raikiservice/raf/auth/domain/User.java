@@ -57,6 +57,10 @@ public class User extends AuditableEntity {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    /** Compte de test : son activite est exclue du tableau de bord, il voit les quiz de test. */
+    @Column(name = "is_test", nullable = false)
+    private boolean test;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),

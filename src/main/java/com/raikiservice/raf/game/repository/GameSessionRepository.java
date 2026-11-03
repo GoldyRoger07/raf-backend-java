@@ -105,4 +105,8 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
             + "where s.status = com.raikiservice.raf.game.domain.GameSessionStatus.IN_PROGRESS "
             + "and s.playMode = :mode and s.serverDeadlineAt < :now")
     List<Long> findOverdueIds(@Param("mode") PlayMode mode, @Param("now") Instant now);
+
+    /** Parties de vrais joueurs (ni staff ni compte de test) sur ce quiz. */
+    @Query("select count(t) from GameSession t where t.quiz.id = :quizId and t.user.test = false and not exists (select r from t.user.roles r where r.name <> com.raikiservice.raf.auth.domain.RoleName.PLAYER)")
+    long countRealPlayerSessions(@Param("quizId") Long quizId);
 }

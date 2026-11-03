@@ -1,5 +1,6 @@
 package com.raikiservice.raf.quiz.service;
 
+import com.raikiservice.raf.game.repository.GameSessionRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -67,6 +68,7 @@ public class QuizService {
     private final RewardService rewardService;
     private final TicketService ticketService;
     private final TicketRepository ticketRepository;
+    private final GameSessionRepository gameSessionRepository;
     private final WalletService walletService;
     private final MediaService mediaService;
     private final AuditService auditService;
@@ -92,12 +94,39 @@ public class QuizService {
      * (classement, corrige) ; un quiz solo, seulement tant qu'il est ouvert.
      */
     public Page<Quiz> visibleToPlayers(GameMode mode, Pageable pageable) {
+        return visibleToPlayers(mode, false, pageable);
+    }
+
+    /** @param includeTests vrai pour le staff et les comptes de test (voir QuizAccess) */
+    public Page<Quiz> visibleToPlayers(GameMode mode, boolean includeTests, Pageable pageable) {
         List<QuizStatus> statuses = mode == GameMode.SOLO
                 ? List.of(QuizStatus.RUNNING)
                 : List.of(QuizStatus.REGISTRATION, QuizStatus.SCHEDULED, QuizStatus.RUNNING,
                         QuizStatus.CLOSING, QuizStatus.COMPUTING, QuizStatus.FINISHED);
-        return quizRepository.findByGameModeAndStatusInOrderByCreatedAtDesc(mode, statuses,
-                pageable);
+        return includeTests
+                ? quizRepository.findByGameModeAndStatusInOrderByCreatedAtDesc(mode, statuses, pageable)
+                : quizRepository.findByGameModeAndStatusInAndTestFalseOrderByCreatedAtDesc(mode, statuses,
+                        pageable);
+    }
+
+    /**
+     * Marque ou demarque un quiz de test. Le marquer est refuse des que de vrais
+     * joueurs y ont un ticket ou une partie : il leur deviendrait invisible, et leur
+     * argent sortirait des comptes.
+     */
+    @Transactional
+    public Quiz setTest(Long actorId, Long quizId, boolean test) {
+        Quiz quiz = quizRepository.findByIdForUpdate(quizId)
+                .orElseThrow(() -> ApiException.notFound("Quiz"));
+        if (test && !quiz.isTest() && (ticketRepository.countRealPlayerTickets(quizId) > 0
+                || gameSessionRepository.countRealPlayerSessions(quizId) > 0)) {
+            throw new ApiException(ErrorCode.QUIZ_HAS_REAL_PLAYERS);
+        }
+        boolean previous = quiz.isTest();
+        quiz.setTest(test);
+        auditService.record(actorId, "QUIZ_TEST_FLAG_CHANGED", "Quiz", String.valueOf(quizId),
+                String.valueOf(previous), String.valueOf(test));
+        return quiz;
     }
 
     @Transactional
@@ -232,6 +261,8 @@ public class QuizService {
         copy.setSlug(uniqueSlug(copy.getTitle()));
         copy.setDescription(source.getDescription());
         copy.setThemeLabel(source.getThemeLabel());
+        // La copie d'un quiz de test sert a refaire un test.
+        copy.setTest(source.isTest());
         copy.setBanner(source.getBanner());
         copy.setGameMode(source.getGameMode());
         copy.setTopicMode(source.getTopicMode());
@@ -518,6 +549,11 @@ public class QuizService {
     @Transactional(readOnly = true)
     public Page<QuizResponse> viewVisible(GameMode mode, Pageable pageable) {
         return visibleToPlayers(mode, pageable).map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<QuizResponse> viewVisible(GameMode mode, boolean includeTests, Pageable pageable) {
+        return visibleToPlayers(mode, includeTests, pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)

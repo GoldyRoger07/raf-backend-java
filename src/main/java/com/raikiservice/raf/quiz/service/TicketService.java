@@ -45,6 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TicketService {
 
     private final TicketRepository ticketRepository;
+    private final QuizAccess quizAccess;
     private final QuizRepository quizRepository;
     private final UserRepository userRepository;
     private final WalletService walletService;
@@ -76,6 +77,7 @@ public class TicketService {
 
         Quiz quiz = quizRepository.findByIdForUpdate(quizId)
                 .orElseThrow(() -> ApiException.notFound("Quiz"));
+        quizAccess.assertVisible(quiz, userId);
 
         // Second controle, sous le verrou : deux envois simultanes de la meme cle
         // ont tous deux manque le premier. Le second attendait le verrou ; il voit

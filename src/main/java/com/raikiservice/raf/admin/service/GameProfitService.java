@@ -55,21 +55,22 @@ public class GameProfitService {
         Timestamp lo = Timestamp.from(from == null ? Instant.EPOCH : from);
         Timestamp hi = Timestamp.from(to);
 
-        long salesCredits = -sum("SELECT COALESCE(SUM(amount), 0) FROM wallet_transactions "
-                + "WHERE type IN ('TICKET_PURCHASE', 'SOLO_ENTRY') AND created_at >= ? AND created_at < ?", lo, hi);
+        // Quiz et comptes de test exclus (voir RealActivity).
+        long salesCredits = -sum("SELECT COALESCE(SUM(t.amount), 0) " + RealActivity.TRANSACTIONS
+                + "AND t.type IN ('TICKET_PURCHASE', 'SOLO_ENTRY') AND t.created_at >= ? AND t.created_at < ?", lo, hi);
         // Seuls les tickets sont rembourses sur le solde de credits ; les retraits
         // rejetes le sont sur les gains et ne sont pas une recette perdue.
-        long refundsCredits = sum("SELECT COALESCE(SUM(amount), 0) FROM wallet_transactions "
-                + "WHERE type = 'REFUND' AND balance_type = 'CREDIT' AND created_at >= ? AND created_at < ?", lo, hi);
-        long prizesHtg = sum("SELECT COALESCE(SUM(amount), 0) FROM wallet_transactions "
-                + "WHERE type = 'PRIZE' AND created_at >= ? AND created_at < ?", lo, hi);
-        long feesHtg = sum("SELECT COALESCE(SUM(fee_htg), 0) FROM withdrawal_requests "
-                + "WHERE status = 'PAID' AND paid_at >= ? AND paid_at < ?", lo, hi);
+        long refundsCredits = sum("SELECT COALESCE(SUM(t.amount), 0) " + RealActivity.TRANSACTIONS
+                + "AND t.type = 'REFUND' AND t.balance_type = 'CREDIT' AND t.created_at >= ? AND t.created_at < ?", lo, hi);
+        long prizesHtg = sum("SELECT COALESCE(SUM(t.amount), 0) " + RealActivity.TRANSACTIONS
+                + "AND t.type = 'PRIZE' AND t.created_at >= ? AND t.created_at < ?", lo, hi);
+        long feesHtg = sum("SELECT COALESCE(SUM(wr.fee_htg), 0) " + RealActivity.WITHDRAWALS
+                + "AND wr.status = 'PAID' AND wr.paid_at >= ? AND wr.paid_at < ?", lo, hi);
 
-        long ticketsSold = sum("SELECT COUNT(*) FROM tickets "
-                + "WHERE purchased_at >= ? AND purchased_at < ? AND status <> 'REFUNDED'", lo, hi);
-        long soloGames = sum("SELECT COUNT(*) FROM game_sessions "
-                + "WHERE game_mode = 'SOLO' AND started_at >= ? AND started_at < ?", lo, hi);
+        long ticketsSold = sum("SELECT COUNT(*) " + RealActivity.TICKETS
+                + "AND tk.purchased_at >= ? AND tk.purchased_at < ? AND tk.status <> 'REFUNDED'", lo, hi);
+        long soloGames = sum("SELECT COUNT(*) " + RealActivity.SESSIONS
+                + "AND gs.game_mode = 'SOLO' AND gs.started_at >= ? AND gs.started_at < ?", lo, hi);
 
         long salesHtg = salesCredits * rate;
         long refundsHtg = refundsCredits * rate;

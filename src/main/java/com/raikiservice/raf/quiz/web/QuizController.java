@@ -1,5 +1,6 @@
 package com.raikiservice.raf.quiz.web;
 
+import com.raikiservice.raf.quiz.service.QuizAccess;
 import java.util.List;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
@@ -39,18 +40,25 @@ public class QuizController {
     private final QuizService quizService;
     private final TicketService ticketService;
     private final VoteService voteService;
+    private final QuizAccess quizAccess;
 
     @GetMapping
     @Operation(summary = "Lister les quiz visibles d'un mode de jeu (En groupe par defaut)")
-    public Page<QuizResponse> list(@RequestParam(defaultValue = "GROUP") GameMode mode,
+    public Page<QuizResponse> list(@AuthenticationPrincipal UserPrincipal player,
+            @RequestParam(defaultValue = "GROUP") GameMode mode,
             @PageableDefault(size = 20) Pageable pageable) {
-        return quizService.viewVisible(mode, pageable);
+        return quizService.viewVisible(mode, quizAccess.seesTestQuizzes(idOf(player)), pageable);
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Consulter un quiz")
-    public QuizResponse get(@PathVariable Long id) {
+    public QuizResponse get(@AuthenticationPrincipal UserPrincipal player, @PathVariable Long id) {
+        quizAccess.assertVisible(quizService.require(id), idOf(player));
         return quizService.view(id);
+    }
+
+    private static Long idOf(UserPrincipal player) {
+        return player == null ? null : player.getId();
     }
 
     @PostMapping("/{id}/tickets")

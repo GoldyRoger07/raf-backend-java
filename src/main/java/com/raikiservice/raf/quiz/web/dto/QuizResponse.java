@@ -36,6 +36,8 @@ public record QuizResponse(
         long ticketPriceHtg,
         /** Ticket ou partie offerts (prix a 0). */
         boolean free,
+        /** Quiz de test : visible du staff et des comptes de test seulement. */
+        boolean test,
         int minPlayers,
         Integer maxTicketsTotal,
         Integer maxTicketsPerPlayer,
@@ -90,6 +92,7 @@ public record QuizResponse(
                 quiz.getTicketPriceCredits(),
                 quiz.getTicketPriceCredits() * htgRate,
                 quiz.isFree(),
+                quiz.isTest(),
                 quiz.getMinPlayers(),
                 quiz.getMaxTicketsTotal(),
                 quiz.getMaxTicketsPerPlayer(),
