@@ -3,19 +3,24 @@ package com.raikiservice.raf.auth.web;
 import java.util.List;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
+import com.raikiservice.raf.auth.service.AccountDeletionService;
 import com.raikiservice.raf.auth.service.AuthService;
 import com.raikiservice.raf.auth.service.RefreshTokenService;
+import com.raikiservice.raf.auth.web.dto.DeleteAccountRequest;
 import com.raikiservice.raf.auth.web.dto.MessageResponse;
 import com.raikiservice.raf.auth.web.dto.SessionResponse;
 import com.raikiservice.raf.auth.web.dto.UserResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,11 +32,24 @@ public class MeController {
 
     private final AuthService authService;
     private final RefreshTokenService refreshTokenService;
+    private final AccountDeletionService accountDeletionService;
 
     @GetMapping
     @Operation(summary = "Profil de l'utilisateur connecte")
     public UserResponse me(@AuthenticationPrincipal UserPrincipal principal) {
         return authService.currentUser(principal.getId());
+    }
+
+    /**
+     * POST plutot que DELETE : le corps (mot de passe) d'un DELETE est ignore par
+     * certains proxys et clients HTTP.
+     */
+    @PostMapping("/delete")
+    @Operation(summary = "Supprimer son compte (anonymisation, sans retour)")
+    public MessageResponse deleteAccount(@AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody DeleteAccountRequest request) {
+        accountDeletionService.deleteOwnAccount(principal.getId(), request);
+        return new MessageResponse("Votre compte a ete supprime.");
     }
 
     @GetMapping("/sessions")

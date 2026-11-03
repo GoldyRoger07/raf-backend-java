@@ -1,5 +1,8 @@
 package com.raikiservice.raf.notification.repository;
 
+import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,4 +18,8 @@ public interface NotificationPreferenceRepository extends JpaRepository<Notifica
 
     Optional<NotificationPreference> findByUserIdAndTypeAndChannel(Long userId, NotificationType type,
             NotificationChannel channel);
+
+    @Modifying
+    @Query("delete from NotificationPreference n where n.userId = :userId")
+    int deleteByUser(@Param("userId") Long userId);
 }

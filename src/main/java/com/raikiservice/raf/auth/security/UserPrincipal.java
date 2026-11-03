@@ -59,7 +59,7 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return status != UserStatus.BANNED && status != UserStatus.SUSPENDED;
+        return status == UserStatus.ACTIVE;
     }
 
     @Override

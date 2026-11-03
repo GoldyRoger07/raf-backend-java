@@ -135,6 +135,13 @@ public enum ErrorCode {
     LAST_SUPER_ADMIN(HttpStatus.CONFLICT,
             "Ce compte est le dernier super-administrateur actif : il doit le rester."),
     ROLES_REQUIRED(HttpStatus.BAD_REQUEST, "Un compte doit garder au moins un role."),
+    ACCOUNT_DELETED(HttpStatus.CONFLICT, "Ce compte a ete supprime."),
+    ACCOUNT_DELETION_WITHDRAWAL_PENDING(HttpStatus.CONFLICT,
+            "Un retrait est en cours : attendez qu'il soit paye ou refuse avant de supprimer votre compte."),
+    ACCOUNT_DELETION_BALANCE(HttpStatus.CONFLICT,
+            "Votre portefeuille n'est pas vide : confirmez que vous renoncez a votre solde."),
+    ACCOUNT_DELETION_STAFF(HttpStatus.CONFLICT,
+            "Un compte d'administration ne peut pas etre supprime : demandez d'abord le retrait de vos roles."),
 
     SETTING_INVALID(HttpStatus.BAD_REQUEST, "Valeur de parametre invalide."),
 

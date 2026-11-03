@@ -44,6 +44,19 @@ public final class MailTemplates {
                 "Si vous n'etes pas a l'origine de ce changement, contactez-nous immediatement.");
     }
 
+    public static String accountDeleted(String firstName) {
+        return wrap("Votre compte a ete supprime",
+                """
+                <p>Bonjour %s,</p>
+                <p>Votre compte RAF a ete supprime a votre demande. Vos donnees personnelles
+                (nom, email, telephone) ont ete effacees ; l'historique de vos operations est
+                conserve sans elles, pour nos obligations comptables.</p>
+                <p>Vous pouvez creer un nouveau compte a tout moment avec la meme adresse.</p>
+                """.formatted(escape(firstName)),
+                null, null,
+                "Si vous n'etes pas a l'origine de cette suppression, contactez-nous immediatement.");
+    }
+
     /** Email d'une notification : titre, message et lien vers l'ecran concerne. */
     public static String notification(String firstName, String title, String body,
             String buttonLabel, String buttonUrl) {

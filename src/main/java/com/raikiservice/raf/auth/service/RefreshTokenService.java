@@ -36,6 +36,7 @@ public class RefreshTokenService {
     private static final String REASON_LOGOUT_ALL = "LOGOUT_ALL";
     private static final String REASON_REUSE = "REUSE_DETECTED";
     private static final String REASON_REVOKED_BY_USER = "REVOKED_BY_USER";
+    private static final String REASON_ACCOUNT_DELETED = "ACCOUNT_DELETED";
     private static final String REASON_PASSWORD_CHANGED = "PASSWORD_CHANGED";
 
     private final RefreshTokenRepository refreshTokenRepository;
@@ -113,6 +114,11 @@ public class RefreshTokenService {
         refreshTokenRepository.revokeAllForUser(userId, REASON_PASSWORD_CHANGED, Instant.now());
     }
 
+    @Transactional
+    public void revokeAllAfterAccountDeletion(Long userId) {
+        refreshTokenRepository.revokeAllForUser(userId, REASON_ACCOUNT_DELETED, Instant.now());
+    }
+
     @Transactional(readOnly = true)
     public List<RefreshToken> listActiveSessions(Long userId) {
         return refreshTokenRepository.findActiveByUser(userId, Instant.now());
@@ -155,6 +161,7 @@ public class RefreshTokenService {
         switch (user.getStatus()) {
             case BANNED -> throw new ApiException(ErrorCode.ACCOUNT_BANNED);
             case SUSPENDED -> throw new ApiException(ErrorCode.ACCOUNT_SUSPENDED);
+            case DELETED -> throw new ApiException(ErrorCode.UNAUTHENTICATED);
             default -> {
             }
         }

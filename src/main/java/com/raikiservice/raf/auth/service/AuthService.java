@@ -285,6 +285,7 @@ public class AuthService {
         switch (user.getStatus()) {
             case BANNED -> throw new ApiException(ErrorCode.ACCOUNT_BANNED);
             case SUSPENDED -> throw new ApiException(ErrorCode.ACCOUNT_SUSPENDED);
+            case DELETED -> throw new ApiException(ErrorCode.UNAUTHENTICATED);
             default -> {
             }
         }

@@ -86,7 +86,7 @@ public class AdminUserController {
             throw new ApiException(ErrorCode.ROLES_REQUIRED);
         }
 
-        User user = require(id);
+        User user = requireNotDeleted(id);
         if (isSuperAdmin(user) && !roleNames.contains(RoleName.SUPER_ADMIN)) {
             assertNotLastSuperAdmin();
         }
@@ -119,7 +119,11 @@ public class AdminUserController {
             @PathVariable Long id, @RequestBody UserStatus status) {
 
         assertNotSelf(admin, id);
-        User user = require(id);
+        // La suppression passe par le titulaire (anonymisation), jamais par ce statut.
+        if (status == UserStatus.DELETED) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Statut non autorise ici.");
+        }
+        User user = requireNotDeleted(id);
         if (status != UserStatus.ACTIVE && isSuperAdmin(user) && user.getStatus() == UserStatus.ACTIVE) {
             assertNotLastSuperAdmin();
         }
@@ -155,6 +159,15 @@ public class AdminUserController {
 
     private static boolean isSuperAdmin(User user) {
         return user.getRoles().stream().anyMatch(role -> role.getName() == RoleName.SUPER_ADMIN);
+    }
+
+    /** Un compte supprime est anonymise : ni roles ni statut ne doivent le faire revivre. */
+    private User requireNotDeleted(Long id) {
+        User user = require(id);
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new ApiException(ErrorCode.ACCOUNT_DELETED);
+        }
+        return user;
     }
 
     private User require(Long id) {

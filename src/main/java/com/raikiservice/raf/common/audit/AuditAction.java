@@ -15,6 +15,7 @@ public final class AuditAction {
     public static final String PASSWORD_RESET_COMPLETED = "PASSWORD_RESET_COMPLETED";
     public static final String REFRESH_TOKEN_REUSE_DETECTED = "REFRESH_TOKEN_REUSE_DETECTED";
     public static final String SESSION_REVOKED = "SESSION_REVOKED";
+    public static final String ACCOUNT_DELETED = "ACCOUNT_DELETED";
 
     private AuditAction() {
     }

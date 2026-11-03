@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.raikiservice.raf.auth.domain.User;
+import com.raikiservice.raf.auth.domain.UserStatus;
 import com.raikiservice.raf.auth.repository.UserRepository;
 import com.raikiservice.raf.common.config.AppProperties;
 import com.raikiservice.raf.notification.domain.Notification;
@@ -47,6 +48,11 @@ public class NotificationDelivery {
     public void deliver(Delivery delivery) {
         Long userId = delivery.userId();
         NotificationMessage message = delivery.message();
+        // Compte supprime entre l'evenement et l'envoi (ou gain credite apres coup) :
+        // plus de boite de reception, d'email ni de push.
+        if (userRepository.findById(userId).map(u -> u.getStatus() == UserStatus.DELETED).orElse(true)) {
+            return;
+        }
 
         Notification notification = new Notification();
         notification.setUserId(userId);

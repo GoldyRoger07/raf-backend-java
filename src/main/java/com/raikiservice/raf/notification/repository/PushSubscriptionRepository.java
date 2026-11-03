@@ -19,4 +19,8 @@ public interface PushSubscriptionRepository extends JpaRepository<PushSubscripti
     @Modifying
     @Query("delete from PushSubscription s where s.endpointHash = :hash and s.userId = :userId")
     int deleteByEndpointHashAndUserId(@Param("hash") String hash, @Param("userId") Long userId);
+
+    @Modifying
+    @Query("delete from PushSubscription s where s.userId = :userId")
+    int deleteByUser(@Param("userId") Long userId);
 }

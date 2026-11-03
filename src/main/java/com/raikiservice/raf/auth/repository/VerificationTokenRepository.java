@@ -22,4 +22,8 @@ public interface VerificationTokenRepository extends JpaRepository<VerificationT
     int consumePending(@Param("userId") Long userId,
             @Param("type") VerificationTokenType type,
             @Param("now") Instant now);
+
+    @Modifying
+    @Query("delete from VerificationToken t where t.user.id = :userId")
+    int deleteByUser(@Param("userId") Long userId);
 }

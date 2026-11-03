@@ -34,4 +34,9 @@ public interface OtpCodeRepository extends JpaRepository<OtpCode, Long> {
     @Modifying
     @Query("update OtpCode o set o.attempts = o.attempts + 1 where o.id = :id")
     int incrementAttempts(@Param("id") Long id);
+
+    /** Les codes portent le numero de destination : ils partent avec le compte supprime. */
+    @Modifying
+    @Query("delete from OtpCode o where o.user.id = :userId")
+    int deleteByUser(@Param("userId") Long userId);
 }

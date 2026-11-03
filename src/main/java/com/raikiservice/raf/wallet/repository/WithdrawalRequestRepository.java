@@ -1,5 +1,6 @@
 package com.raikiservice.raf.wallet.repository;
 
+import java.util.Collection;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -45,4 +46,6 @@ public interface WithdrawalRequestRepository extends JpaRepository<WithdrawalReq
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select w from WithdrawalRequest w where w.id = :id")
     Optional<WithdrawalRequest> findByIdForUpdate(@Param("id") Long id);
+
+    boolean existsByUserIdAndStatusIn(Long userId, Collection<WithdrawalStatus> statuses);
 }
