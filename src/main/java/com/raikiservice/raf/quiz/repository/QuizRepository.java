@@ -74,4 +74,8 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
 
     @Query("select q from Quiz q where q.status = :status and q.endsAt <= :now")
     List<Quiz> findDueToClose(@Param("status") QuizStatus status, @Param("now") Instant now);
+
+    /** Projection scalaire : savoir si le quiz est de test sans le charger. */
+    @Query("select q.test from Quiz q where q.id = :id")
+    Optional<Boolean> findTestFlag(@Param("id") Long id);
 }

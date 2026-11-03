@@ -104,14 +104,18 @@ public class TicketService {
                     "Verifiez votre adresse email avant d'acheter un ticket.");
         }
 
-        if (quiz.getMaxTicketsTotal() != null) {
-            long sold = ticketRepository.countByQuizIdAndStatusNot(quizId, TicketStatus.REFUNDED);
+        // Compte de test : tickets offerts et sans limite. Sur un vrai quiz, ses tickets
+        // ne prennent pas de place aux vrais joueurs (voir counted).
+        boolean test = user.isTest();
+
+        if (quiz.getMaxTicketsTotal() != null && !test) {
+            long sold = soldTickets(quiz);
             if (sold >= quiz.getMaxTicketsTotal()) {
                 throw new ApiException(ErrorCode.QUIZ_SOLD_OUT);
             }
         }
 
-        if (quiz.getMaxTicketsPerPlayer() != null) {
+        if (quiz.getMaxTicketsPerPlayer() != null && !test) {
             long owned = ticketRepository.countByQuizIdAndUserIdAndStatusNot(
                     quizId, userId, TicketStatus.REFUNDED);
             if (owned >= quiz.getMaxTicketsPerPlayer()) {
@@ -124,7 +128,8 @@ public class TicketService {
         ticket.setQuiz(quiz);
         ticket.setUser(user);
         ticket.setCode(generateCode());
-        ticket.setPricePaidCredits(quiz.getTicketPriceCredits());
+        ticket.setPricePaidCredits(test ? 0 : quiz.getTicketPriceCredits());
+        ticket.setTest(test);
         ticket.setStatus(TicketStatus.ACTIVE);
         ticket.setIdempotencyKey(idempotencyKey);
         ticket.setPurchasedAt(Instant.now());
@@ -134,7 +139,7 @@ public class TicketService {
         // Quiz gratuit : pas de debit, donc pas de mouvement (un mouvement de 0
         // n'existe pas). Le verrou du quiz suffit a faire respecter la limite d'un
         // ticket par joueur.
-        if (!quiz.isFree()) {
+        if (!quiz.isFree() && !test) {
             WalletTransaction debit = walletService.debit(
                     userId,
                     BalanceType.CREDIT,
@@ -168,7 +173,7 @@ public class TicketService {
             return;
         }
 
-        long players = ticketRepository.countDistinctPlayers(quiz.getId());
+        long players = registeredPlayers(quiz);
         if (players < quiz.getMinPlayers()) {
             return;
         }
@@ -183,6 +188,24 @@ public class TicketService {
 
         notificationService.notifyUsers(ticketRepository.findHolderIds(quiz.getId()),
                 NotificationMessages.quizScheduled(quiz));
+    }
+
+    /**
+     * Joueurs inscrits qui comptent pour le seuil de demarrage. Sur un quiz de test,
+     * tout le monde (sinon il ne demarrerait jamais) ; sur un vrai quiz, les comptes
+     * de test sont ignores.
+     */
+    public long registeredPlayers(Quiz quiz) {
+        return quiz.isTest()
+                ? ticketRepository.countDistinctPlayers(quiz.getId())
+                : ticketRepository.countDistinctRealPlayers(quiz.getId());
+    }
+
+    /** Tickets vendus qui comptent pour la capacite, avec la meme regle. */
+    public long soldTickets(Quiz quiz) {
+        return quiz.isTest()
+                ? ticketRepository.countByQuizIdAndStatusNot(quiz.getId(), TicketStatus.REFUNDED)
+                : ticketRepository.countByQuizIdAndStatusNotAndTestFalse(quiz.getId(), TicketStatus.REFUNDED);
     }
 
     /** Remboursement integral, utilise a l'annulation d'un quiz. */

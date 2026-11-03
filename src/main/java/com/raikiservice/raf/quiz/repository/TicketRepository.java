@@ -65,4 +65,12 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     /** Tickets de vrais joueurs (ni staff ni compte de test) sur ce quiz. */
     @Query("select count(t) from Ticket t where t.quiz.id = :quizId and t.user.test = false and not exists (select r from t.user.roles r where r.name <> com.raikiservice.raf.auth.domain.RoleName.PLAYER)")
     long countRealPlayerTickets(@Param("quizId") Long quizId);
+
+    /** Tickets hors comptes de test : ceux qui comptent sur un vrai quiz. */
+    long countByQuizIdAndStatusNotAndTestFalse(Long quizId, TicketStatus status);
+
+    @Query("select count(distinct t.user.id) from Ticket t "
+            + "where t.quiz.id = :quizId and t.test = false "
+            + "and t.status <> com.raikiservice.raf.quiz.domain.TicketStatus.REFUNDED")
+    long countDistinctRealPlayers(@Param("quizId") Long quizId);
 }

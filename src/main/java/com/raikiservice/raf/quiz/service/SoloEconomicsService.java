@@ -112,7 +112,7 @@ public class SoloEconomicsService {
 
         return estimate(quiz.getTicketPriceCredits(), prize, quiz.getQuestionsPerGame(),
                 quizQuestionPoolRepository.usageStats(quiz.getId()),
-                gameSessionRepository.countByQuizIdAndStatusNot(quiz.getId(),
+                gameSessionRepository.countByQuizIdAndStatusNotAndTestFalse(quiz.getId(),
                         GameSessionStatus.IN_PROGRESS),
                 gameSessionRepository.countByQuizIdAndWonTrue(quiz.getId()));
     }

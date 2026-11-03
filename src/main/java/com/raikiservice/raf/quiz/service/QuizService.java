@@ -566,8 +566,8 @@ public class QuizService {
                 quiz,
                 rewardService.forQuiz(quiz.getId()),
                 quizTopicRepository.findByQuizIdOrderByVoteCountDescIdAsc(quiz.getId()),
-                ticketRepository.countDistinctPlayers(quiz.getId()),
-                ticketRepository.countByQuizIdAndStatusNot(quiz.getId(), TicketStatus.REFUNDED),
+                ticketService.registeredPlayers(quiz),
+                ticketService.soldTickets(quiz),
                 quizQuestionPoolRepository.countByQuizId(quiz.getId()),
                 walletService.htgRate());
     }

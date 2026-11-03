@@ -95,6 +95,10 @@ public class RankingService {
 
         for (GameSession session : gameSessionRepository.findRankable(quizId)) {
             User user = session.getUser();
+            // Sur un vrai quiz, un compte de test ne prend la place de personne.
+            if (session.isTest() && !quiz.isTest()) {
+                continue;
+            }
             if (!ranked.add(user.getId())) {
                 continue;
             }
@@ -106,7 +110,8 @@ public class RankingService {
             ranking.setScore(session.getScore());
             ranking.setFirstStartedAt(session.getStartedAt());
             ranking.setRank(rank);
-            ranking.setRewardHtg(rewardFor(rewards, rank));
+            // Classe (pour essayer le classement d'un quiz de test) mais jamais paye.
+            ranking.setRewardHtg(session.isTest() ? 0 : rewardFor(rewards, rank));
             rankings.add(quizRankingRepository.save(ranking));
             rank++;
         }

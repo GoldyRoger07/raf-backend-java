@@ -133,6 +133,10 @@ public class GameSession {
     @Column(name = "invalidation_reason", length = 255)
     private String invalidationReason;
 
+    /** Partie d'un compte de test : sans gain, hors classement et cloture d'un vrai quiz. */
+    @Column(name = "is_test", nullable = false)
+    private boolean test;
+
     /** Signalement pour revue humaine : n'affecte pas le score. */
     @Column(nullable = false)
     private boolean flagged;

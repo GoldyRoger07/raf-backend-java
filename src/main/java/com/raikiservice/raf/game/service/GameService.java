@@ -239,6 +239,9 @@ public class GameService {
         }
 
         LocalDate day = LocalDate.ofInstant(now, PLAY_DAY_ZONE);
+        if (user.isTest()) {
+            return startTestSolo(quiz, user, now, ip, userAgent);
+        }
         if (gameSessionRepository.existsByUserIdAndCategoryIdAndSoloDay(userId, subject.getId(), day)) {
             throw new ApiException(ErrorCode.SOLO_ALREADY_PLAYED_TODAY);
         }
@@ -283,12 +286,25 @@ public class GameService {
         return response;
     }
 
+    /**
+     * Partie solo d'un compte de test : offerte, sans limite d'une par jour (pas de
+     * soloDay, donc hors contrainte unique), sans prix au sans-faute.
+     */
+    private GameStartResponse startTestSolo(Quiz quiz, User user, Instant now, String ip,
+            String userAgent) {
+        GameSession session = newSession(quiz, user, GameMode.SOLO, now, ip, userAgent);
+        session.setEntryPriceCredits(0);
+        session.setPrizeHtg(0L);
+        return deal(quiz, session, now);
+    }
+
     private GameSession newSession(Quiz quiz, User user, GameMode mode, Instant now, String ip,
             String userAgent) {
 
         GameSession session = new GameSession();
         session.setQuiz(quiz);
         session.setUser(user);
+        session.setTest(user.isTest());
         session.setGameMode(mode);
         session.setCategoryId(quiz.getSelectedCategory() == null ? null
                 : quiz.getSelectedCategory().getId());
@@ -348,7 +364,10 @@ public class GameService {
             pending.setServedAt(now);
         }
 
-        recordStatsAfterCommit(picked, List.of());
+        // Les parties de test ne faussent pas la difficulte mesuree des questions.
+        if (!session.isTest()) {
+            recordStatsAfterCommit(picked, List.of());
+        }
 
         log.debug("Partie {} lancee ({}, {}) : joueur {}, quiz {}, {} question(s)",
                 session.getId(), session.getGameMode(), mode, session.getUser().getId(),
@@ -770,10 +789,13 @@ public class GameService {
         session.setAnsweredCount(answeredCount);
 
         flagFastAnswers(session, answers);
-        recordStatsAfterCommit(List.of(), correctQuestionIds);
+        if (!session.isTest()) {
+            recordStatsAfterCommit(List.of(), correctQuestionIds);
+        }
 
         if (session.isSolo()) {
-            if (correctQuestionIds.size() == totalQuestions) {
+            // Compte de test : pas de gain, il joue pour essayer.
+            if (correctQuestionIds.size() == totalQuestions && !session.isTest()) {
                 payPrize(session);
             }
             return;
@@ -781,6 +803,10 @@ public class GameService {
 
         // Projection scalaire : ne charge pas le quiz (voir la javadoc de submit).
         Long quizId = session.getQuiz().getId();
+        // Un compte de test ne declenche pas la cloture d'un vrai quiz.
+        if (session.isTest() && !quizRepository.findTestFlag(quizId).orElse(false)) {
+            return;
+        }
         quizRepository.findMinScoreThreshold(quizId, QuizStatus.RUNNING)
                 .filter(threshold -> score > threshold)
                 .ifPresent(threshold -> quizService.triggerClosing(quizId, score));

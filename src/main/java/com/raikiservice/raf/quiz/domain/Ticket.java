@@ -57,6 +57,10 @@ public class Ticket {
     @Column(name = "idempotency_key", length = 120, unique = true)
     private String idempotencyKey;
 
+    /** Ticket d'un compte de test : gratuit, hors seuil et capacite d'un vrai quiz. */
+    @Column(name = "is_test", nullable = false)
+    private boolean test;
+
     @Column(name = "purchased_at", nullable = false)
     private Instant purchasedAt = Instant.now();
 
