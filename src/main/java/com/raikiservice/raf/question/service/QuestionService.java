@@ -123,8 +123,7 @@ public class QuestionService {
         applyFields(question, text, hash, type, difficulty, explanation, mediaId);
 
         if (choices != null && !choices.isEmpty()) {
-            question.getChoices().clear();
-            applyChoices(question, choices);
+            replaceChoices(question, choices);
         }
 
         auditService.record(actorId, "QUESTION_UPDATED", "Question", String.valueOf(id),
@@ -221,6 +220,40 @@ public class QuestionService {
             choice.setPosition(position++);
             choice.setMedia(dto.mediaId() == null ? null : mediaService.require(dto.mediaId()));
             question.addChoice(choice);
+        }
+    }
+
+    /**
+     * Met a jour les choix sur place, position par position, au lieu de tout effacer
+     * puis recreer.
+     *
+     * <p>Deux raisons. Hibernate execute les insertions avant les suppressions au
+     * flush : recreer les choix heurtait l'unicite (question_id, position). Et les
+     * parties deja jouees ou en cours designent les choix par leur id
+     * (game_answers.choice_id, game_session_questions.correct_choice_id) : garder les
+     * ids garde leurs corriges lisibles.
+     */
+    private void replaceChoices(Question question, List<ChoiceDto> choices) {
+        assertExactlyOneCorrect(choices);
+
+        List<QuestionChoice> existing = question.getChoices();
+        for (int i = 0; i < choices.size(); i++) {
+            ChoiceDto dto = choices.get(i);
+            QuestionChoice choice;
+            if (i < existing.size()) {
+                choice = existing.get(i);
+            } else {
+                choice = new QuestionChoice();
+                question.addChoice(choice);
+            }
+            choice.setText(dto.text().trim());
+            choice.setCorrect(dto.correct());
+            choice.setPosition(i + 1);
+            choice.setMedia(dto.mediaId() == null ? null : mediaService.require(dto.mediaId()));
+        }
+        // Reponses en trop : leurs positions sont au-dela des nouvelles, aucune collision.
+        while (existing.size() > choices.size()) {
+            existing.remove(existing.size() - 1);
         }
     }
 
