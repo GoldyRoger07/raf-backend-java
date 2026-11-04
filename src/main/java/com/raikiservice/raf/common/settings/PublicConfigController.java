@@ -22,6 +22,7 @@ public class PublicConfigController {
     private final SocialService socialService;
     private final DepositNumbersService depositNumbersService;
     private final TopUpAvailabilityService topUpAvailabilityService;
+    private final PlayerAppService playerAppService;
 
     @GetMapping("/social")
     @Operation(summary = "Liens vers les reseaux sociaux actives par l'administrateur")
@@ -33,6 +34,12 @@ public class PublicConfigController {
     @Operation(summary = "Un agent est-il en ligne pour crediter les recharges en ce moment ?")
     public TopUpAvailabilityService.Availability topUpAvailability() {
         return topUpAvailabilityService.availability();
+    }
+
+    @GetMapping("/app-config")
+    @Operation(summary = "Comportements de l'app joueur choisis par l'administrateur")
+    public PlayerAppService.PlayerAppConfig appConfig() {
+        return playerAppService.get();
     }
 
     @GetMapping("/deposit-numbers")

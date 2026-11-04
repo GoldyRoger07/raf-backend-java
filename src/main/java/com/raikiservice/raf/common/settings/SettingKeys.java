@@ -30,9 +30,14 @@ public final class SettingKeys {
     public static final String DEPOSIT_NATCASH_NUMBER = "deposit.natcash.number";
     private static final String DEPOSIT_PREFIX = "deposit.";
 
+    /** Comportement de l'app joueur, voir PlayerAppService. */
+    public static final String APP_EMAIL_REMINDER_ENABLED = "app.email_reminder.enabled";
+    private static final String APP_PREFIX = "app.";
+
     /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */
     public static boolean hasOwnScreen(String key) {
-        return key.startsWith(SOCIAL_PREFIX) || key.startsWith(DEPOSIT_PREFIX);
+        return key.startsWith(SOCIAL_PREFIX) || key.startsWith(DEPOSIT_PREFIX)
+                || key.startsWith(APP_PREFIX);
     }
 
     /**
