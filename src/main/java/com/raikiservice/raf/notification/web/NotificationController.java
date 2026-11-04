@@ -66,6 +66,20 @@ public class NotificationController {
         return new MessageResponse("Notification lue.");
     }
 
+    @GetMapping("/popups")
+    @Operation(summary = "Popups a afficher a l'ouverture de l'app (bouton J'ai compris)")
+    public List<NotificationResponse> popups(@AuthenticationPrincipal UserPrincipal user) {
+        return inboxService.pendingPopups(user.getId());
+    }
+
+    @PostMapping("/{id}/ack")
+    @Operation(summary = "Acquitter un popup (J'ai compris) : il ne s'affichera plus")
+    public MessageResponse acknowledge(@AuthenticationPrincipal UserPrincipal user,
+            @PathVariable Long id) {
+        inboxService.acknowledge(user.getId(), id);
+        return new MessageResponse("Message acquitte.");
+    }
+
     @PostMapping("/read-all")
     @Operation(summary = "Tout marquer comme lu")
     public Map<String, Integer> markAllRead(@AuthenticationPrincipal UserPrincipal user) {

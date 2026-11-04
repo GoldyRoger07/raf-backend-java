@@ -147,6 +147,11 @@ public enum ErrorCode {
     ACCOUNT_DELETION_STAFF(HttpStatus.CONFLICT,
             "Un compte d'administration ne peut pas etre supprime : demandez d'abord le retrait de vos roles."),
 
+    ANNOUNCEMENT_ALL_PLAYERS_FORBIDDEN(HttpStatus.FORBIDDEN,
+            "Seul un super-administrateur peut envoyer un message a tous les joueurs."),
+    ANNOUNCEMENT_NOT_CANCELLABLE(HttpStatus.CONFLICT,
+            "Ce message est deja parti ou annule : il ne peut plus etre annule."),
+
     SETTING_INVALID(HttpStatus.BAD_REQUEST, "Valeur de parametre invalide."),
 
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "Ressource introuvable."),

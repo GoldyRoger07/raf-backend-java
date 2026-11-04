@@ -38,4 +38,15 @@ public class Notification extends BaseEntity {
 
     @Column(name = "read_at")
     private Instant readAt;
+
+    /** Popup a acquitter (bouton "J'ai compris") a l'ouverture de l'app. */
+    @Column(name = "requires_ack", nullable = false)
+    private boolean requiresAck;
+
+    @Column(name = "acknowledged_at")
+    private Instant acknowledgedAt;
+
+    /** Au-dela, le popup ne s'affiche plus (la notification reste dans l'historique). */
+    @Column(name = "expires_at")
+    private Instant expiresAt;
 }

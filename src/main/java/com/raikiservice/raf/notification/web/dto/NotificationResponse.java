@@ -14,7 +14,10 @@ public record NotificationResponse(
         String data,
         boolean read,
         Instant createdAt,
-        Instant readAt) {
+        Instant readAt,
+        /** Popup a acquitter par "J'ai compris". */
+        boolean popup,
+        Instant acknowledgedAt) {
 
     public static NotificationResponse from(Notification notification) {
         return new NotificationResponse(
@@ -25,6 +28,8 @@ public record NotificationResponse(
                 notification.getData(),
                 notification.getReadAt() != null,
                 notification.getCreatedAt(),
-                notification.getReadAt());
+                notification.getReadAt(),
+                notification.isRequiresAck(),
+                notification.getAcknowledgedAt());
     }
 }

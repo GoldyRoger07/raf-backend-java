@@ -29,6 +29,13 @@ public enum NotificationType {
     WITHDRAWAL_PAID("Retrait verse", EnumSet.of(NotificationChannel.EMAIL, NotificationChannel.PUSH)),
     WITHDRAWAL_REJECTED("Retrait refuse",
             EnumSet.of(NotificationChannel.EMAIL, NotificationChannel.PUSH)),
+    /**
+     * Message ecrit par l'equipe depuis le back-office. Les canaux sont choisis a
+     * l'envoi ; le joueur peut couper l'email et le push des annonces, sauf pour
+     * un message marque important (service, compte, argent).
+     */
+    ANNOUNCEMENT("Annonces de l'equipe RAF",
+            EnumSet.of(NotificationChannel.EMAIL, NotificationChannel.PUSH)),
     /** Reserve aux administrateurs. */
     ADMIN_RECONCILIATION_ALERT("Alerte du rapprochement comptable",
             EnumSet.of(NotificationChannel.EMAIL)),

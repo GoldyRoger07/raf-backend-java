@@ -46,12 +46,21 @@ public class NotificationDelivery {
     private final AppProperties appProperties;
 
     public void deliver(Delivery delivery) {
+        deliver(delivery, DeliveryOptions.PREFERENCES);
+    }
+
+    /**
+     * Enregistre la notification in-app puis l'envoie par email et push selon
+     * {@code options}. Renvoie ce qui a ete fait, pour le suivi des annonces.
+     */
+    public DeliveryResult deliver(Delivery delivery, DeliveryOptions options) {
         Long userId = delivery.userId();
         NotificationMessage message = delivery.message();
         // Compte supprime entre l'evenement et l'envoi (ou gain credite apres coup) :
         // plus de boite de reception, d'email ni de push.
-        if (userRepository.findById(userId).map(u -> u.getStatus() == UserStatus.DELETED).orElse(true)) {
-            return;
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null || user.getStatus() == UserStatus.DELETED) {
+            return DeliveryResult.SKIPPED;
         }
 
         Notification notification = new Notification();
@@ -61,16 +70,48 @@ public class NotificationDelivery {
         notification.setBody(message.body());
         notification.setData(message.data().isEmpty() ? null
                 : objectMapper.writeValueAsString(message.data()));
+        notification.setRequiresAck(options.requiresAck());
+        notification.setExpiresAt(options.expiresAt());
         notificationRepository.save(notification);
 
-        Set<NotificationChannel> channels = preferenceService.enabledChannels(userId, message.type());
+        Set<NotificationChannel> channels = options.channels() != null ? options.channels()
+                : preferenceService.enabledChannels(userId, message.type());
         String link = message.path() == null ? null : appProperties.frontendUrl() + message.path();
 
+        boolean emailSent = false;
+        boolean pushSent = false;
         if (channels.contains(NotificationChannel.EMAIL)) {
-            userRepository.findById(userId).ifPresent(user -> sendEmail(user, message, link));
+            sendEmail(user, message, link);
+            emailSent = true;
         }
         if (channels.contains(NotificationChannel.PUSH)) {
-            sendPush(userId, notification.getId(), message, link);
+            pushSent = sendPush(userId, notification.getId(), message, link);
+        }
+        return new DeliveryResult(notification.getId(), emailSent, pushSent);
+    }
+
+    /**
+     * @param channels canaux email / push imposes, ou null pour suivre les preferences
+     *                 du joueur et les canaux par defaut du type
+     * @param requiresAck afficher la notification en popup a acquitter
+     * @param expiresAt fin d'affichage du popup (null : jusqu'a l'acquittement)
+     */
+    public record DeliveryOptions(Set<NotificationChannel> channels, boolean requiresAck,
+            Instant expiresAt) {
+
+        public static final DeliveryOptions PREFERENCES = new DeliveryOptions(null, false, null);
+    }
+
+    /**
+     * @param notificationId notification in-app creee, null si le compte n'existe plus
+     * @param pushSent au moins un navigateur du joueur a accepte le push
+     */
+    public record DeliveryResult(Long notificationId, boolean emailSent, boolean pushSent) {
+
+        public static final DeliveryResult SKIPPED = new DeliveryResult(null, false, false);
+
+        public boolean skipped() {
+            return notificationId == null;
         }
     }
 
@@ -80,7 +121,7 @@ public class NotificationDelivery {
                         link == null ? null : "Voir dans RAF", link));
     }
 
-    private void sendPush(Long userId, Long notificationId, NotificationMessage message, String link) {
+    private boolean sendPush(Long userId, Long notificationId, NotificationMessage message, String link) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("notificationId", notificationId);
         payload.put("type", message.type().name());
@@ -92,9 +133,11 @@ public class NotificationDelivery {
         payload.put("data", message.data());
         String json = objectMapper.writeValueAsString(payload);
 
+        boolean sent = false;
         for (PushSubscription subscription : pushSubscriptionRepository.findByUserId(userId)) {
             switch (pushSender.send(subscription, json)) {
                 case SENT -> {
+                    sent = true;
                     subscription.setLastUsedAt(Instant.now());
                     pushSubscriptionRepository.save(subscription);
                 }
@@ -103,5 +146,6 @@ public class NotificationDelivery {
                 case FAILED -> log.debug("Push non remis a l'abonnement {}", subscription.getId());
             }
         }
+        return sent;
     }
 }

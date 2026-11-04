@@ -1,6 +1,7 @@
 package com.raikiservice.raf.notification.service;
 
 import java.time.Instant;
+import java.util.List;
 
 import com.raikiservice.raf.common.config.AppProperties;
 import com.raikiservice.raf.common.error.ApiException;
@@ -45,6 +46,26 @@ public class NotificationInboxService {
         if (notificationRepository.markRead(notificationId, userId, Instant.now()) == 0
                 && notificationRepository.findById(notificationId)
                         .filter(n -> n.getUserId().equals(userId)).isEmpty()) {
+            throw ApiException.notFound("Notification");
+        }
+    }
+
+    /** Popups a afficher a l'ouverture de l'app, du plus ancien au plus recent. */
+    @Transactional(readOnly = true)
+    public List<NotificationResponse> pendingPopups(Long userId) {
+        return notificationRepository.findPendingPopups(userId, Instant.now()).stream()
+                .map(NotificationResponse::from).toList();
+    }
+
+    /**
+     * "J'ai compris". Rejouer l'acquittement est sans effet ; une notification d'un
+     * autre joueur, ou qui n'est pas un popup, est traitee comme inexistante.
+     */
+    @Transactional
+    public void acknowledge(Long userId, Long notificationId) {
+        if (notificationRepository.acknowledge(notificationId, userId, Instant.now()) == 0
+                && notificationRepository.findById(notificationId)
+                        .filter(n -> n.getUserId().equals(userId) && n.isRequiresAck()).isEmpty()) {
             throw ApiException.notFound("Notification");
         }
     }
