@@ -18,7 +18,6 @@ import java.util.UUID;
 import com.raikiservice.raf.admin.service.PlayerFilter;
 import com.raikiservice.raf.admin.service.PlayerFilter.Activity;
 import com.raikiservice.raf.game.service.GameService;
-import com.raikiservice.raf.wallet.domain.TopUpRequest;
 import com.raikiservice.raf.wallet.service.TopUpService;
 import com.raikiservice.raf.wallet.service.WalletService;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -134,8 +133,10 @@ class AdminDashboardTest extends IntegrationTest {
         topUpService.createManual(null, toppedUp.getId(), amount, null, null);
         // Une recharge restee en attente ne compte pas.
         User pendingOnly = data.player();
-        TopUpRequest pending = topUpService.createManual(null, pendingOnly.getId(), amount, null, null);
-        jdbc.update("UPDATE topup_requests SET status = 'PENDING' WHERE id = ?", pending.getId());
+        // Demande en attente (paiement mobile non confirme) : aucun credit n'a ete verse.
+        jdbc.update("INSERT INTO topup_requests (user_id, provider, amount_htg, credits, status, created_at, updated_at)"
+                + " VALUES (?, 'MONCASH', ?, ?, 'PENDING', NOW(6), NOW(6))",
+                pendingOnly.getId(), amount, amount / walletService.htgRate());
         User never = data.player();
         List<Long> mine = List.of(toppedUp.getId(), pendingOnly.getId(), never.getId());
         String run = runPrefix(toppedUp);
