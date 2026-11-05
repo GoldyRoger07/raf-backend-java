@@ -71,7 +71,7 @@ public class AccountDeletionService {
         }
         // Un administrateur supprime par erreur priverait l'equipe d'un acces, voire
         // du dernier super-administrateur : ses roles sont retires d'abord.
-        if (user.getRoles().stream().anyMatch(role -> role.getName() != RoleName.PLAYER)) {
+        if (user.getRoles().stream().anyMatch(role -> role.getName().isStaff())) {
             throw new ApiException(ErrorCode.ACCOUNT_DELETION_STAFF);
         }
         if (withdrawalRequestRepository.existsByUserIdAndStatusIn(userId, WITHDRAWAL_IN_PROGRESS)) {

@@ -17,6 +17,7 @@ import com.raikiservice.raf.game.domain.QuizRanking;
 import com.raikiservice.raf.game.repository.GameSessionRepository;
 import com.raikiservice.raf.game.repository.QuizRankingRepository;
 import com.raikiservice.raf.game.web.dto.LeaderboardResponse;
+import com.raikiservice.raf.leader.service.CommissionService;
 import com.raikiservice.raf.notification.service.NotificationMessage;
 import com.raikiservice.raf.notification.service.NotificationMessages;
 import com.raikiservice.raf.notification.service.NotificationService;
@@ -55,6 +56,7 @@ public class RankingService {
     private final QuizRankingRepository quizRankingRepository;
     private final RewardService rewardService;
     private final WalletService walletService;
+    private final CommissionService commissionService;
     private final AuditService auditService;
     private final NotificationService notificationService;
 
@@ -139,6 +141,15 @@ public class RankingService {
             totalPaid += ranking.getRewardHtg();
             winners++;
         }
+
+        // Les joueurs rattaches a un leader qui n'ont rien gagne lui rapportent une commission.
+        Set<Long> winnerIds = new HashSet<>();
+        for (QuizRanking ranking : rankings) {
+            if (ranking.getRewardHtg() > 0) {
+                winnerIds.add(ranking.getUser().getId());
+            }
+        }
+        commissionService.payQuizCommissions(quiz, winnerIds);
 
         quiz.setStatus(QuizStatus.FINISHED);
         quiz.setFinishedAt(now);

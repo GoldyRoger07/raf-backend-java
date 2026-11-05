@@ -20,7 +20,7 @@ public interface AnnouncementRecipientRepository extends JpaRepository<Announcem
      */
     String ALL_PLAYERS = "u.status = 'ACTIVE' AND (:includeTest = TRUE OR u.is_test = FALSE) "
             + "AND NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id "
-            + "WHERE ur.user_id = u.id AND r.name <> 'PLAYER')";
+            + "WHERE ur.user_id = u.id AND r.name IN ('MODERATOR', 'ADMIN', 'SUPER_ADMIN'))";
 
     /** Fige les destinataires d'un envoi a tous, en une seule requete. */
     @Modifying

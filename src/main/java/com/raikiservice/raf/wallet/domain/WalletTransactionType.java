@@ -13,6 +13,8 @@ public enum WalletTransactionType {
     WITHDRAWAL,
     /** Remboursement : quiz annule, ou retrait rejete. */
     REFUND,
+    /** Commission d'un leader sur les parties perdues de ses joueurs : credite le solde WINNINGS. */
+    COMMISSION,
     /** Correction manuelle par un administrateur. Toujours tracee. */
     ADJUSTMENT
 }

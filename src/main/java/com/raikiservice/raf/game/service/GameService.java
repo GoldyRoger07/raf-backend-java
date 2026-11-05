@@ -27,6 +27,7 @@ import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.common.settings.SettingKeys;
 import com.raikiservice.raf.common.settings.SettingsService;
+import com.raikiservice.raf.leader.service.CommissionService;
 import com.raikiservice.raf.game.domain.GameAnswer;
 import com.raikiservice.raf.game.domain.GameSession;
 import com.raikiservice.raf.game.domain.GameSessionQuestion;
@@ -133,6 +134,7 @@ public class GameService {
     private final SettingsService settingsService;
     private final AuditService auditService;
     private final NotificationService notificationService;
+    private final CommissionService commissionService;
 
     // --- Demarrage ------------------------------------------------------------
 
@@ -797,6 +799,9 @@ public class GameService {
             // Compte de test : pas de gain, il joue pour essayer.
             if (correctQuestionIds.size() == totalQuestions && !session.isTest()) {
                 payPrize(session);
+            } else {
+                // Partie perdue : commission au leader du joueur, s'il en a un.
+                commissionService.paySoloCommission(session);
             }
             return;
         }

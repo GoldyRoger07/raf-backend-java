@@ -18,6 +18,8 @@ import com.raikiservice.raf.common.error.ErrorCode;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.raikiservice.raf.leader.service.LeaderService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -51,6 +53,7 @@ public class AdminUserController {
     private final RoleRepository roleRepository;
     private final RefreshTokenService refreshTokenService;
     private final AuditService auditService;
+    private final LeaderService leaderService;
 
     @GetMapping
     @Operation(summary = "Lister ou rechercher les comptes (staffOnly : personnel uniquement)")
@@ -100,7 +103,12 @@ public class AdminUserController {
                         .orElseThrow(() -> ApiException.notFound("Role " + name)))
                 .collect(Collectors.toSet());
 
+        boolean wasLeader = user.getRoles().stream().anyMatch(role -> role.getName() == RoleName.LEADER);
         user.setRoles(roles);
+        if (wasLeader && !roleNames.contains(RoleName.LEADER)) {
+            // Plus leader : ses joueurs sont libres de rejoindre un autre leader.
+            leaderService.detachPlayers(admin.getId(), id);
+        }
 
         // Les roles sont portes par le jeton d'acces : sans revocation, l'ancien
         // niveau de droits resterait valable jusqu'a son expiration.

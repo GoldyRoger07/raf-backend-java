@@ -152,6 +152,11 @@ public enum ErrorCode {
     ANNOUNCEMENT_NOT_CANCELLABLE(HttpStatus.CONFLICT,
             "Ce message est deja parti ou annule : il ne peut plus etre annule."),
 
+    LEADER_NOT_ELIGIBLE(HttpStatus.CONFLICT, "Ce compte ne peut pas devenir leader."),
+    LEADER_PLAYER_NOT_ELIGIBLE(HttpStatus.CONFLICT, "Ce joueur ne peut pas etre rattache a ce leader."),
+    LEADER_COMMISSION_INVALID(HttpStatus.BAD_REQUEST,
+            "La commission doit etre un pourcentage entre 0 et 100, avec au plus 2 decimales."),
+
     SETTING_INVALID(HttpStatus.BAD_REQUEST, "Valeur de parametre invalide."),
 
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "Ressource introuvable."),

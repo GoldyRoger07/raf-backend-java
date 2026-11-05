@@ -8,7 +8,7 @@ import com.raikiservice.raf.admin.service.GameProfitService.Period;
  * Resultat du jeu sur une periode, en HTG (ventes et remboursements aussi en
  * credits, convertis au taux {@code htgRate} du moment).
  *
- * <p>{@code resultHtg = salesHtg - refundsHtg - prizesHtg + withdrawalFeesHtg}.
+ * <p>{@code resultHtg = salesHtg - refundsHtg - prizesHtg - leaderCommissionsHtg + withdrawalFeesHtg}.
  * {@code from} est null pour « depuis le lancement ».
  */
 public record GameProfitResponse(
@@ -21,6 +21,8 @@ public record GameProfitResponse(
         long refundsCredits,
         long refundsHtg,
         long prizesHtg,
+        /** Commissions versees aux leaders sur les parties perdues de leurs joueurs. */
+        long leaderCommissionsHtg,
         long withdrawalFeesHtg,
         long resultHtg,
         long ticketsSold,

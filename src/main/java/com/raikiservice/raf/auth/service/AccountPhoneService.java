@@ -66,7 +66,7 @@ public class AccountPhoneService {
         if (user.getStatus() == UserStatus.DELETED) {
             throw new ApiException(ErrorCode.ACCOUNT_DELETED);
         }
-        boolean staff = user.getRoles().stream().anyMatch(role -> role.getName() != RoleName.PLAYER);
+        boolean staff = user.getRoles().stream().anyMatch(role -> role.getName().isStaff());
         if (staff && !adminIsSuperAdmin) {
             throw new ApiException(ErrorCode.ACCESS_DENIED,
                     "Seul un super-administrateur peut modifier le numero d'un membre du staff.");

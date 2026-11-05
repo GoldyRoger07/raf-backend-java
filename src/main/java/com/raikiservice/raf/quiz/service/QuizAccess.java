@@ -27,7 +27,7 @@ public class QuizAccess {
         }
         return userRepository.findById(userId)
                 .map(user -> user.isTest()
-                        || user.getRoles().stream().anyMatch(role -> role.getName() != RoleName.PLAYER))
+                        || user.getRoles().stream().anyMatch(role -> role.getName().isStaff()))
                 .orElse(false);
     }
 

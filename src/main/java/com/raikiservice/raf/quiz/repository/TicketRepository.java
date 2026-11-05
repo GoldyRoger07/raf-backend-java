@@ -63,7 +63,7 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     Optional<Ticket> findByIdForUpdate(@Param("id") Long id);
 
     /** Tickets de vrais joueurs (ni staff ni compte de test) sur ce quiz. */
-    @Query("select count(t) from Ticket t where t.quiz.id = :quizId and t.user.test = false and not exists (select r from t.user.roles r where r.name <> com.raikiservice.raf.auth.domain.RoleName.PLAYER)")
+    @Query("select count(t) from Ticket t where t.quiz.id = :quizId and t.user.test = false and not exists (select r from t.user.roles r where r.name in (com.raikiservice.raf.auth.domain.RoleName.MODERATOR, com.raikiservice.raf.auth.domain.RoleName.ADMIN, com.raikiservice.raf.auth.domain.RoleName.SUPER_ADMIN))")
     long countRealPlayerTickets(@Param("quizId") Long quizId);
 
     /** Tickets hors comptes de test : ceux qui comptent sur un vrai quiz. */

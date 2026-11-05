@@ -25,14 +25,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * Recherche de comptes pour la gestion des roles : email ou nom (term), ou
-     * telephone (digits) ; staffOnly restreint aux comptes ayant un role autre que
-     * PLAYER.
+     * telephone (digits) ; staffOnly restreint aux comptes du personnel (moderateur, administrateur,
+     * super-administrateur).
      */
     @Query("select u from User u where "
             + "(lower(u.email) like :term or lower(concat(u.firstName, ' ', u.lastName)) like :term "
             + " or u.phone like :digits) "
             + "and (:staffOnly = false or exists (select r from u.roles r "
-            + " where r.name <> com.raikiservice.raf.auth.domain.RoleName.PLAYER))")
+            + " where r.name in (com.raikiservice.raf.auth.domain.RoleName.MODERATOR, com.raikiservice.raf.auth.domain.RoleName.ADMIN, com.raikiservice.raf.auth.domain.RoleName.SUPER_ADMIN)))")
     Page<User> searchAccounts(@Param("term") String term, @Param("digits") String digits,
             @Param("staffOnly") boolean staffOnly, Pageable pageable);
 

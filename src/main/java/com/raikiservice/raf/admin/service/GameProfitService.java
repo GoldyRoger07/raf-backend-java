@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   ventes de jeu (tickets + parties solo)
  * - remboursements (quiz annules)
  * - gains verses aux joueurs (classements + sans-faute)
+ * - commissions versees aux leaders (parties perdues de leurs joueurs)
  * + frais preleves sur les retraits verses
  * = resultat du jeu
  * </pre>
@@ -64,6 +65,8 @@ public class GameProfitService {
                 + "AND t.type = 'REFUND' AND t.balance_type = 'CREDIT' AND t.created_at >= ? AND t.created_at < ?", lo, hi);
         long prizesHtg = sum("SELECT COALESCE(SUM(t.amount), 0) " + RealActivity.TRANSACTIONS
                 + "AND t.type = 'PRIZE' AND t.created_at >= ? AND t.created_at < ?", lo, hi);
+        long commissionsHtg = sum("SELECT COALESCE(SUM(t.amount), 0) " + RealActivity.TRANSACTIONS
+                + "AND t.type = 'COMMISSION' AND t.created_at >= ? AND t.created_at < ?", lo, hi);
         long feesHtg = sum("SELECT COALESCE(SUM(wr.fee_htg), 0) " + RealActivity.WITHDRAWALS
                 + "AND wr.status = 'PAID' AND wr.paid_at >= ? AND wr.paid_at < ?", lo, hi);
 
@@ -74,10 +77,10 @@ public class GameProfitService {
 
         long salesHtg = salesCredits * rate;
         long refundsHtg = refundsCredits * rate;
-        long resultHtg = salesHtg - refundsHtg - prizesHtg + feesHtg;
+        long resultHtg = salesHtg - refundsHtg - prizesHtg - commissionsHtg + feesHtg;
 
         return new GameProfitResponse(period, from, to, rate,
-                salesCredits, salesHtg, refundsCredits, refundsHtg, prizesHtg, feesHtg, resultHtg,
+                salesCredits, salesHtg, refundsCredits, refundsHtg, prizesHtg, commissionsHtg, feesHtg, resultHtg,
                 ticketsSold, soloGames);
     }
 

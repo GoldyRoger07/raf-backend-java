@@ -90,7 +90,7 @@ public class AccountEmailService {
     @Transactional
     public UserResponse changeByAdmin(Long adminId, boolean adminIsSuperAdmin, Long userId, String rawEmail) {
         User user = load(userId);
-        boolean staff = user.getRoles().stream().anyMatch(role -> role.getName() != RoleName.PLAYER);
+        boolean staff = user.getRoles().stream().anyMatch(role -> role.getName().isStaff());
         if (staff && !adminIsSuperAdmin) {
             // Changer l'email d'un administrateur, puis demander un nouveau mot de passe,
             // reviendrait a prendre son compte.

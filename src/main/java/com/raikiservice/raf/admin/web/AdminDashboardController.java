@@ -41,7 +41,7 @@ public class AdminDashboardController {
     }
 
     @GetMapping("/dashboard/profit")
-    @Operation(summary = "Resultat du jeu sur une periode : ventes - remboursements - gains + frais de retrait")
+    @Operation(summary = "Resultat du jeu sur une periode : ventes - remboursements - gains - commissions des leaders + frais de retrait")
     public GameProfitResponse profit(
             @RequestParam(defaultValue = "LAST_30_DAYS") GameProfitService.Period period) {
         return gameProfitService.profit(period);
