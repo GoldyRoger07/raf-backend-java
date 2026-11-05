@@ -60,9 +60,11 @@ public class AdminDashboardController {
             @RequestParam(required = false) Boolean test,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdTo,
+            @RequestParam(required = false) Boolean hasToppedUp,
+            @RequestParam(required = false) PlayerFilter.Activity activity,
             @PageableDefault(size = 20) Pageable pageable) {
         return playerSearchService.search(new PlayerFilter(query, emailVerified, phoneVerified, hasCredit,
-                hasWinnings, status, test, createdFrom, createdTo), pageable);
+                hasWinnings, status, test, createdFrom, createdTo, hasToppedUp, activity), pageable);
     }
 
     @GetMapping("/players/{id}")

@@ -3,7 +3,9 @@ package com.raikiservice.raf.admin.service;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -109,6 +111,32 @@ public class PlayerSearchService {
         if (filter.createdTo() != null) {
             conditions.add("u.created_at < ?");
             args.add(Timestamp.from(filter.createdTo().plusDays(1).atStartOfDay(HAITI).toInstant()));
+        }
+
+        if (filter.hasToppedUp() != null) {
+            conditions.add((filter.hasToppedUp() ? "" : "NOT ") + "EXISTS (SELECT 1 FROM topup_requests t"
+                    + " WHERE t.user_id = u.id AND t.status = 'CONFIRMED')");
+        }
+        if (filter.activity() != null) {
+            String played = "EXISTS (SELECT 1 FROM game_sessions g WHERE g.user_id = u.id";
+            String playedSince = played + " AND g.started_at >= ?)";
+            Timestamp days7 = Timestamp.from(Instant.now().minus(7, ChronoUnit.DAYS));
+            Timestamp days30 = Timestamp.from(Instant.now().minus(30, ChronoUnit.DAYS));
+            switch (filter.activity()) {
+                case LAST_7_DAYS -> {
+                    conditions.add(playedSince);
+                    args.add(days7);
+                }
+                case LAST_30_DAYS -> {
+                    conditions.add(playedSince);
+                    args.add(days30);
+                }
+                case INACTIVE_30_DAYS -> {
+                    conditions.add(played + ") AND NOT " + playedSince);
+                    args.add(days30);
+                }
+                case NEVER -> conditions.add("NOT " + played + ")");
+            }
         }
 
         String where = conditions.isEmpty() ? "" : " WHERE " + String.join(" AND ", conditions);

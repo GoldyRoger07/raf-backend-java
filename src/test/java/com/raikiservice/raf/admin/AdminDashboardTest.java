@@ -7,12 +7,21 @@ import com.raikiservice.raf.admin.service.PlayerSearchService;
 import com.raikiservice.raf.admin.web.dto.DashboardResponse;
 import com.raikiservice.raf.admin.web.dto.GameProfitResponse;
 import com.raikiservice.raf.admin.web.dto.PlayerSummary;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
 import com.raikiservice.raf.admin.service.PlayerFilter;
+import com.raikiservice.raf.admin.service.PlayerFilter.Activity;
+import com.raikiservice.raf.game.service.GameService;
+import com.raikiservice.raf.wallet.domain.TopUpRequest;
+import com.raikiservice.raf.wallet.service.TopUpService;
+import com.raikiservice.raf.wallet.service.WalletService;
+import org.springframework.jdbc.core.JdbcTemplate;
 import com.raikiservice.raf.auth.domain.UserStatus;
 import com.raikiservice.raf.auth.repository.UserRepository;
 import com.raikiservice.raf.common.error.ErrorCode;
@@ -39,6 +48,10 @@ class AdminDashboardTest extends IntegrationTest {
 
     @Autowired private PlayerSearchService playerSearchService;
     @Autowired private UserRepository userRepository;
+    @Autowired private TopUpService topUpService;
+    @Autowired private WalletService walletService;
+    @Autowired private GameService gameService;
+    @Autowired private JdbcTemplate jdbc;
     @Autowired private DashboardService dashboardService;
     @Autowired private WithdrawalService withdrawalService;
     @Autowired private GameProfitService gameProfitService;
@@ -115,6 +128,45 @@ class AdminDashboardTest extends IntegrationTest {
     }
 
     @Test
+    void playersAreFilteredByConfirmedTopUps() {
+        long amount = walletService.htgRate() * 10;
+        User toppedUp = data.player();
+        topUpService.createManual(null, toppedUp.getId(), amount, null, null);
+        // Une recharge restee en attente ne compte pas.
+        User pendingOnly = data.player();
+        TopUpRequest pending = topUpService.createManual(null, pendingOnly.getId(), amount, null, null);
+        jdbc.update("UPDATE topup_requests SET status = 'PENDING' WHERE id = ?", pending.getId());
+        User never = data.player();
+        List<Long> mine = List.of(toppedUp.getId(), pendingOnly.getId(), never.getId());
+        String run = runPrefix(toppedUp);
+
+        assertThat(ids(activity(run, true, null), mine)).containsExactly(toppedUp.getId());
+        assertThat(ids(activity(run, false, null), mine))
+                .containsExactlyInAnyOrder(pendingOnly.getId(), never.getId());
+    }
+
+    @Test
+    void playersAreFilteredByGameActivity() {
+        User recent = data.player();
+        User lapsed = data.player();
+        User never = data.player();
+        Long category = data.categoryWithQuestions(30);
+        Long quiz = data.runningQuiz(category, 3, 1000, 1, recent, lapsed);
+        gameService.start(recent.getId(), quiz, "127.0.0.1", "junit");
+        gameService.start(lapsed.getId(), quiz, "127.0.0.1", "junit");
+        // La partie de lapsed remonte a 40 jours.
+        jdbc.update("UPDATE game_sessions SET started_at = ? WHERE user_id = ?",
+                Timestamp.from(Instant.now().minus(40, ChronoUnit.DAYS)), lapsed.getId());
+        List<Long> mine = List.of(recent.getId(), lapsed.getId(), never.getId());
+        String run = runPrefix(recent);
+
+        assertThat(ids(activity(run, null, Activity.LAST_7_DAYS), mine)).containsExactly(recent.getId());
+        assertThat(ids(activity(run, null, Activity.LAST_30_DAYS), mine)).containsExactly(recent.getId());
+        assertThat(ids(activity(run, null, Activity.INACTIVE_30_DAYS), mine)).containsExactly(lapsed.getId());
+        assertThat(ids(activity(run, null, Activity.NEVER), mine)).containsExactly(never.getId());
+    }
+
+    @Test
     void playersAreSortedByTheRequestedColumn() {
         User rich = data.player();
         data.credit(rich.getId(), BalanceType.CREDIT, 50);
@@ -154,11 +206,15 @@ class AdminDashboardTest extends IntegrationTest {
     private static PlayerFilter filter(String query, Boolean emailVerified, Boolean phoneVerified,
             Boolean hasCredit, Boolean hasWinnings, UserStatus status, Boolean test) {
         return new PlayerFilter(query, emailVerified, phoneVerified, hasCredit, hasWinnings, status, test,
-                null, null);
+                null, null, null, null);
     }
 
     private static PlayerFilter dates(String query, LocalDate from, LocalDate to) {
-        return new PlayerFilter(query, null, null, null, null, null, null, from, to);
+        return new PlayerFilter(query, null, null, null, null, null, null, from, to, null, null);
+    }
+
+    private static PlayerFilter activity(String query, Boolean hasToppedUp, Activity activity) {
+        return new PlayerFilter(query, null, null, null, null, null, null, null, null, hasToppedUp, activity);
     }
 
     private List<Long> ids(PlayerFilter filter, List<Long> among) {

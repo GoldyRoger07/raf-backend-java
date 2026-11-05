@@ -17,6 +17,8 @@ import com.raikiservice.raf.auth.domain.UserStatus;
  * @param test           comptes de test seulement, ou hors comptes de test
  * @param createdFrom    inscrit ce jour-la ou apres (jour d'Haiti)
  * @param createdTo      inscrit ce jour-la ou avant (jour d'Haiti)
+ * @param hasToppedUp    au moins une recharge confirmee, ou aucune
+ * @param activity       activite de jeu (parties commencees)
  */
 public record PlayerFilter(
         String query,
@@ -27,9 +29,23 @@ public record PlayerFilter(
         UserStatus status,
         Boolean test,
         LocalDate createdFrom,
-        LocalDate createdTo) {
+        LocalDate createdTo,
+        Boolean hasToppedUp,
+        Activity activity) {
 
     public static PlayerFilter query(String query) {
-        return new PlayerFilter(query, null, null, null, null, null, null, null, null);
+        return new PlayerFilter(query, null, null, null, null, null, null, null, null, null, null);
+    }
+
+    /** Activite de jeu, d'apres les parties commencees (groupe ou solo). */
+    public enum Activity {
+        /** Au moins une partie ces 7 derniers jours. */
+        LAST_7_DAYS,
+        /** Au moins une partie ces 30 derniers jours. */
+        LAST_30_DAYS,
+        /** A deja joue, mais plus depuis 30 jours : les joueurs a relancer. */
+        INACTIVE_30_DAYS,
+        /** N'a jamais commence de partie. */
+        NEVER
     }
 }
