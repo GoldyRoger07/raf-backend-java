@@ -7,7 +7,15 @@ import com.raikiservice.raf.admin.service.PlayerSearchService;
 import com.raikiservice.raf.admin.web.dto.DashboardResponse;
 import com.raikiservice.raf.admin.web.dto.GameProfitResponse;
 import com.raikiservice.raf.admin.web.dto.PlayerSummary;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
+
+import com.raikiservice.raf.admin.service.PlayerFilter;
+import com.raikiservice.raf.auth.domain.UserStatus;
+import com.raikiservice.raf.auth.repository.UserRepository;
+import com.raikiservice.raf.common.error.ErrorCode;
 
 import com.raikiservice.raf.auth.domain.User;
 import com.raikiservice.raf.quiz.service.QuizService;
@@ -21,13 +29,16 @@ import com.raikiservice.raf.wallet.service.WithdrawalService;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AdminDashboardTest extends IntegrationTest {
 
     @Autowired private PlayerSearchService playerSearchService;
+    @Autowired private UserRepository userRepository;
     @Autowired private DashboardService dashboardService;
     @Autowired private WithdrawalService withdrawalService;
     @Autowired private GameProfitService gameProfitService;
@@ -52,6 +63,110 @@ class AdminDashboardTest extends IntegrationTest {
     @Test
     void aSearchWithWildcardsMatchesLiterally() {
         assertThat(playerSearchService.search("%", PageRequest.of(0, 10)).getContent()).isEmpty();
+    }
+
+    @Test
+    void filtersCombineWithTheSearch() {
+        User verifiedWithCredit = data.player();
+        data.credit(verifiedWithCredit.getId(), BalanceType.CREDIT, 5);
+        User unverified = data.player(false);
+        unverified.setEmailVerifiedAt(null);
+        userRepository.save(unverified);
+        User suspendedWithWinnings = data.player();
+        suspendedWithWinnings.setStatus(UserStatus.SUSPENDED);
+        suspendedWithWinnings.setTest(true);
+        userRepository.save(suspendedWithWinnings);
+        data.credit(suspendedWithWinnings.getId(), BalanceType.WINNINGS, 300);
+        List<Long> mine = List.of(verifiedWithCredit.getId(), unverified.getId(), suspendedWithWinnings.getId());
+        String run = runPrefix(verifiedWithCredit);
+
+        assertThat(ids(filter(run, true, null, null, null, null, null), mine))
+                .containsExactlyInAnyOrder(verifiedWithCredit.getId(), suspendedWithWinnings.getId());
+        assertThat(ids(filter(run, false, false, null, null, null, null), mine))
+                .containsExactly(unverified.getId());
+        assertThat(ids(filter(run, null, null, true, null, null, null), mine))
+                .containsExactly(verifiedWithCredit.getId());
+        assertThat(ids(filter(run, null, null, false, true, null, null), mine))
+                .containsExactly(suspendedWithWinnings.getId());
+        assertThat(ids(filter(run, null, null, null, null, UserStatus.SUSPENDED, true), mine))
+                .containsExactly(suspendedWithWinnings.getId());
+        assertThat(ids(filter(run, null, null, null, null, null, false), mine))
+                .containsExactlyInAnyOrder(verifiedWithCredit.getId(), unverified.getId());
+
+        // Le total suit les filtres.
+        PlayerFilter onlyCredit = filter(verifiedWithCredit.getEmail(), null, null, true, null, null, null);
+        assertThat(playerSearchService.search(onlyCredit, PageRequest.of(0, 10)).getTotalElements()).isEqualTo(1);
+        PlayerFilter none = filter(verifiedWithCredit.getEmail(), null, null, false, null, null, null);
+        assertThat(playerSearchService.search(none, PageRequest.of(0, 10)).getTotalElements()).isZero();
+    }
+
+    @Test
+    void theRegistrationDateFilterUsesHaitiDays() {
+        User player = data.player();
+        LocalDate today = LocalDate.now(ZoneId.of("America/Port-au-Prince"));
+        String email = player.getEmail();
+
+        assertThat(playerSearchService.search(dates(email, today, today), PageRequest.of(0, 10)).getContent())
+                .extracting(PlayerSummary::id).containsExactly(player.getId());
+        assertThat(playerSearchService.search(dates(email, today.plusDays(1), null), PageRequest.of(0, 10))
+                .getContent()).isEmpty();
+        assertThat(playerSearchService.search(dates(email, null, today.minusDays(1)), PageRequest.of(0, 10))
+                .getContent()).isEmpty();
+    }
+
+    @Test
+    void playersAreSortedByTheRequestedColumn() {
+        User rich = data.player();
+        data.credit(rich.getId(), BalanceType.CREDIT, 50);
+        User poor = data.player();
+        data.credit(poor.getId(), BalanceType.CREDIT, 2);
+        User none = data.player();
+        List<Long> mine = List.of(rich.getId(), poor.getId(), none.getId());
+        PlayerFilter run = PlayerFilter.query(runPrefix(rich));
+
+        assertThat(ids(playerSearchService.search(run,
+                PageRequest.of(0, 1000, Sort.by("creditBalance").descending())), mine))
+                .containsExactly(rich.getId(), poor.getId(), none.getId());
+        assertThat(ids(playerSearchService.search(run,
+                PageRequest.of(0, 1000, Sort.by("creditBalance").ascending())), mine))
+                .containsExactly(none.getId(), poor.getId(), rich.getId());
+        // Le tri par nom ou email passe aussi (les noms Joueur<n> ne se comparent pas simplement).
+        assertThat(playerSearchService.search(run, PageRequest.of(0, 10, Sort.by("name", "email")))
+                .getContent()).isNotEmpty();
+        assertThat(playerSearchService.search(run, PageRequest.of(0, 10, Sort.by("email").descending()))
+                .getContent()).isNotEmpty();
+        // Sans tri demande : les derniers inscrits d'abord.
+        assertThat(ids(playerSearchService.search(run, PageRequest.of(0, 1000)), mine))
+                .containsExactly(none.getId(), poor.getId(), rich.getId());
+    }
+
+    @Test
+    void anUnknownSortColumnIsRefused() {
+        assertApiError(ErrorCode.VALIDATION_ERROR, () -> playerSearchService.search(PlayerFilter.query(null),
+                PageRequest.of(0, 10, Sort.by("password_hash"))));
+    }
+
+    /** Prefixe commun aux emails des joueurs crees par ce lancement de tests. */
+    private static String runPrefix(User player) {
+        return player.getEmail().substring(0, player.getEmail().indexOf('-') + 1);
+    }
+
+    private static PlayerFilter filter(String query, Boolean emailVerified, Boolean phoneVerified,
+            Boolean hasCredit, Boolean hasWinnings, UserStatus status, Boolean test) {
+        return new PlayerFilter(query, emailVerified, phoneVerified, hasCredit, hasWinnings, status, test,
+                null, null);
+    }
+
+    private static PlayerFilter dates(String query, LocalDate from, LocalDate to) {
+        return new PlayerFilter(query, null, null, null, null, null, null, from, to);
+    }
+
+    private List<Long> ids(PlayerFilter filter, List<Long> among) {
+        return ids(playerSearchService.search(filter, PageRequest.of(0, 1000)), among);
+    }
+
+    private static List<Long> ids(Page<PlayerSummary> page, List<Long> among) {
+        return page.getContent().stream().map(PlayerSummary::id).filter(among::contains).toList();
     }
 
     @Test

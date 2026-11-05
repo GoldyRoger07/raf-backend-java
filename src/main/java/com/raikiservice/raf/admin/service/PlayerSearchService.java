@@ -2,17 +2,22 @@ package com.raikiservice.raf.admin.service;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import com.raikiservice.raf.admin.web.dto.PlayerSummary;
 import com.raikiservice.raf.common.error.ApiException;
+import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.wallet.service.WalletService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,36 +45,104 @@ public class PlayerSearchService {
     private final JdbcTemplate jdbc;
     private final WalletService walletService;
 
+    /**
+     * Colonnes triables : nom expose a l'API -> expression SQL. Rien d'autre n'entre dans
+     * l'ORDER BY. Les valeurs vides (comptes supprimes) restent en fin de liste dans les deux sens.
+     */
+    private static final Map<String, String> SORTABLE = Map.of(
+            "name", "(u.first_name IS NULL), LOWER(u.first_name) %1$s, LOWER(u.last_name) %1$s",
+            "email", "(u.email IS NULL), LOWER(u.email) %s",
+            "creditBalance", "credit_balance %s",
+            "winningsBalanceHtg", "winnings_balance %s",
+            "createdAt", "u.created_at %s");
+
+    private static final ZoneId HAITI = ZoneId.of("America/Port-au-Prince");
+
     @Transactional(readOnly = true)
     public Page<PlayerSummary> search(String query, Pageable pageable) {
+        return search(PlayerFilter.query(query), pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PlayerSummary> search(PlayerFilter filter, Pageable pageable) {
         long rate = walletService.htgRate();
-        String where = "";
+        List<String> conditions = new ArrayList<>();
         List<Object> args = new ArrayList<>();
 
+        String query = filter.query();
         if (query != null && !query.isBlank()) {
             String term = "%" + query.trim().toLowerCase().replace("%", "\\%").replace("_", "\\_") + "%";
             // Un numero saisi sans indicatif (3712 3456) doit retrouver +50937123456.
             String digits = query.replaceAll("[^0-9]", "");
-            where = " WHERE LOWER(u.email) LIKE ? OR LOWER(CONCAT(u.first_name, ' ', u.last_name)) LIKE ?"
-                    + (digits.length() >= 4 ? " OR u.phone LIKE ?" : "");
+            conditions.add("(LOWER(u.email) LIKE ? OR LOWER(CONCAT(u.first_name, ' ', u.last_name)) LIKE ?"
+                    + (digits.length() >= 4 ? " OR u.phone LIKE ?" : "") + ")");
             args.add(term);
             args.add(term);
             if (digits.length() >= 4) {
                 args.add("%" + digits + "%");
             }
         }
+        if (filter.emailVerified() != null) {
+            conditions.add("u.email_verified_at IS " + (filter.emailVerified() ? "NOT NULL" : "NULL"));
+        }
+        if (filter.phoneVerified() != null) {
+            conditions.add("u.phone_verified_at IS " + (filter.phoneVerified() ? "NOT NULL" : "NULL"));
+        }
+        if (filter.hasCredit() != null) {
+            conditions.add("COALESCE(w.credit_balance, 0) " + (filter.hasCredit() ? "> 0" : "<= 0"));
+        }
+        if (filter.hasWinnings() != null) {
+            conditions.add("COALESCE(w.winnings_balance, 0) " + (filter.hasWinnings() ? "> 0" : "<= 0"));
+        }
+        if (filter.status() != null) {
+            conditions.add("u.status = ?");
+            args.add(filter.status().name());
+        }
+        if (filter.test() != null) {
+            conditions.add("u.is_test = ?");
+            args.add(filter.test());
+        }
+        if (filter.createdFrom() != null) {
+            conditions.add("u.created_at >= ?");
+            args.add(Timestamp.from(filter.createdFrom().atStartOfDay(HAITI).toInstant()));
+        }
+        if (filter.createdTo() != null) {
+            conditions.add("u.created_at < ?");
+            args.add(Timestamp.from(filter.createdTo().plusDays(1).atStartOfDay(HAITI).toInstant()));
+        }
 
-        Long total = jdbc.queryForObject("SELECT COUNT(*) FROM users u" + where, Long.class,
-                args.toArray());
+        String where = conditions.isEmpty() ? "" : " WHERE " + String.join(" AND ", conditions);
+
+        Long total = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM users u LEFT JOIN wallets w ON w.user_id = u.id" + where,
+                Long.class, args.toArray());
 
         List<Object> pageArgs = new ArrayList<>(args);
         pageArgs.add(pageable.getPageSize());
         pageArgs.add(pageable.getOffset());
         List<PlayerSummary> content = jdbc.query(
-                SELECT + where + " ORDER BY u.created_at DESC, u.id DESC LIMIT ? OFFSET ?",
+                SELECT + where + orderBy(pageable.getSort()) + " LIMIT ? OFFSET ?",
                 (rs, row) -> map(rs, rate), pageArgs.toArray());
 
         return new PageImpl<>(content, pageable, total == null ? 0 : total);
+    }
+
+    /** Tri demande, puis l'id pour une pagination stable ; par defaut les derniers inscrits d'abord. */
+    private static String orderBy(Sort sort) {
+        List<String> parts = new ArrayList<>();
+        for (Sort.Order order : sort) {
+            String expression = SORTABLE.get(order.getProperty());
+            if (expression == null) {
+                throw new ApiException(ErrorCode.VALIDATION_ERROR,
+                        "Tri impossible sur \"" + order.getProperty() + "\".");
+            }
+            parts.add(String.format(expression, order.isAscending() ? "ASC" : "DESC"));
+        }
+        if (parts.isEmpty()) {
+            return " ORDER BY u.created_at DESC, u.id DESC";
+        }
+        Sort.Order first = sort.iterator().next();
+        return " ORDER BY " + String.join(", ", parts) + ", u.id " + (first.isAscending() ? "ASC" : "DESC");
     }
 
     @Transactional(readOnly = true)
