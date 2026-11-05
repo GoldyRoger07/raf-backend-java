@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  * - remboursements (quiz annules)
  * - gains verses aux joueurs (classements + sans-faute)
  * - commissions versees aux leaders (parties perdues de leurs joueurs)
+ * - credits offerts aux joueurs invites par un leader (bonus d'inscription)
  * + frais preleves sur les retraits verses
  * = resultat du jeu
  * </pre>
@@ -30,6 +31,12 @@ import org.springframework.transaction.annotation.Transactional;
  * garde pas le taux de chaque vente. Les couts hors de l'application
  * (commission des agents, frais MonCash, serveurs) n'y figurent pas : c'est une
  * marge de jeu, pas le benefice de l'entreprise.
+ *
+ * <p>Les credits offerts se melangent aux credits achetes dans le meme solde : on
+ * ne sait pas quel ticket ils ont paye. Ils sont donc deduits comme un cout, au
+ * taux du moment, des leur versement. Une fois depenses, leur vente et ce cout
+ * s'annulent, et seul l'argent reellement paye par les joueurs reste au resultat.
+ * Tant qu'ils ne sont pas depenses, le resultat est un peu prudent.
  */
 @Service
 @RequiredArgsConstructor
@@ -67,6 +74,8 @@ public class GameProfitService {
                 + "AND t.type = 'PRIZE' AND t.created_at >= ? AND t.created_at < ?", lo, hi);
         long commissionsHtg = sum("SELECT COALESCE(SUM(t.amount), 0) " + RealActivity.TRANSACTIONS
                 + "AND t.type = 'COMMISSION' AND t.created_at >= ? AND t.created_at < ?", lo, hi);
+        long inviteBonusesCredits = sum("SELECT COALESCE(SUM(t.amount), 0) " + RealActivity.TRANSACTIONS
+                + "AND t.type = 'INVITE_BONUS' AND t.created_at >= ? AND t.created_at < ?", lo, hi);
         long feesHtg = sum("SELECT COALESCE(SUM(wr.fee_htg), 0) " + RealActivity.WITHDRAWALS
                 + "AND wr.status = 'PAID' AND wr.paid_at >= ? AND wr.paid_at < ?", lo, hi);
 
@@ -77,10 +86,12 @@ public class GameProfitService {
 
         long salesHtg = salesCredits * rate;
         long refundsHtg = refundsCredits * rate;
-        long resultHtg = salesHtg - refundsHtg - prizesHtg - commissionsHtg + feesHtg;
+        long inviteBonusesHtg = inviteBonusesCredits * rate;
+        long resultHtg = salesHtg - refundsHtg - prizesHtg - commissionsHtg - inviteBonusesHtg + feesHtg;
 
         return new GameProfitResponse(period, from, to, rate,
-                salesCredits, salesHtg, refundsCredits, refundsHtg, prizesHtg, commissionsHtg, feesHtg, resultHtg,
+                salesCredits, salesHtg, refundsCredits, refundsHtg, prizesHtg, commissionsHtg,
+                inviteBonusesCredits, inviteBonusesHtg, feesHtg, resultHtg,
                 ticketsSold, soloGames);
     }
 

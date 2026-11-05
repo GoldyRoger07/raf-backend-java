@@ -27,5 +27,11 @@ public record RegisterRequest(
 
         @NotBlank(message = "Le nom est obligatoire.")
         @Size(max = 80)
-        String lastName) {
+        String lastName,
+
+        /**
+         * Facultatif : identifiant du joueur dont le lien d'invitation a ete suivi
+         * (parametre {@code parrain} du lien). Ignore s'il ne designe pas un leader.
+         */
+        Long inviterId) {
 }

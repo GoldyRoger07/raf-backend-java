@@ -277,7 +277,8 @@ class AdminDashboardTest extends IntegrationTest {
         assertThat(after.resultHtg() - before.resultHtg())
                 .isEqualTo(TestData.TICKET_PRICE * rate + withdrawal.getFeeHtg());
         assertThat(after.resultHtg()).isEqualTo(
-                after.salesHtg() - after.refundsHtg() - after.prizesHtg() + after.withdrawalFeesHtg());
+                after.salesHtg() - after.refundsHtg() - after.prizesHtg() - after.leaderCommissionsHtg()
+                        - after.inviteBonusesHtg() + after.withdrawalFeesHtg());
     }
 
     @Test

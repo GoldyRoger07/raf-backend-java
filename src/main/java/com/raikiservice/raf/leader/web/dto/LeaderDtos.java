@@ -3,6 +3,8 @@ package com.raikiservice.raf.leader.web.dto;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 /** Echanges de l'ecran Leaders du back-office. */
@@ -20,6 +22,8 @@ public final class LeaderDtos {
             String phone,
             String status,
             BigDecimal commissionPercent,
+            /** Credits offerts a chaque joueur inscrit avec son lien, des qu'il confirme son email. */
+            int signupBonusCredits,
             long playerCount,
             long commissionsLast30DaysHtg,
             long commissionsTotalHtg) {
@@ -35,6 +39,12 @@ public final class LeaderDtos {
             String status,
             boolean test,
             Instant addedAt,
+            /** Inscrit avec le lien d'invitation du leader (et non ajoute par un administrateur). */
+            boolean viaInvite,
+            /** Bonus promis a l'inscription, 0 si aucun. */
+            int signupBonusCredits,
+            /** Versement du bonus, null tant que l'email n'est pas confirme. */
+            Instant bonusPaidAt,
             /** Commissions que ce joueur a rapportees a ce leader. */
             long commissionsHtg,
             /** Debut de sa derniere partie, null s'il n'a jamais joue. */
@@ -67,5 +77,19 @@ public final class LeaderDtos {
     }
 
     public record AddPlayerRequest(@NotNull Long playerId) {
+    }
+
+    public record SignupBonusRequest(
+            @NotNull @Min(0) @Max(MAX_SIGNUP_BONUS_CREDITS) Integer signupBonusCredits) {
+    }
+
+    /** Plafond du bonus d'inscription, pour eviter une faute de frappe couteuse. */
+    public static final int MAX_SIGNUP_BONUS_CREDITS = 100_000;
+
+    /**
+     * Lien d'invitation d'un joueur. {@code leader} : ses filleuls lui sont rattaches
+     * et recoivent {@code signupBonusCredits} credits des qu'ils confirment leur email.
+     */
+    public record InviteResponse(String url, boolean leader, int signupBonusCredits) {
     }
 }

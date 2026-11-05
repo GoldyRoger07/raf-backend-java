@@ -156,6 +156,8 @@ public enum ErrorCode {
     LEADER_PLAYER_NOT_ELIGIBLE(HttpStatus.CONFLICT, "Ce joueur ne peut pas etre rattache a ce leader."),
     LEADER_COMMISSION_INVALID(HttpStatus.BAD_REQUEST,
             "La commission doit etre un pourcentage entre 0 et 100, avec au plus 2 decimales."),
+    LEADER_BONUS_INVALID(HttpStatus.BAD_REQUEST,
+            "Le bonus d'inscription doit etre un nombre entier de credits entre 0 et 100 000."),
 
     SETTING_INVALID(HttpStatus.BAD_REQUEST, "Valeur de parametre invalide."),
 

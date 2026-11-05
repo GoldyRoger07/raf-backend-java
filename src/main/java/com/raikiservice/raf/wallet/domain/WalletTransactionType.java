@@ -15,6 +15,11 @@ public enum WalletTransactionType {
     REFUND,
     /** Commission d'un leader sur les parties perdues de ses joueurs : credite le solde WINNINGS. */
     COMMISSION,
+    /**
+     * Bonus offert par la plateforme a un joueur inscrit avec le lien d'un leader,
+     * des qu'il confirme son email : credite le solde CREDIT.
+     */
+    INVITE_BONUS,
     /** Correction manuelle par un administrateur. Toujours tracee. */
     ADJUSTMENT
 }

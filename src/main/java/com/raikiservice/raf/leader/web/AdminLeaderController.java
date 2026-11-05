@@ -8,6 +8,7 @@ import com.raikiservice.raf.leader.web.dto.LeaderDtos.LeaderCommission;
 import com.raikiservice.raf.leader.web.dto.LeaderDtos.LeaderPlayer;
 import com.raikiservice.raf.leader.web.dto.LeaderDtos.LeaderSummary;
 import com.raikiservice.raf.leader.web.dto.LeaderDtos.PromoteRequest;
+import com.raikiservice.raf.leader.web.dto.LeaderDtos.SignupBonusRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -76,6 +77,13 @@ public class AdminLeaderController {
     public LeaderSummary setCommission(@AuthenticationPrincipal UserPrincipal admin, @PathVariable Long id,
             @Valid @RequestBody CommissionRequest request) {
         return leaderService.setCommission(admin.getId(), id, request.commissionPercent());
+    }
+
+    @PutMapping("/{id}/signup-bonus")
+    @Operation(summary = "Changer le bonus offert aux joueurs inscrits avec son lien (pour les inscriptions a venir)")
+    public LeaderSummary setSignupBonus(@AuthenticationPrincipal UserPrincipal admin, @PathVariable Long id,
+            @Valid @RequestBody SignupBonusRequest request) {
+        return leaderService.setSignupBonus(admin.getId(), id, request.signupBonusCredits());
     }
 
     @GetMapping("/{id}/players")

@@ -18,6 +18,7 @@ import com.raikiservice.raf.auth.repository.UserRepository;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
+import com.raikiservice.raf.leader.web.dto.LeaderDtos;
 import com.raikiservice.raf.leader.web.dto.LeaderDtos.LeaderCommission;
 import com.raikiservice.raf.leader.web.dto.LeaderDtos.LeaderPlayer;
 import com.raikiservice.raf.leader.web.dto.LeaderDtos.LeaderSummary;
@@ -48,6 +49,7 @@ public class LeaderService {
     private static final String SUMMARY = """
             SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.status,
                    COALESCE(pr.commission_percent, 0) AS commission_percent,
+                   COALESCE(pr.signup_bonus_credits, 0) AS signup_bonus_credits,
                    (SELECT COUNT(*) FROM leader_players lp WHERE lp.leader_id = u.id) AS player_count,
                    (SELECT COALESCE(SUM(c.amount_htg), 0) FROM leader_commissions c
                      WHERE c.leader_id = u.id AND c.created_at >= ?) AS last_30_days,
@@ -109,12 +111,14 @@ public class LeaderService {
                 Long.class, leaderId);
         List<LeaderPlayer> content = jdbc.query("""
                 SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.status, u.is_test,
-                       lp.added_at,
+                       lp.added_at, lp.via_invite, lp.signup_bonus_credits,
+                       b.created_at AS bonus_paid_at,
                        (SELECT COALESCE(SUM(c.amount_htg), 0) FROM leader_commissions c
                          WHERE c.leader_id = lp.leader_id AND c.player_id = u.id) AS commissions,
                        (SELECT MAX(g.started_at) FROM game_sessions g WHERE g.user_id = u.id) AS last_played
                 FROM leader_players lp
                 JOIN users u ON u.id = lp.player_id
+                LEFT JOIN leader_invite_bonuses b ON b.player_id = lp.player_id
                 WHERE lp.leader_id = ?
                 ORDER BY lp.added_at DESC, u.id DESC
                 LIMIT ? OFFSET ?
@@ -127,6 +131,9 @@ public class LeaderService {
                         rs.getString("status"),
                         rs.getBoolean("is_test"),
                         rs.getTimestamp("added_at").toInstant(),
+                        rs.getBoolean("via_invite"),
+                        rs.getInt("signup_bonus_credits"),
+                        instant(rs, "bonus_paid_at"),
                         rs.getLong("commissions"),
                         instant(rs, "last_played")),
                 leaderId, pageable.getPageSize(), pageable.getOffset());
@@ -261,6 +268,28 @@ public class LeaderService {
         return get(leaderId);
     }
 
+    /**
+     * Bonus offert a chaque joueur qui s'inscrit avec le lien de ce leader. Vaut pour
+     * les inscriptions a venir : le bonus deja promis a un inscrit ne change pas.
+     */
+    @Transactional
+    public LeaderSummary setSignupBonus(Long actorId, Long leaderId, Integer credits) {
+        if (credits == null || credits < 0 || credits > LeaderDtos.MAX_SIGNUP_BONUS_CREDITS) {
+            throw new ApiException(ErrorCode.LEADER_BONUS_INVALID);
+        }
+        LeaderSummary before = get(leaderId);
+        Timestamp now = Timestamp.from(Instant.now());
+        jdbc.update("""
+                INSERT INTO leader_profiles (user_id, commission_percent, signup_bonus_credits, created_at, updated_at)
+                VALUES (?, 0, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE signup_bonus_credits = VALUES(signup_bonus_credits),
+                                        updated_at = VALUES(updated_at)
+                """, leaderId, credits, now, now);
+        auditService.record(actorId, "LEADER_SIGNUP_BONUS_CHANGED", "User", String.valueOf(leaderId),
+                before.signupBonusCredits() + " credits", credits + " credits");
+        return get(leaderId);
+    }
+
     @Transactional
     public void addPlayer(Long actorId, Long leaderId, Long playerId) {
         get(leaderId);
@@ -344,6 +373,7 @@ public class LeaderService {
                 rs.getString("phone"),
                 rs.getString("status"),
                 rs.getBigDecimal("commission_percent"),
+                rs.getInt("signup_bonus_credits"),
                 rs.getLong("player_count"),
                 rs.getLong("last_30_days"),
                 rs.getLong("total"));

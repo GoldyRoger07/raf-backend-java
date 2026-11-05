@@ -116,6 +116,8 @@ final class ReconciliationQueries {
                                         WHERE b.prize_transaction_id = t.id))
                    OR (t.type = 'COMMISSION'
                         AND NOT EXISTS (SELECT 1 FROM leader_commissions b WHERE b.transaction_id = t.id))
+                   OR (t.type = 'INVITE_BONUS'
+                        AND NOT EXISTS (SELECT 1 FROM leader_invite_bonuses b WHERE b.transaction_id = t.id))
                    OR (t.type = 'REFUND'
                         AND NOT EXISTS (SELECT 1 FROM tickets b WHERE b.refund_transaction_id = t.id)
                         AND NOT EXISTS (SELECT 1 FROM withdrawal_requests b

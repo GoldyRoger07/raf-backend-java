@@ -25,6 +25,7 @@ import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.common.ratelimit.RateLimiter;
 import com.raikiservice.raf.common.util.RequestContext;
+import com.raikiservice.raf.leader.service.InviteService;
 import com.raikiservice.raf.notification.mail.TransactionalMail;
 import com.raikiservice.raf.notification.mail.MailTemplates;
 
@@ -60,6 +61,7 @@ public class AuthService {
     private final OtpService otpService;
     private final TransactionalMail transactionalMail;
     private final AuditService auditService;
+    private final InviteService inviteService;
 
     @Transactional
     public UserResponse register(RegisterRequest request) {
@@ -87,6 +89,7 @@ public class AuthService {
         user.setRoles(Set.of(playerRole));
 
         User saved = userRepository.save(user);
+        inviteService.attachOnSignup(saved, request.inviterId());
         verificationService.sendEmailVerification(saved);
         auditService.record(saved.getId(), AuditAction.USER_REGISTERED, "User",
                 String.valueOf(saved.getId()));
@@ -163,6 +166,7 @@ public class AuthService {
         user.setEmailVerifiedAt(Instant.now());
         auditService.record(user.getId(), AuditAction.EMAIL_VERIFIED, "User",
                 String.valueOf(user.getId()));
+        inviteService.payBonusIfEligible(user);
     }
 
     /**

@@ -15,6 +15,8 @@ import com.raikiservice.raf.auth.web.dto.MessageResponse;
 import com.raikiservice.raf.auth.web.dto.SessionResponse;
 import com.raikiservice.raf.auth.web.dto.UserResponse;
 import com.raikiservice.raf.common.util.RequestContext;
+import com.raikiservice.raf.leader.service.InviteService;
+import com.raikiservice.raf.leader.web.dto.LeaderDtos.InviteResponse;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,11 +43,18 @@ public class MeController {
     private final AccountDeletionService accountDeletionService;
     private final AccountEmailService accountEmailService;
     private final AccountPhoneService accountPhoneService;
+    private final InviteService inviteService;
 
     @GetMapping
     @Operation(summary = "Profil de l'utilisateur connecte")
     public UserResponse me(@AuthenticationPrincipal UserPrincipal principal) {
         return authService.currentUser(principal.getId());
+    }
+
+    @GetMapping("/invite")
+    @Operation(summary = "Lien d'invitation a partager (inscription avec ce joueur pour parrain)")
+    public InviteResponse invite(@AuthenticationPrincipal UserPrincipal principal) {
+        return inviteService.inviteFor(principal.getId());
     }
 
     /** Corrige une adresse mal saisie a l'inscription, tant qu'elle n'est pas verifiee. */
