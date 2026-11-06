@@ -27,6 +27,15 @@ public final class NotificationMessages {
     private NotificationMessages() {
     }
 
+    // --- Recharge par le leader --------------------------------------------------
+
+    /** Meme type qu'une recharge confirmee : memes preferences pour le joueur. */
+    public static NotificationMessage leaderTransferReceived(String leaderName, long credits) {
+        return new NotificationMessage(NotificationType.TOPUP_CONFIRMED, "Recharge recue",
+                leaderName + " vous a envoye " + credits + " credit(s), deja disponibles sur votre solde.",
+                Map.of("credits", credits), "/portefeuille");
+    }
+
     // --- Quiz -------------------------------------------------------------------
 
     public static NotificationMessage quizScheduled(Quiz quiz) {

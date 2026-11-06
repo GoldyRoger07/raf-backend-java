@@ -26,7 +26,10 @@ public final class LeaderDtos {
             int signupBonusCredits,
             long playerCount,
             long commissionsLast30DaysHtg,
-            long commissionsTotalHtg) {
+            long commissionsTotalHtg,
+            /** Credits envoyes par le leader a ses joueurs (recharges). */
+            long transfersLast30DaysCredits,
+            long transfersTotalCredits) {
     }
 
     /** Un joueur rattache a un leader. */

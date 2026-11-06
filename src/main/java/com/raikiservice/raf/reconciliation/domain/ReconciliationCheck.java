@@ -16,6 +16,8 @@ public enum ReconciliationCheck {
     PRIZE_PAYMENT("Gain du classement sans versement correspondant"),
     SOLO_ENTRY_DEBIT("Partie solo sans debit d'entree correspondant"),
     SOLO_PRIZE_PAYMENT("Sans-faute en solo sans versement correspondant"),
+    LEADER_TRANSFER_DEBIT("Recharge par un leader sans debit correspondant du leader"),
+    LEADER_TRANSFER_CREDIT("Recharge par un leader sans credit correspondant du joueur"),
     UNEXPECTED_MOVEMENT("Mouvement lie a une operation qui ne devait pas en produire"),
     ORPHAN_TRANSACTION("Mouvement d'argent sans operation metier qui le reference");
 

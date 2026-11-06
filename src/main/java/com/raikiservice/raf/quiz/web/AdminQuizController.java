@@ -9,6 +9,7 @@ import com.raikiservice.raf.quiz.domain.QuizStatus;
 import com.raikiservice.raf.quiz.service.QuizService;
 import com.raikiservice.raf.quiz.service.RewardService;
 import com.raikiservice.raf.quiz.service.SoloEconomicsService;
+import com.raikiservice.raf.quiz.service.SoloQuizStatsService;
 import com.raikiservice.raf.quiz.service.VoteService;
 import com.raikiservice.raf.quiz.web.dto.CancelQuizDto;
 import com.raikiservice.raf.quiz.web.dto.QuizDto;
@@ -45,6 +46,7 @@ public class AdminQuizController {
     private final RewardService rewardService;
     private final SoloEconomicsService soloEconomicsService;
     private final VoteService voteService;
+    private final SoloQuizStatsService soloQuizStatsService;
 
     @PostMapping
     @Operation(summary = "Creer un quiz de groupe en brouillon")
@@ -76,6 +78,22 @@ public class AdminQuizController {
             @PathVariable Long id, @Valid @RequestBody SoloQuizDto request) {
         quizService.updateSolo(admin.getId(), id, request);
         return quizService.view(id);
+    }
+
+    /** Activite des quiz solo d'un statut : parties, sans-fautes, recettes et prix verses. */
+    @GetMapping("/solo/stats")
+    @Operation(summary = "Activite des quiz solo, avec filtres (sans-faute, resultat, sujet) et tri")
+    public SoloQuizStatsService.StatsPage soloStats(
+            @RequestParam(defaultValue = "RUNNING") QuizStatus status,
+            @RequestParam(defaultValue = "ALL_TIME") SoloQuizStatsService.Period period,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(defaultValue = "ALL") SoloQuizStatsService.PerfectFilter perfect,
+            @RequestParam(defaultValue = "ALL") SoloQuizStatsService.ResultFilter result,
+            @RequestParam(defaultValue = "RECENT") SoloQuizStatsService.Sort sort,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return soloQuizStatsService.stats(new SoloQuizStatsService.Filters(status, period, q, categoryId,
+                perfect, result, sort), pageable);
     }
 
     /**

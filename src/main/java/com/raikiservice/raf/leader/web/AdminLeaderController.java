@@ -2,6 +2,8 @@ package com.raikiservice.raf.leader.web;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.leader.service.LeaderService;
+import com.raikiservice.raf.leader.service.LeaderTransferService;
+import com.raikiservice.raf.leader.web.dto.LeaderTransferDtos.TransferResponse;
 import com.raikiservice.raf.leader.web.dto.LeaderDtos.AddPlayerRequest;
 import com.raikiservice.raf.leader.web.dto.LeaderDtos.CommissionRequest;
 import com.raikiservice.raf.leader.web.dto.LeaderDtos.LeaderCommission;
@@ -43,6 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminLeaderController {
 
     private final LeaderService leaderService;
+    private final LeaderTransferService transferService;
 
     @GetMapping
     @Operation(summary = "Lister les leaders (recherche facultative), avec leur commission et leurs gains")
@@ -113,5 +116,13 @@ public class AdminLeaderController {
     public Page<LeaderCommission> commissions(@PathVariable Long id,
             @PageableDefault(size = 20) Pageable pageable) {
         return leaderService.commissions(id, pageable);
+    }
+
+    @GetMapping("/{id}/transfers")
+    @Operation(summary = "Recharges effectuees par le leader au profit de ses joueurs")
+    public Page<TransferResponse> transfers(@PathVariable Long id,
+            @PageableDefault(size = 20) Pageable pageable) {
+        leaderService.get(id);
+        return transferService.adminHistory(id, pageable);
     }
 }

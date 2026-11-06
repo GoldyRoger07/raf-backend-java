@@ -159,6 +159,12 @@ public enum ErrorCode {
     LEADER_BONUS_INVALID(HttpStatus.BAD_REQUEST,
             "Le bonus d'inscription doit etre un nombre entier de credits entre 0 et 100 000."),
 
+    LEADER_TRANSFER_DISABLED(HttpStatus.CONFLICT,
+            "La recharge des joueurs par les leaders est momentanement desactivee."),
+    LEADER_TRANSFER_NOT_YOUR_PLAYER(HttpStatus.FORBIDDEN,
+            "Vous ne pouvez recharger que les joueurs qui vous sont rattaches."),
+    LEADER_TRANSFER_AMOUNT_INVALID(HttpStatus.BAD_REQUEST, "Le montant de la recharge est invalide."),
+
     SETTING_INVALID(HttpStatus.BAD_REQUEST, "Valeur de parametre invalide."),
 
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "Ressource introuvable."),

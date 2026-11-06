@@ -69,6 +69,16 @@ final class ReconciliationQueries {
                 "CREDIT", "-b.entry_price_credits"));
         queries.add(link(ReconciliationCheck.SOLO_PRIZE_PAYMENT, "game_sessions", "GameSession",
                 "prize_transaction_id", "b.won = TRUE", "PRIZE", "WINNINGS", "b.prize_htg"));
+        // Recharge par un leader : le debit est sur le portefeuille du leader, le
+        // credit sur celui du joueur. La table expose le bon titulaire en user_id.
+        queries.add(link(ReconciliationCheck.LEADER_TRANSFER_DEBIT,
+                "(SELECT id, leader_id AS user_id, credits, debit_transaction_id FROM leader_credit_transfers)",
+                "LeaderCreditTransfer", "debit_transaction_id", "TRUE", "LEADER_TRANSFER_OUT", "CREDIT",
+                "-b.credits"));
+        queries.add(link(ReconciliationCheck.LEADER_TRANSFER_CREDIT,
+                "(SELECT id, player_id AS user_id, credits, credit_transaction_id FROM leader_credit_transfers)",
+                "LeaderCreditTransfer", "credit_transaction_id", "TRUE", "LEADER_TRANSFER_IN", "CREDIT",
+                "b.credits"));
 
         // Un mouvement la ou il ne devait pas y en avoir.
         queries.add(unexpected("tickets", "Ticket", "refund_transaction_id",
@@ -118,6 +128,12 @@ final class ReconciliationQueries {
                         AND NOT EXISTS (SELECT 1 FROM leader_commissions b WHERE b.transaction_id = t.id))
                    OR (t.type = 'INVITE_BONUS'
                         AND NOT EXISTS (SELECT 1 FROM leader_invite_bonuses b WHERE b.transaction_id = t.id))
+                   OR (t.type = 'LEADER_TRANSFER_OUT'
+                        AND NOT EXISTS (SELECT 1 FROM leader_credit_transfers b
+                                        WHERE b.debit_transaction_id = t.id))
+                   OR (t.type = 'LEADER_TRANSFER_IN'
+                        AND NOT EXISTS (SELECT 1 FROM leader_credit_transfers b
+                                        WHERE b.credit_transaction_id = t.id))
                    OR (t.type = 'REFUND'
                         AND NOT EXISTS (SELECT 1 FROM tickets b WHERE b.refund_transaction_id = t.id)
                         AND NOT EXISTS (SELECT 1 FROM withdrawal_requests b

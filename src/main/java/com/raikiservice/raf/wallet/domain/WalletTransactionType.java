@@ -20,6 +20,10 @@ public enum WalletTransactionType {
      * des qu'il confirme son email : credite le solde CREDIT.
      */
     INVITE_BONUS,
+    /** Recharge d'un joueur par son leader : debite le solde CREDIT du leader. */
+    LEADER_TRANSFER_OUT,
+    /** Recharge d'un joueur par son leader : credite le solde CREDIT du joueur. */
+    LEADER_TRANSFER_IN,
     /** Correction manuelle par un administrateur. Toujours tracee. */
     ADJUSTMENT
 }

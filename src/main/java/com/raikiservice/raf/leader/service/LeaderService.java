@@ -54,7 +54,11 @@ public class LeaderService {
                    (SELECT COALESCE(SUM(c.amount_htg), 0) FROM leader_commissions c
                      WHERE c.leader_id = u.id AND c.created_at >= ?) AS last_30_days,
                    (SELECT COALESCE(SUM(c.amount_htg), 0) FROM leader_commissions c
-                     WHERE c.leader_id = u.id) AS total
+                     WHERE c.leader_id = u.id) AS total,
+                   (SELECT COALESCE(SUM(t.credits), 0) FROM leader_credit_transfers t
+                     WHERE t.leader_id = u.id AND t.created_at >= ?) AS transfers_last_30_days,
+                   (SELECT COALESCE(SUM(t.credits), 0) FROM leader_credit_transfers t
+                     WHERE t.leader_id = u.id) AS transfers_total
             FROM users u
             LEFT JOIN leader_profiles pr ON pr.user_id = u.id
             WHERE %s
@@ -88,6 +92,7 @@ public class LeaderService {
 
         List<Object> pageArgs = new ArrayList<>();
         pageArgs.add(since30Days());
+        pageArgs.add(since30Days());
         pageArgs.addAll(args);
         pageArgs.add(pageable.getPageSize());
         pageArgs.add(pageable.getOffset());
@@ -99,7 +104,7 @@ public class LeaderService {
 
     @Transactional(readOnly = true)
     public LeaderSummary get(Long leaderId) {
-        return jdbc.query(SUMMARY + " AND u.id = ?", (rs, row) -> summary(rs), since30Days(), leaderId)
+        return jdbc.query(SUMMARY + " AND u.id = ?", (rs, row) -> summary(rs), since30Days(), since30Days(), leaderId)
                 .stream().findFirst()
                 .orElseThrow(() -> ApiException.notFound("Leader"));
     }
@@ -376,6 +381,8 @@ public class LeaderService {
                 rs.getInt("signup_bonus_credits"),
                 rs.getLong("player_count"),
                 rs.getLong("last_30_days"),
-                rs.getLong("total"));
+                rs.getLong("total"),
+                rs.getLong("transfers_last_30_days"),
+                rs.getLong("transfers_total"));
     }
 }

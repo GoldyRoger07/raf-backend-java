@@ -17,6 +17,9 @@ public final class SettingKeys {
     public static final String QUESTION_IMPORT_MAX_ROWS = "question.import_max_rows";
     public static final String AI_MAX_QUESTIONS_PER_REQUEST = "ai.max_questions_per_request";
     public static final String AI_MAX_REQUESTS_PER_DAY = "ai.max_requests_per_day";
+    /** Bornes d'une recharge d'un joueur par son leader, en credits. */
+    public static final String LEADER_TRANSFER_MIN_CREDITS = "leader.transfer_min_credits";
+    public static final String LEADER_TRANSFER_MAX_CREDITS = "leader.transfer_max_credits";
 
     /** Reseaux sociaux : ni des entiers ni reserves au super-administrateur, voir SocialService. */
     public static final String INSTAGRAM_ENABLED = "social.instagram.enabled";
@@ -32,6 +35,8 @@ public final class SettingKeys {
 
     /** Comportement de l'app joueur, voir PlayerAppService. */
     public static final String APP_EMAIL_REMINDER_ENABLED = "app.email_reminder.enabled";
+    /** Recharge des joueurs par leur leader, voir LeaderTransferService. */
+    public static final String APP_LEADER_TRANSFER_ENABLED = "app.leader_transfer.enabled";
     private static final String APP_PREFIX = "app.";
 
     /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */
@@ -52,7 +57,9 @@ public final class SettingKeys {
             GAME_POOL_RATIO_MIN, 1L,
             GAME_FAST_ANSWER_FLAG_COUNT, 1L,
             QUESTION_IMPORT_MAX_ROWS, 1L,
-            AI_MAX_QUESTIONS_PER_REQUEST, 1L);
+            AI_MAX_QUESTIONS_PER_REQUEST, 1L,
+            LEADER_TRANSFER_MIN_CREDITS, 1L,
+            LEADER_TRANSFER_MAX_CREDITS, 1L);
 
     public static long minValue(String key) {
         return MIN_VALUES.getOrDefault(key, 0L);
