@@ -27,6 +27,7 @@ public class MediaUsageQueries {
                 UNION ALL SELECT banner_media_id FROM quizzes WHERE banner_media_id IN (:ids)
                 UNION ALL SELECT media_id FROM quiz_topics WHERE media_id IN (:ids)
                 UNION ALL SELECT avatar_media_id FROM users WHERE avatar_media_id IN (:ids)
+                UNION ALL SELECT media_id FROM news_posts WHERE media_id IN (:ids)
             ) used
             GROUP BY media_id
             """;
