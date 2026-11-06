@@ -90,8 +90,30 @@ public final class NotificationMessages {
     // --- Portefeuille -----------------------------------------------------------
 
     public static NotificationMessage topUpConfirmed(Long topUpId, long credits, long amountHtg) {
-        return new NotificationMessage(NotificationType.TOPUP_CONFIRMED, "Recharge confirmee",
-                credits + " credits (" + amountHtg + " HTG) ont ete ajoutes a votre solde.",
+        return topUpConfirmed(topUpId, credits, amountHtg, 0, 0);
+    }
+
+    /**
+     * Recharge avec retenue : on dit au joueur ce qui a ete repris de sa retenue et ce
+     * qui est mis de cote, pour qu'il ne croie pas avoir perdu des gourdes.
+     */
+    public static NotificationMessage topUpConfirmed(Long topUpId, long credits, long amountHtg,
+            long retentionUsedHtg, long retentionKeptHtg) {
+        StringBuilder body = new StringBuilder();
+        if (credits > 0) {
+            body.append("Recharge de ").append(amountHtg).append(" HTG");
+            if (retentionUsedHtg > 0) {
+                body.append(" + ").append(retentionUsedHtg).append(" HTG de votre retenue");
+            }
+            body.append(" : ").append(credits).append(" credit(s) ajoute(s) a votre solde.");
+        } else {
+            body.append("Recharge de ").append(amountHtg).append(" HTG recue, pas encore assez pour un credit.");
+        }
+        if (retentionKeptHtg > 0) {
+            body.append(" ").append(retentionKeptHtg)
+                    .append(" HTG sont gardes et seront ajoutes a votre prochaine recharge.");
+        }
+        return new NotificationMessage(NotificationType.TOPUP_CONFIRMED, "Recharge confirmee", body.toString(),
                 Map.of("topUpId", topUpId), "/portefeuille");
     }
 

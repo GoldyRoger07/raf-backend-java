@@ -53,8 +53,35 @@ final class ReconciliationQueries {
         queries.add(link(ReconciliationCheck.TICKET_REFUND, "tickets", "Ticket",
                 "refund_transaction_id", "b.status = 'REFUNDED' AND b.price_paid_credits > 0", "REFUND",
                 "CREDIT", "b.price_paid_credits"));
+        // Une recharge trop petite pour un credit (tout part en retenue) n'a aucun mouvement.
         queries.add(link(ReconciliationCheck.TOPUP_CREDIT, "topup_requests", "TopUpRequest",
-                "transaction_id", "b.status = 'CONFIRMED'", "TOPUP", "CREDIT", "b.credits"));
+                "transaction_id", "b.status = 'CONFIRMED' AND b.credits > 0", "TOPUP", "CREDIT", "b.credits"));
+
+        // Retenue : credits * taux = montant recu + retenue reprise - retenue gardee, et
+        // les lignes de la retenue rattachees a la recharge en font le meme bilan.
+        queries.add(new Query(ReconciliationCheck.TOPUP_RETENTION, """
+                SELECT b.user_id, NULL AS wallet_id, 'TopUpRequest' AS reference_type, b.id AS reference_id,
+                       b.amount_htg + b.retention_used_htg - b.retention_kept_htg AS expected_value,
+                       b.credits * b.htg_rate AS actual_value,
+                       CASE WHEN b.credits * b.htg_rate <> b.amount_htg + b.retention_used_htg - b.retention_kept_htg
+                            THEN 'Credits differents du montant recu, retenue comprise'
+                            ELSE 'Mouvements de retenue differents de la recharge' END AS detail
+                FROM topup_requests b
+                LEFT JOIN (SELECT topup_request_id, SUM(amount_htg) AS net FROM topup_retentions
+                           WHERE topup_request_id IS NOT NULL GROUP BY topup_request_id) r ON r.topup_request_id = b.id
+                WHERE b.status = 'CONFIRMED' AND b.htg_rate IS NOT NULL
+                  AND (b.credits * b.htg_rate <> b.amount_htg + b.retention_used_htg - b.retention_kept_htg
+                       OR COALESCE(r.net, 0) <> b.retention_kept_htg - b.retention_used_htg)
+                """));
+        queries.add(new Query(ReconciliationCheck.RETENTION_CHAIN_BREAK, """
+                SELECT x.user_id, NULL AS wallet_id, 'TopUpRetention' AS reference_type, x.id AS reference_id,
+                       x.prev + x.amount_htg AS expected_value, x.balance_after_htg AS actual_value,
+                       'Solde de retenue incoherent' AS detail
+                FROM (SELECT r.id, r.user_id, r.amount_htg, r.balance_after_htg,
+                             LAG(r.balance_after_htg, 1, 0) OVER (PARTITION BY r.user_id ORDER BY r.id) AS prev
+                      FROM topup_retentions r) x
+                WHERE x.prev + x.amount_htg <> x.balance_after_htg
+                """));
         queries.add(link(ReconciliationCheck.WITHDRAWAL_DEBIT, "withdrawal_requests",
                 "WithdrawalRequest", "debit_transaction_id",
                 "b.status IN ('PENDING', 'APPROVED', 'PAID', 'REJECTED')", "WITHDRAWAL", "WINNINGS",
@@ -91,6 +118,8 @@ final class ReconciliationQueries {
                 "b.entry_price_credits = 0", "Partie solo offerte portant un debit"));
         queries.add(unexpected("topup_requests", "TopUpRequest", "transaction_id",
                 "b.status <> 'CONFIRMED'", "Recharge non confirmee portant un credit"));
+        queries.add(unexpected("topup_requests", "TopUpRequest", "transaction_id",
+                "b.credits = 0", "Recharge sans credit portant un mouvement"));
         queries.add(unexpected("withdrawal_requests", "WithdrawalRequest", "debit_transaction_id",
                 "b.status IN ('AWAITING_OTP', 'CANCELLED')",
                 "Retrait non confirme ou annule portant un debit"));

@@ -42,6 +42,7 @@ public class TopUpService {
     private final WalletService walletService;
     private final AuditService auditService;
     private final NotificationService notificationService;
+    private final TopUpRetentionService retentionService;
 
     @Transactional
     public TopUpRequest createManual(Long adminId, Long userId, long amountHtg, String reference,
@@ -49,7 +50,11 @@ public class TopUpService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> ApiException.notFound("Utilisateur"));
 
-        long credits = walletService.htgToCredits(amountHtg);
+        if (amountHtg <= 0) {
+            throw new ApiException(ErrorCode.INVALID_AMOUNT);
+        }
+        // Estimation : le nombre exact de credits, retenue comprise, est fixe a la confirmation.
+        long credits = amountHtg / walletService.htgRate();
 
         if (reference != null && !reference.isBlank()) {
             topUpRequestRepository.findByProviderAndProviderRef(PaymentProvider.MANUAL, reference)
@@ -91,30 +96,56 @@ public class TopUpService {
             throw new ApiException(ErrorCode.TOPUP_ALREADY_PROCESSED);
         }
 
-        WalletTransaction transaction = walletService.credit(
-                request.getUser().getId(),
-                BalanceType.CREDIT,
-                request.getCredits(),
-                WalletTransactionType.TOPUP,
-                "TopUpRequest",
-                String.valueOf(request.getId()),
-                "topup:" + request.getId(),
-                "Recharge de " + request.getAmountHtg() + " HTG (" + request.getProvider() + ")");
+        // Retenue : les gourdes qui ne forment pas un credit entier passent a la
+        // recharge suivante. 15 HTG a 10 HTG le credit : 1 credit et 5 HTG gardes ;
+        // 17 HTG ensuite : 22 HTG, soit 2 credits et 2 HTG gardes.
+        Long userId = request.getUser().getId();
+        long rate = walletService.htgRate();
+        long used = retentionService.lock(userId);
+        long total = request.getAmountHtg() + used;
+        long credits = total / rate;
+        long kept = total % rate;
+
+        request.setHtgRate(rate);
+        request.setCredits(credits);
+        request.setRetentionUsedHtg(used);
+        request.setRetentionKeptHtg(kept);
+
+        if (credits > 0) {
+            WalletTransaction transaction = walletService.credit(
+                    userId,
+                    BalanceType.CREDIT,
+                    credits,
+                    WalletTransactionType.TOPUP,
+                    "TopUpRequest",
+                    String.valueOf(request.getId()),
+                    "topup:" + request.getId(),
+                    "Recharge de " + request.getAmountHtg() + " HTG (" + request.getProvider() + ")"
+                            + (used > 0 ? " + " + used + " HTG de retenue" : ""));
+            request.setTransactionId(transaction.getId());
+        }
+        if (used > 0) {
+            retentionService.move(userId, -used, TopUpRetentionService.Reason.USED, request.getId(), adminId, null);
+        }
+        if (kept > 0) {
+            retentionService.move(userId, kept, TopUpRetentionService.Reason.KEPT, request.getId(), adminId, null);
+        }
 
         request.setStatus(TopUpStatus.CONFIRMED);
         request.setConfirmedAt(Instant.now());
         request.setConfirmedByAdminId(adminId);
-        request.setTransactionId(transaction.getId());
         if (rawPayload != null) {
             request.setRawPayload(rawPayload);
         }
 
-        notificationService.notifyUser(request.getUser().getId(), NotificationMessages
-                .topUpConfirmed(request.getId(), request.getCredits(), request.getAmountHtg()));
+        notificationService.notifyUser(userId, NotificationMessages.topUpConfirmed(request.getId(), credits,
+                request.getAmountHtg(), used, kept));
 
         auditService.record(adminId, "TOPUP_CONFIRMED", "TopUpRequest",
                 String.valueOf(request.getId()), null,
-                request.getCredits() + " credits vers l'utilisateur " + request.getUser().getId());
+                request.getCredits() + " credits vers l'utilisateur " + request.getUser().getId()
+                        + " (retenue reprise " + request.getRetentionUsedHtg() + " HTG, gardee "
+                        + request.getRetentionKeptHtg() + " HTG)");
 
         return request;
     }

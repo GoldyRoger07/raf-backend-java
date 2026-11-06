@@ -16,7 +16,13 @@ public record TopUpResponse(
         String providerRef,
         String note,
         Instant createdAt,
-        Instant confirmedAt) {
+        Instant confirmedAt,
+        /** Valeur du credit a la confirmation, null tant que la recharge n'est pas confirmee. */
+        Long htgRate,
+        /** Retenue precedente ajoutee a cette recharge. */
+        long retentionUsedHtg,
+        /** Reste garde pour la recharge suivante. */
+        long retentionKeptHtg) {
 
     public static TopUpResponse from(TopUpRequest request) {
         return new TopUpResponse(
@@ -29,6 +35,9 @@ public record TopUpResponse(
                 request.getProviderRef(),
                 request.getNote(),
                 request.getCreatedAt(),
-                request.getConfirmedAt());
+                request.getConfirmedAt(),
+                request.getHtgRate(),
+                request.getRetentionUsedHtg(),
+                request.getRetentionKeptHtg());
     }
 }

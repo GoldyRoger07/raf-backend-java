@@ -11,13 +11,16 @@ public record WalletResponse(
         long creditBalance,
         long creditBalanceHtg,
         long winningsBalanceHtg,
-        long htgRate) {
+        long htgRate,
+        /** Gourdes de recharge en attente, ajoutees a la prochaine recharge. */
+        long retentionHtg) {
 
-    public static WalletResponse from(Wallet wallet, long htgRate) {
+    public static WalletResponse from(Wallet wallet, long htgRate, long retentionHtg) {
         return new WalletResponse(
                 wallet.getCreditBalance(),
                 wallet.getCreditBalance() * htgRate,
                 wallet.getWinningsBalance(),
-                htgRate);
+                htgRate,
+                retentionHtg);
     }
 }

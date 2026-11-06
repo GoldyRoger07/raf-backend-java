@@ -2,6 +2,7 @@ package com.raikiservice.raf.wallet.web;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.auth.web.dto.MessageResponse;
+import com.raikiservice.raf.wallet.service.TopUpRetentionService;
 import com.raikiservice.raf.wallet.service.TopUpService;
 import com.raikiservice.raf.wallet.service.WalletService;
 import com.raikiservice.raf.wallet.service.WithdrawalService;
@@ -36,13 +37,14 @@ public class WalletController {
     private final WalletService walletService;
     private final WithdrawalService withdrawalService;
     private final TopUpService topUpService;
+    private final TopUpRetentionService retentionService;
 
     @GetMapping
     @Operation(summary = "Consulter ses soldes")
     public WalletResponse balance(@AuthenticationPrincipal UserPrincipal principal) {
         walletService.getOrCreate(principal.getId());
         return WalletResponse.from(walletService.requireWallet(principal.getId()),
-                walletService.htgRate());
+                walletService.htgRate(), retentionService.balance(principal.getId()));
     }
 
     @GetMapping("/transactions")

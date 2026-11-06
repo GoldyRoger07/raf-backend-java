@@ -6,6 +6,7 @@ import com.raikiservice.raf.wallet.domain.TopUpStatus;
 import com.raikiservice.raf.wallet.domain.WithdrawalStatus;
 import com.raikiservice.raf.wallet.service.AdjustmentService;
 import com.raikiservice.raf.wallet.service.CounterWithdrawalService;
+import com.raikiservice.raf.wallet.service.TopUpRetentionService;
 import com.raikiservice.raf.wallet.service.TopUpService;
 import com.raikiservice.raf.wallet.service.WalletService;
 import com.raikiservice.raf.wallet.service.WithdrawalService;
@@ -56,6 +57,7 @@ public class AdminWalletController {
     private final WithdrawalService withdrawalService;
     private final AdjustmentService adjustmentService;
     private final CounterWithdrawalService counterWithdrawalService;
+    private final TopUpRetentionService retentionService;
 
     @PostMapping("/topups/manual")
     @Operation(summary = "Crediter un joueur apres un encaissement hors ligne")
@@ -159,7 +161,28 @@ public class AdminWalletController {
     @Operation(summary = "Consulter le portefeuille d'un joueur")
     public WalletResponse userWallet(@PathVariable Long userId) {
         walletService.getOrCreate(userId);
-        return WalletResponse.from(walletService.requireWallet(userId), walletService.htgRate());
+        return WalletResponse.from(walletService.requireWallet(userId), walletService.htgRate(),
+                retentionService.balance(userId));
+    }
+
+    @GetMapping("/users/{userId}/retention")
+    @Operation(summary = "Retenue de recharge d'un joueur : solde et derniers mouvements")
+    public TopUpRetentionService.View userRetention(@PathVariable Long userId) {
+        return retentionService.view(userId, 50);
+    }
+
+    @PostMapping("/users/{userId}/retention/adjust")
+    @Operation(summary = "Corriger la retenue de recharge d'un joueur (montant signe en HTG, motif obligatoire)")
+    public TopUpRetentionService.View adjustRetention(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long userId, @Valid @RequestBody RetentionAdjustmentDto request) {
+        retentionService.adjust(admin.getId(), userId, request.amountHtg(), request.reason());
+        return retentionService.view(userId, 50);
+    }
+
+    /** Correction de la retenue : montant signe en gourdes et motif. */
+    public record RetentionAdjustmentDto(
+            @jakarta.validation.constraints.NotNull Long amountHtg,
+            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 255) String reason) {
     }
 
     @GetMapping("/users/{userId}/transactions")

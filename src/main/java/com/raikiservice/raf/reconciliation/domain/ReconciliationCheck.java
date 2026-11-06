@@ -18,6 +18,8 @@ public enum ReconciliationCheck {
     SOLO_PRIZE_PAYMENT("Sans-faute en solo sans versement correspondant"),
     LEADER_TRANSFER_DEBIT("Recharge par un leader sans debit correspondant du leader"),
     LEADER_TRANSFER_CREDIT("Recharge par un leader sans credit correspondant du joueur"),
+    TOPUP_RETENTION("Recharge dont credits et retenue ne correspondent pas au montant recu"),
+    RETENTION_CHAIN_BREAK("Retenue de recharge : solde apres different du solde precedent plus le montant"),
     UNEXPECTED_MOVEMENT("Mouvement lie a une operation qui ne devait pas en produire"),
     ORPHAN_TRANSACTION("Mouvement d'argent sans operation metier qui le reference");
 

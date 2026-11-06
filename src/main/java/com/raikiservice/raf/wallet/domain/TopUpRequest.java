@@ -66,4 +66,16 @@ public class TopUpRequest extends AuditableEntity {
 
     @Column(name = "confirmed_at")
     private Instant confirmedAt;
+
+    /** Valeur du credit en gourdes au moment de la confirmation. */
+    @Column(name = "htg_rate")
+    private Long htgRate;
+
+    /** Retenue precedente ajoutee a cette recharge. */
+    @Column(name = "retention_used_htg", nullable = false)
+    private long retentionUsedHtg;
+
+    /** Reste de cette recharge, garde pour la suivante. */
+    @Column(name = "retention_kept_htg", nullable = false)
+    private long retentionKeptHtg;
 }
