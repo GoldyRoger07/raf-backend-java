@@ -64,6 +64,11 @@ public class WithdrawalService {
     public WithdrawalRequest request(Long userId, long amountHtg, PaymentProvider provider,
             String destinationNumber, String otpCode) {
 
+        // Les gains se retirent par MonCash, NatCash ou au guichet ; WINNINGS ne sert qu'aux recharges.
+        if (provider == PaymentProvider.WINNINGS) {
+            throw new ApiException(ErrorCode.WITHDRAWAL_PROVIDER_INVALID);
+        }
+
         User user = loadUser(userId);
         assertPhoneVerified(user);
 

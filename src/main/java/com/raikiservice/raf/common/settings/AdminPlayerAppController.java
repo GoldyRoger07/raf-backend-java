@@ -32,7 +32,7 @@ public class AdminPlayerAppController {
     }
 
     @PutMapping
-    @Operation(summary = "Activer ou couper le rappel de confirmation de l'email (trace au journal d'audit)")
+    @Operation(summary = "Activer ou couper un comportement de l'app joueur (trace au journal d'audit)")
     public PlayerAppService.PlayerAppConfig update(@AuthenticationPrincipal UserPrincipal admin,
             @RequestBody PlayerAppService.PlayerAppConfig request) {
         return playerAppService.update(admin.getId(), request);

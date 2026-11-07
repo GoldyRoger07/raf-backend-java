@@ -64,6 +64,10 @@ public class TopUpRequest extends AuditableEntity {
     @Column(name = "transaction_id")
     private Long transactionId;
 
+    /** Conversion de gains (fournisseur WINNINGS) : debit du solde de gains qui la paie. */
+    @Column(name = "debit_transaction_id")
+    private Long debitTransactionId;
+
     @Column(name = "confirmed_at")
     private Instant confirmedAt;
 

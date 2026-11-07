@@ -117,6 +117,13 @@ public final class NotificationMessages {
                 Map.of("topUpId", topUpId), "/portefeuille");
     }
 
+    /** Recharge avec les gains : le reste eventuel est simplement reste dans les gains. */
+    public static NotificationMessage winningsConverted(Long topUpId, long credits, long amountHtg) {
+        return new NotificationMessage(NotificationType.TOPUP_CONFIRMED, "Recharge avec vos gains",
+                amountHtg + " HTG de vos gains convertis : " + credits + " credit(s) ajoute(s) a votre solde.",
+                Map.of("topUpId", topUpId), "/portefeuille");
+    }
+
     public static NotificationMessage withdrawalApproved(WithdrawalRequest request) {
         String body = request.getProvider() == PaymentProvider.MANUAL
                 ? "Votre retrait de " + request.getNetHtg() + " HTG est pret : presentez-vous au "

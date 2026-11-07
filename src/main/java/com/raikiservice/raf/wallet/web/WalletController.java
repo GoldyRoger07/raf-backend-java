@@ -9,6 +9,8 @@ import com.raikiservice.raf.wallet.service.WithdrawalService;
 import com.raikiservice.raf.wallet.web.dto.TopUpResponse;
 import com.raikiservice.raf.wallet.web.dto.TransactionResponse;
 import com.raikiservice.raf.wallet.web.dto.WalletResponse;
+import com.raikiservice.raf.wallet.web.dto.WinningsConversionDto;
+import com.raikiservice.raf.wallet.web.dto.WinningsConversionResponse;
 import com.raikiservice.raf.wallet.web.dto.WithdrawalRequestDto;
 import com.raikiservice.raf.wallet.web.dto.WithdrawalResponse;
 
@@ -60,6 +62,17 @@ public class WalletController {
     public Page<TopUpResponse> topups(@AuthenticationPrincipal UserPrincipal principal,
             @PageableDefault(size = 20) Pageable pageable) {
         return topUpService.historyForUser(principal.getId(), pageable).map(TopUpResponse::from);
+    }
+
+    @PostMapping("/conversions")
+    @Operation(summary = "Recharger ses credits avec ses gains (HTG)")
+    public ResponseEntity<WinningsConversionResponse> convertWinnings(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody WinningsConversionDto request) {
+        TopUpResponse topUp = TopUpResponse.from(
+                topUpService.convertWinnings(principal.getId(), request.amountHtg(), request.requestKey()));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(WinningsConversionResponse.from(topUp, walletService.requireWallet(principal.getId())));
     }
 
     @PostMapping("/withdrawals/send-otp")

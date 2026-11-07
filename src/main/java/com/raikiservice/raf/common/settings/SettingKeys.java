@@ -37,6 +37,8 @@ public final class SettingKeys {
     public static final String APP_EMAIL_REMINDER_ENABLED = "app.email_reminder.enabled";
     /** Recharge des joueurs par leur leader, voir LeaderTransferService. */
     public static final String APP_LEADER_TRANSFER_ENABLED = "app.leader_transfer.enabled";
+    /** Conversion des gains (HTG) en credits par le joueur, voir TopUpService#convertWinnings. */
+    public static final String APP_WINNINGS_CONVERSION_ENABLED = "app.winnings_conversion.enabled";
     private static final String APP_PREFIX = "app.";
 
     /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */

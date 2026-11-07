@@ -11,6 +11,7 @@ public enum ReconciliationCheck {
     TICKET_DEBIT("Ticket sans debit correspondant (type, montant ou proprietaire)"),
     TICKET_REFUND("Ticket rembourse sans remboursement correspondant"),
     TOPUP_CREDIT("Recharge confirmee sans credit correspondant"),
+    WINNINGS_CONVERSION_DEBIT("Recharge avec les gains sans debit correspondant des gains"),
     WITHDRAWAL_DEBIT("Retrait sans debit correspondant des gains"),
     WITHDRAWAL_REFUND("Retrait rejete sans restitution des gains"),
     PRIZE_PAYMENT("Gain du classement sans versement correspondant"),

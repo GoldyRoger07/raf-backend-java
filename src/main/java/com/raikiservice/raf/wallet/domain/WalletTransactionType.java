@@ -24,6 +24,11 @@ public enum WalletTransactionType {
     LEADER_TRANSFER_OUT,
     /** Recharge d'un joueur par son leader : credite le solde CREDIT du joueur. */
     LEADER_TRANSFER_IN,
+    /**
+     * Conversion de gains en credits par le joueur : debite le solde WINNINGS. Le credit
+     * correspondant est un TOPUP, porte par la recharge de fournisseur WINNINGS.
+     */
+    WINNINGS_CONVERSION,
     /** Correction manuelle par un administrateur. Toujours tracee. */
     ADJUSTMENT
 }

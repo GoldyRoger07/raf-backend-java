@@ -165,6 +165,12 @@ public enum ErrorCode {
             "Vous ne pouvez recharger que les joueurs qui vous sont rattaches."),
     LEADER_TRANSFER_AMOUNT_INVALID(HttpStatus.BAD_REQUEST, "Le montant de la recharge est invalide."),
 
+    WINNINGS_CONVERSION_DISABLED(HttpStatus.CONFLICT,
+            "La recharge avec les gains est momentanement desactivee."),
+    WINNINGS_CONVERSION_TOO_SMALL(HttpStatus.UNPROCESSABLE_CONTENT,
+            "Le montant est trop petit pour obtenir un credit."),
+    WITHDRAWAL_PROVIDER_INVALID(HttpStatus.BAD_REQUEST, "Ce moyen de retrait n'existe pas."),
+
     SETTING_INVALID(HttpStatus.BAD_REQUEST, "Valeur de parametre invalide."),
 
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "Ressource introuvable."),

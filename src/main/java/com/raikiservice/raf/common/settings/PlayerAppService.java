@@ -15,6 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Recharge des joueurs par leur leader : active par defaut. La couper masque le
  * bouton dans l'app et refuse toute nouvelle recharge (LeaderTransferService).
+ *
+ * <p>Conversion des gains en credits : active par defaut. La couper masque le bouton
+ * de l'ecran Recharger et refuse toute nouvelle conversion (TopUpService).
  */
 @Service
 @RequiredArgsConstructor
@@ -23,13 +26,19 @@ public class PlayerAppService {
     private final SettingsService settingsService;
 
     /** En modification, un champ absent (null) garde sa valeur actuelle. */
-    public record PlayerAppConfig(Boolean emailReminderEnabled, Boolean leaderTransferEnabled) {
+    public record PlayerAppConfig(Boolean emailReminderEnabled, Boolean leaderTransferEnabled,
+            Boolean winningsConversionEnabled) {
     }
 
     @Transactional(readOnly = true)
     public PlayerAppConfig get() {
         return new PlayerAppConfig(flag(SettingKeys.APP_EMAIL_REMINDER_ENABLED),
-                flag(SettingKeys.APP_LEADER_TRANSFER_ENABLED));
+                flag(SettingKeys.APP_LEADER_TRANSFER_ENABLED), flag(SettingKeys.APP_WINNINGS_CONVERSION_ENABLED));
+    }
+
+    @Transactional(readOnly = true)
+    public boolean winningsConversionEnabled() {
+        return flag(SettingKeys.APP_WINNINGS_CONVERSION_ENABLED);
     }
 
     @Transactional(readOnly = true)
@@ -45,6 +54,8 @@ public class PlayerAppService {
                 request.emailReminderEnabled());
         change(actorId, SettingKeys.APP_LEADER_TRANSFER_ENABLED, current.leaderTransferEnabled(),
                 request.leaderTransferEnabled());
+        change(actorId, SettingKeys.APP_WINNINGS_CONVERSION_ENABLED, current.winningsConversionEnabled(),
+                request.winningsConversionEnabled());
         return get();
     }
 

@@ -56,6 +56,10 @@ final class ReconciliationQueries {
         // Une recharge trop petite pour un credit (tout part en retenue) n'a aucun mouvement.
         queries.add(link(ReconciliationCheck.TOPUP_CREDIT, "topup_requests", "TopUpRequest",
                 "transaction_id", "b.status = 'CONFIRMED' AND b.credits > 0", "TOPUP", "CREDIT", "b.credits"));
+        // Recharge avec les gains : payee par un debit des gains du meme montant.
+        queries.add(link(ReconciliationCheck.WINNINGS_CONVERSION_DEBIT, "topup_requests", "TopUpRequest",
+                "debit_transaction_id", "b.provider = 'WINNINGS'", "WINNINGS_CONVERSION", "WINNINGS",
+                "-b.amount_htg"));
 
         // Retenue : credits * taux = montant recu + retenue reprise - retenue gardee, et
         // les lignes de la retenue rattachees a la recharge en font le meme bilan.
@@ -120,6 +124,8 @@ final class ReconciliationQueries {
                 "b.status <> 'CONFIRMED'", "Recharge non confirmee portant un credit"));
         queries.add(unexpected("topup_requests", "TopUpRequest", "transaction_id",
                 "b.credits = 0", "Recharge sans credit portant un mouvement"));
+        queries.add(unexpected("topup_requests", "TopUpRequest", "debit_transaction_id",
+                "b.provider <> 'WINNINGS'", "Recharge payee hors gains portant un debit des gains"));
         queries.add(unexpected("withdrawal_requests", "WithdrawalRequest", "debit_transaction_id",
                 "b.status IN ('AWAITING_OTP', 'CANCELLED')",
                 "Retrait non confirme ou annule portant un debit"));
@@ -143,6 +149,8 @@ final class ReconciliationQueries {
                         AND NOT EXISTS (SELECT 1 FROM tickets b WHERE b.transaction_id = t.id))
                    OR (t.type = 'TOPUP'
                         AND NOT EXISTS (SELECT 1 FROM topup_requests b WHERE b.transaction_id = t.id))
+                   OR (t.type = 'WINNINGS_CONVERSION'
+                        AND NOT EXISTS (SELECT 1 FROM topup_requests b WHERE b.debit_transaction_id = t.id))
                    OR (t.type = 'WITHDRAWAL'
                         AND NOT EXISTS (SELECT 1 FROM withdrawal_requests b
                                         WHERE b.debit_transaction_id = t.id))
