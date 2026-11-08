@@ -190,6 +190,8 @@ com.raikiservice.raf
 
 **quiz_question_pool** — pool figé au démarrage : `id, quiz_id, question_id` — UNIQUE(quiz_id, question_id)
 
+→ SOLO uniquement : `POST /api/admin/quizzes/{id}/pool/add-new` ajoute au vivier d'un quiz ouvert les questions publiées de son sujet depuis l'ouverture (import, publication), sans en retirer aucune. Tracé `QUIZ_POOL_EXTENDED`. En GROUP le vivier reste figé : tous les joueurs du classement tirent dans le même ensemble.
+
 ### 3.5 Jeu
 
 **game_sessions**

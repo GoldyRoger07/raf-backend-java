@@ -4,7 +4,9 @@ import com.raikiservice.raf.game.repository.GameSessionRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
@@ -383,6 +385,51 @@ public class QuizService {
         auditService.record(actorId, "QUIZ_CLOSED", "Quiz", String.valueOf(quizId),
                 QuizStatus.RUNNING.name(), QuizStatus.FINISHED.name());
         return quiz;
+    }
+
+    /**
+     * Ajoute au vivier d'un quiz solo ouvert les questions publiees de son sujet qui
+     * n'y sont pas encore (import, publication apres l'ouverture). Rien n'en est
+     * retire : une question archivee depuis reste tirable, comme avant.
+     *
+     * <p>Reserve au mode solo : en groupe, le vivier fige garantit que tous les
+     * joueurs du classement tirent dans le meme ensemble. En solo, chaque partie
+     * est independante. Verrou exclusif, comme a la fermeture : les tirages en vol
+     * finissent avant l'ajout.
+     *
+     * @return le nombre de questions ajoutees
+     */
+    @Transactional
+    public int addNewQuestionsToSoloPool(Long actorId, Long quizId) {
+        Quiz quiz = quizRepository.findByIdForUpdate(quizId)
+                .orElseThrow(() -> ApiException.notFound("Quiz"));
+        assertMode(quiz, GameMode.SOLO);
+
+        if (quiz.getStatus() != QuizStatus.RUNNING) {
+            throw new ApiException(ErrorCode.QUIZ_INVALID_STATE,
+                    "Seul un quiz solo ouvert peut recevoir de nouvelles questions.");
+        }
+
+        Set<Long> inPool = new HashSet<>(quizQuestionPoolRepository.findQuestionIds(quizId));
+        int added = 0;
+        for (Question question : questionRepository
+                .findByCategoryIdAndStatus(resolveCategory(quiz).getId(), QuestionStatus.PUBLISHED,
+                        Pageable.unpaged())
+                .getContent()) {
+            if (inPool.add(question.getId())) {
+                QuizQuestionPool entry = new QuizQuestionPool();
+                entry.setQuiz(quiz);
+                entry.setQuestion(question);
+                quizQuestionPoolRepository.save(entry);
+                added++;
+            }
+        }
+
+        auditService.record(actorId, "QUIZ_POOL_EXTENDED", "Quiz", String.valueOf(quizId), null,
+                added + " question(s) ajoutee(s), vivier de " + inPool.size());
+        log.info("Quiz solo {} : {} question(s) ajoutee(s) au vivier ({} au total)",
+                quizId, added, inPool.size());
+        return added;
     }
 
     private void applySoloFields(Quiz quiz, SoloQuizDto request) {

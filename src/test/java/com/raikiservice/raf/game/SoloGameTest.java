@@ -10,7 +10,12 @@ import com.raikiservice.raf.game.web.dto.AnswerQuestionDto;
 import com.raikiservice.raf.game.web.dto.GameResultResponse;
 import com.raikiservice.raf.game.web.dto.GameStartResponse;
 import com.raikiservice.raf.game.web.dto.GameTurnResponse;
+import com.raikiservice.raf.question.domain.Difficulty;
+import com.raikiservice.raf.question.domain.QuestionStatus;
+import com.raikiservice.raf.question.domain.QuestionType;
 import com.raikiservice.raf.question.service.CategoryService;
+import com.raikiservice.raf.question.service.QuestionService;
+import com.raikiservice.raf.question.web.dto.ChoiceDto;
 import com.raikiservice.raf.question.web.dto.CategoryResponse;
 import com.raikiservice.raf.quiz.domain.GameMode;
 import com.raikiservice.raf.quiz.domain.PlayMode;
@@ -51,6 +56,7 @@ class SoloGameTest extends IntegrationTest {
     @Autowired private TicketService ticketService;
     @Autowired private RewardService rewardService;
     @Autowired private ReconciliationService reconciliationService;
+    @Autowired private QuestionService questionService;
 
     /** Partagee entre les tests de la classe : JUnit cree une instance par test. */
     private static Long categoryId;
@@ -234,6 +240,37 @@ class SoloGameTest extends IntegrationTest {
                 () -> gameService.start(player.getId(), quizId, IP, UA));
         assertThat(quizService.viewVisible(GameMode.SOLO, PageRequest.of(0, 100)).getContent())
                 .extracting(QuizResponse::id).doesNotContain(quizId);
+    }
+
+    @Test
+    void newlyPublishedQuestionsCanBeAddedToAnOpenSoloQuiz() {
+        Long subject = data.categoryWithQuestions(30);
+        Long quizId = data.soloQuiz(subject, 3);
+        assertThat(quizService.poolSize(quizId)).isEqualTo(30);
+
+        // Importees apres l'ouverture : 4 publiees, 1 brouillon.
+        for (int i = 0; i < 5; i++) {
+            var question = questionService.createEntity(null, subject, "Nouvelle question " + i + " ?",
+                    QuestionType.TRUE_FALSE, Difficulty.MEDIUM, null, null,
+                    List.of(new ChoiceDto("Vrai", true, null), new ChoiceDto("Faux", false, null)));
+            if (i < 4) {
+                questionService.changeStatus(null, question.getId(), QuestionStatus.PUBLISHED);
+            }
+        }
+        assertThat(quizService.poolSize(quizId)).isEqualTo(30);
+
+        assertThat(quizService.addNewQuestionsToSoloPool(null, quizId)).isEqualTo(4);
+        assertThat(quizService.poolSize(quizId)).isEqualTo(34);
+        // Sans nouveaute, rien ne change.
+        assertThat(quizService.addNewQuestionsToSoloPool(null, quizId)).isZero();
+
+        // Ni quiz de groupe, ni quiz solo ferme.
+        Long groupQuiz = data.publishedQuiz(subject, 3, 1000, 1, null, null);
+        assertApiError(ErrorCode.QUIZ_INVALID_STATE,
+                () -> quizService.addNewQuestionsToSoloPool(null, groupQuiz));
+        quizService.closeSolo(null, quizId);
+        assertApiError(ErrorCode.QUIZ_INVALID_STATE,
+                () -> quizService.addNewQuestionsToSoloPool(null, quizId));
     }
 
     @Test

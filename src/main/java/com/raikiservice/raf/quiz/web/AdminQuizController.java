@@ -122,6 +122,15 @@ public class AdminQuizController {
         return ResponseEntity.status(HttpStatus.CREATED).body(quizService.view(copyId));
     }
 
+    @PostMapping("/{id}/pool/add-new")
+    @Operation(summary = "Quiz solo ouvert : ajouter au vivier les questions publiees depuis son ouverture",
+            description = "Aucune question n'est retiree. Reserve au mode solo.")
+    public QuizResponse addNewQuestionsToSoloPool(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long id) {
+        quizService.addNewQuestionsToSoloPool(admin.getId(), id);
+        return quizService.view(id);
+    }
+
     @PostMapping("/{id}/close")
     @Operation(summary = "Fermer un quiz solo : plus aucune partie ne peut y etre lancee")
     public QuizResponse closeSolo(@AuthenticationPrincipal UserPrincipal admin,
