@@ -25,8 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
  * questions jamais reussies pour une partie complete, la liste est pleine : on en
  * retire les plus anciennes, juste ce qu'il faut, et elles sont resservies.
  *
- * <p>Ne sont inscrites que les bonnes reponses des parties terminees (SUBMITTED)
- * des vrais comptes : ni parties invalidees, ni comptes de test, ni mode GROUP.
+ * <p>Ne sont inscrites que les bonnes reponses des parties terminees (SUBMITTED),
+ * comptes de test compris : ni parties invalidees, ni mode GROUP.
  */
 @Service
 @RequiredArgsConstructor

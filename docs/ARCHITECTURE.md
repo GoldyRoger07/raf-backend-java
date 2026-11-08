@@ -228,7 +228,7 @@ com.raikiservice.raf
 `id, user_id, category_id, question_id, session_id, mastered_at` — UNIQUE(user_id, category_id, question_id)
 
 → alimentée à la fin d'une partie solo SUBMITTED, par ses bonnes réponses seulement
-(ni comptes de test, ni mode GROUP). Une question ratée ou sans réponse reste tirable.
+(comptes de test compris ; ni mode GROUP). Une question ratée ou sans réponse reste tirable.
 → le tirage solo écarte les questions de la liste du joueur pour ce sujet. Si le vivier
 n'a plus assez de questions jamais réussies pour une partie, la liste est pleine : on
 retire les entrées les plus anciennes (`mastered_at`) du vivier, juste ce qu'il faut,

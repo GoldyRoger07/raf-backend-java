@@ -115,15 +115,25 @@ class SoloMasteryTest extends IntegrationTest {
     }
 
     @Test
-    void testAccountsAndInvalidatedGamesDoNotFeedTheList() {
+    void testAccountsFeedTheListToo() {
         Long categoryId = data.categoryWithQuestions(POOL);
         Long quizId = data.soloQuiz(categoryId, PER_GAME, 0);
 
         User tester = data.player();
         tester.setTest(true);
         userRepository.save(tester);
-        playOnce(tester, quizId, PER_GAME);
-        assertThat(masteredIds(tester.getId(), categoryId)).isEmpty();
+        List<Long> first = playOnce(tester, quizId, PER_GAME);
+        assertThat(masteredIds(tester.getId(), categoryId)).containsExactlyInAnyOrderElementsOf(first);
+
+        List<Long> second = playOnce(tester, quizId, PER_GAME);
+        assertThat(second).doesNotContainAnyElementsOf(first);
+        assertThat(masteredIds(tester.getId(), categoryId)).hasSize(2 * PER_GAME);
+    }
+
+    @Test
+    void invalidatedGamesDoNotFeedTheList() {
+        Long categoryId = data.categoryWithQuestions(POOL);
+        Long quizId = data.soloQuiz(categoryId, PER_GAME, 0);
 
         User player = data.player();
         playOnce(player, quizId, PER_GAME);

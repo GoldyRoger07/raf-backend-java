@@ -804,8 +804,9 @@ public class GameService {
         }
 
         if (session.isSolo()) {
-            // Les questions reussies ne lui seront plus servies sur ce sujet.
-            if (!session.isTest() && session.getCategoryId() != null) {
+            // Les questions reussies ne lui seront plus servies sur ce sujet. Comptes
+            // de test compris : ils servent a verifier ce comportement.
+            if (session.getCategoryId() != null) {
                 soloMasteryService.record(session.getUser().getId(), session.getCategoryId(),
                         session.getId(), correctQuestionIds, now);
             }
