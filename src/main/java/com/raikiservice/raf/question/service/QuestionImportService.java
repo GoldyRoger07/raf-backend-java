@@ -36,7 +36,12 @@ import org.springframework.web.multipart.MultipartFile;
  *
  * <p>{@code bonne_reponse} vaut A, B, C ou D. {@code difficulte} vaut FACILE,
  * MOYEN ou DIFFICILE (vide = MOYEN). {@code reponse_c} et {@code reponse_d} peuvent
- * etre vides pour une question vrai/faux.
+ * etre vides pour une question vrai/faux. Colonnes facultatives {@code reponse_e} et
+ * {@code reponse_f} (bonne_reponse E ou F) : l'export d'une question a 5 ou 6
+ * propositions se reimporte sans perte (voir {@link QuestionExportService}).
+ *
+ * <p>Un BOM UTF-8 en tete de fichier (ajoute par Excel, le modele et l'export) est
+ * ignore.
  *
  * <p>Une ligne invalide n'interrompt pas l'import : elle est rejetee et motivee
  * dans le rapport. Sur un fichier de plusieurs centaines de lignes preparees a la
@@ -80,6 +85,12 @@ public class QuestionImportService {
 
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+
+            // BOM UTF-8 : sans ce saut, la premiere colonne s'appellerait "﻿question".
+            reader.mark(1);
+            if (reader.read() != '﻿') {
+                reader.reset();
+            }
 
             reader.mark(8192);
             String headerLine = reader.readLine();
@@ -152,8 +163,8 @@ public class QuestionImportService {
         List<ChoiceDto> choices = new ArrayList<>();
         String correct = required(record, "bonne_reponse").toUpperCase(Locale.ROOT);
 
-        String[] columns = { "reponse_a", "reponse_b", "reponse_c", "reponse_d" };
-        String[] letters = { "A", "B", "C", "D" };
+        String[] columns = QuestionExportService.CHOICE_COLUMNS;
+        String[] letters = QuestionExportService.CHOICE_LETTERS;
 
         for (int i = 0; i < columns.length; i++) {
             String value = optional(record, columns[i]);

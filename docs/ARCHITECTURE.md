@@ -140,6 +140,8 @@ com.raikiservice.raf
 → `times_served` / `times_correct` permettent de recalibrer la difficulté réelle.
 → `source` : origine de la question (saisie, import CSV, IA) ; `ai_model` garde le modèle qui l'a générée. Les questions antérieures à V13 sont `MANUAL`.
 
+→ import / export CSV (`POST /api/admin/questions/import`, `GET /api/admin/questions/export?categoryId=&status=`) : même format `question;reponse_a…reponse_d;bonne_reponse;difficulte;explication`, colonnes `reponse_e` / `reponse_f` facultatives, BOM UTF-8 accepté. Un export se réimporte tel quel ; il contient les bonnes réponses et est tracé (`QUESTIONS_EXPORTED`).
+
 **ai_generation_runs** — `id, actor_id, category_id, provider, model, requested, created_count, duplicates, rejected, error, duration_ms, created_at` : une ligne par demande de génération, réussie ou non (plafond journalier, comparaison des modèles).
 
 **question_choices** — `id, question_id, text, is_correct BOOLEAN, position, media_id`

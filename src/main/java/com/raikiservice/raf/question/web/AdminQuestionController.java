@@ -1,9 +1,12 @@
 package com.raikiservice.raf.question.web;
 
+import java.nio.charset.StandardCharsets;
+
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.auth.web.dto.MessageResponse;
 import com.raikiservice.raf.question.domain.QuestionSource;
 import com.raikiservice.raf.question.domain.QuestionStatus;
+import com.raikiservice.raf.question.service.QuestionExportService;
 import com.raikiservice.raf.question.service.QuestionGenerationService;
 import com.raikiservice.raf.question.service.QuestionImportService;
 import com.raikiservice.raf.question.service.QuestionService;
@@ -19,7 +22,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -49,6 +55,7 @@ public class AdminQuestionController {
 
     private final QuestionService questionService;
     private final QuestionImportService questionImportService;
+    private final QuestionExportService questionExportService;
     private final QuestionGenerationService questionGenerationService;
 
     @PostMapping
@@ -129,6 +136,24 @@ public class AdminQuestionController {
             @RequestParam(defaultValue = "false") boolean publishDirectly) {
 
         return questionImportService.importCsv(actor.getId(), categoryId, file, publishDirectly);
+    }
+
+    @GetMapping(value = "/export", produces = "text/csv")
+    @Operation(summary = "Exporter les questions d'une categorie en CSV, au format de l'import",
+            description = "status absent : tous les statuts. Le fichier contient les bonnes "
+                    + "reponses ; l'export est trace au journal d'audit.")
+    public ResponseEntity<byte[]> exportCsv(@AuthenticationPrincipal UserPrincipal actor,
+            @RequestParam Long categoryId,
+            @RequestParam(required = false) QuestionStatus status) {
+
+        QuestionExportService.ExportFile export =
+                questionExportService.exportCsv(actor.getId(), categoryId, status);
+        return ResponseEntity.ok()
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(export.filename(), StandardCharsets.UTF_8)
+                        .build().toString())
+                .body(export.content());
     }
 
     @GetMapping("/ai/status")

@@ -26,6 +26,14 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     @EntityGraph(attributePaths = "choices")
     List<Question> findWithChoicesByIdIn(Collection<Long> ids);
 
+    /** Export CSV d'une categorie : questions et propositions, dans l'ordre de creation. */
+    @EntityGraph(attributePaths = "choices")
+    List<Question> findWithChoicesByCategoryIdOrderByIdAsc(Long categoryId);
+
+    @EntityGraph(attributePaths = "choices")
+    List<Question> findWithChoicesByCategoryIdAndStatusOrderByIdAsc(Long categoryId,
+            QuestionStatus status);
+
     /**
      * Compteurs d'usage, alimentes par le jeu. Mise a jour en masse plutot que par
      * entite : l'increment est fait par la base, donc deux parties simultanees
