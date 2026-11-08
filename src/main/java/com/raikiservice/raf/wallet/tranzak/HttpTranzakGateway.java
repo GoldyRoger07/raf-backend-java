@@ -55,6 +55,11 @@ public class HttpTranzakGateway implements TranzakGateway {
     }
 
     @Override
+    public boolean isLive() {
+        return properties.isLive();
+    }
+
+    @Override
     public Payment create(NewPayment payment) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("amount", payment.amountHtg());

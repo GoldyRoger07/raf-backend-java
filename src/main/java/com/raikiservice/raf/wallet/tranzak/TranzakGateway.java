@@ -12,6 +12,13 @@ public interface TranzakGateway {
 
     boolean isConfigured();
 
+    /**
+     * Cle reelle (tk_live_). Avec une cle de test, Tranzak simule les paiements :
+     * NatCash se confirme tout seul, sans argent. RAF reserve alors la recharge en
+     * ligne aux comptes de test (OnlineTopUpService).
+     */
+    boolean isLive();
+
     /** Cree un paiement ; le joueur le regle en ouvrant {@link Payment#paymentUrl()}. */
     Payment create(NewPayment payment);
 

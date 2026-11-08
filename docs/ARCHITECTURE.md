@@ -125,6 +125,7 @@ com.raikiservice.raf
   - Frais à la charge du joueur : `fee = ceil(montant × p / (1 − p))`, `p` = `topup.online_fee_bps` (450 = 4,5 %). Bornes `topup.online_min_htg` / `topup.online_max_htg`, interrupteur `app.online_topup.enabled`, clé `TRANZAK_API_KEY`.
   - `POST /api/wallet/topups/online` crée la recharge puis le paiement ; l'app redirige vers `payment_url`. Retour sur `app.rafhaiti.com/recharge/retour` (ou `/recharge/annulee`), qui interroge `GET /api/wallet/topups/{id}` (relecture chez Tranzak au plus toutes les 10 s).
   - `POST /api/webhooks/tranzak` (public) : HMAC-SHA256 du corps brut avec `TRANZAK_WEBHOOK_SECRET`, sinon 403. Filet : `OnlineTopUpScheduler` relit chaque minute les recharges en attente ; expiration après 45 min ; une création interrompue (délai dépassé) est retrouvée par sa référence.
+  - Mode test (clé `tk_test_`) : Tranzak simule les paiements (NatCash se confirme seul). La recharge en ligne n'est proposée qu'aux comptes de test (`GET /api/public/online-topup` lit le jeton du joueur s'il est envoyé), et un paiement simulé confirmé pour un vrai joueur passe en FAILED sans crédit.
   - Crédit uniquement via `TopUpService.confirm`, sous verrou de la recharge ; un montant reçu inférieur à `charged_htg` n'est pas crédité (note + audit `TOPUP_AMOUNT_MISMATCH`) ; un paiement confirmé après échec ou expiration est tout de même crédité (`TOPUP_LATE_PAYMENT`).
 
 **withdrawal_requests**
@@ -132,6 +133,12 @@ com.raikiservice.raf
 `id, user_id, amount_credits, amount_htg, fee_htg, provider, destination_number, status (PENDING | APPROVED | PAID | REJECTED), otp_verified_at, reviewed_by_admin_id, reviewed_at, rejection_reason, created_at`
 
 → les gains sont **gelés** (débités du solde) dès la demande, et re-crédités en cas de rejet.
+
+→ Retraits automatiques (payouts Tranzak, `AutoPayoutService`, `PayoutPolicy`, V30) : `automatic_payout`, `payout_attempts`, `payout_id`, `payout_error`, `payout_sent_at`, `payout_checked_at` ; statut `SENDING` entre `APPROVED` et `PAID`.
+  - À l'approbation (`POST /api/admin/wallet/withdrawals/{id}/approve`) d'un retrait MonCash / NatCash, si `app.auto_payout.enabled` et une clé `tk_live_` autorisée aux payouts : autorisation puis envoi du montant net, référence `RAF-WD-{id}-{essai}` (une référence ne sert qu'une fois).
+  - Frais : seuls ceux de Tranzak, retenus au joueur : net = `floor(montant / (1 + p))`, `p` = `withdrawal.payout_fee_bps` (350). Sans envoi automatique, frais fixes `withdrawal.fee_htg` comme avant.
+  - Confirmation : webhook `payout.completed` / `payout.failed` (même endpoint et même signature que les paiements), ou vérification chaque minute (`OnlineTopUpScheduler.refreshPayouts`). Échec : retour en `APPROVED` avec `payout_error`, admins prévenus (`ADMIN_WITHDRAWAL_PAYOUT_FAILED`) ; l'admin relance (`POST .../{id}/send`), verse à la main ou refuse (le refus est permis en `APPROVED`, jamais en `SENDING`).
+  - Issue inconnue (coupure) : le retrait reste `SENDING`, le même jeton est renvoyé une fois (Tranzak rend le même versement), puis la référence tranche ; sans trace chez Tranzak après 10 min, retour à l'admin.
 
 ### 3.3 Banque de questions
 

@@ -9,6 +9,8 @@ public final class SettingKeys {
     public static final String WITHDRAWAL_MAX_HTG_PER_DAY = "withdrawal.max_htg_per_day";
     public static final String WITHDRAWAL_FEE_HTG = "withdrawal.fee_htg";
     public static final String WITHDRAWAL_COUNTER_FEE_HTG = "withdrawal.counter_fee_htg";
+    /** Retrait automatique (payout Tranzak) : frais de la passerelle retenus au joueur, en points de base. */
+    public static final String WITHDRAWAL_PAYOUT_FEE_BPS = "withdrawal.payout_fee_bps";
     public static final String GAME_POOL_RATIO_MIN = "game.pool_ratio_min";
     public static final String GAME_NETWORK_GRACE_SECONDS = "game.network_grace_seconds";
     public static final String GAME_QUESTION_GRACE_MS = "game.question_grace_ms";
@@ -45,6 +47,8 @@ public final class SettingKeys {
     public static final String APP_WINNINGS_CONVERSION_ENABLED = "app.winnings_conversion.enabled";
     /** Recharge en ligne MonCash / NatCash par la passerelle, voir OnlineTopUpService. */
     public static final String APP_ONLINE_TOPUP_ENABLED = "app.online_topup.enabled";
+    /** Envoi automatique des retraits MonCash / NatCash a l'approbation, voir AutoPayoutService. */
+    public static final String APP_AUTO_PAYOUT_ENABLED = "app.auto_payout.enabled";
     private static final String APP_PREFIX = "app.";
 
     /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */

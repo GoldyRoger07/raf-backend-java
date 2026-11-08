@@ -7,6 +7,11 @@ public enum WithdrawalStatus {
     PENDING,
     /** Validee par un administrateur, versement a effectuer. */
     APPROVED,
+    /**
+     * Envoi automatique en cours chez la passerelle (Tranzak) : les gains restent
+     * geles ; le retrait passe en PAID, ou revient en APPROVED si l'envoi echoue.
+     */
+    SENDING,
     /** Versement effectue chez l'operateur, ou especes remises au guichet. */
     PAID,
     /** Refusee : les gains geles ont ete rendus au joueur. */

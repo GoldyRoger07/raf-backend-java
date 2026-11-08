@@ -5,6 +5,7 @@ import com.raikiservice.raf.auth.web.dto.MessageResponse;
 import com.raikiservice.raf.wallet.domain.TopUpStatus;
 import com.raikiservice.raf.wallet.domain.WithdrawalStatus;
 import com.raikiservice.raf.wallet.service.AdjustmentService;
+import com.raikiservice.raf.wallet.service.AutoPayoutService;
 import com.raikiservice.raf.wallet.service.CounterWithdrawalService;
 import com.raikiservice.raf.wallet.service.TopUpRetentionService;
 import com.raikiservice.raf.wallet.service.TopUpService;
@@ -55,6 +56,7 @@ public class AdminWalletController {
     private final WalletService walletService;
     private final TopUpService topUpService;
     private final WithdrawalService withdrawalService;
+    private final AutoPayoutService autoPayoutService;
     private final AdjustmentService adjustmentService;
     private final CounterWithdrawalService counterWithdrawalService;
     private final TopUpRetentionService retentionService;
@@ -92,10 +94,23 @@ public class AdminWalletController {
     }
 
     @PostMapping("/withdrawals/{id}/approve")
-    @Operation(summary = "Approuver une demande de retrait")
+    @Operation(summary = "Approuver une demande de retrait ; MonCash / NatCash : envoi automatique par Tranzak")
     public WithdrawalResponse approve(@AuthenticationPrincipal UserPrincipal admin,
             @PathVariable Long id) {
-        return WithdrawalResponse.from(withdrawalService.approve(admin.getId(), id));
+        return WithdrawalResponse.from(autoPayoutService.approve(admin.getId(), id));
+    }
+
+    @PostMapping("/withdrawals/{id}/send")
+    @Operation(summary = "Relancer l'envoi automatique d'un retrait approuve (apres un echec)")
+    public WithdrawalResponse sendPayout(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long id) {
+        return WithdrawalResponse.from(autoPayoutService.send(admin.getId(), id));
+    }
+
+    @GetMapping("/payouts/config")
+    @Operation(summary = "Envoi automatique des retraits : actif, et frais en points de base")
+    public AutoPayoutService.Config payoutConfig() {
+        return autoPayoutService.config();
     }
 
     @PostMapping("/withdrawals/{id}/reject")

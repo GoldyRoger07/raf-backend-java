@@ -48,7 +48,7 @@ class LeaderTransferTest extends IntegrationTest {
     /** Le reglage est global : on le remet a sa valeur par defaut pour les autres tests. */
     @AfterEach
     void restore() {
-        playerAppService.update(null, new PlayerAppConfig(null, true, null, null));
+        playerAppService.update(null, new PlayerAppConfig(null, true, null, null, null));
     }
 
     @Test
@@ -139,7 +139,7 @@ class LeaderTransferTest extends IntegrationTest {
         User player = playerOf(leader);
         data.credit(leader.getId(), BalanceType.CREDIT, 100);
 
-        playerAppService.update(null, new PlayerAppConfig(null, false, null, null));
+        playerAppService.update(null, new PlayerAppConfig(null, false, null, null, null));
 
         assertThat(transferService.config(leader.getId()).enabled()).isFalse();
         assertApiError(ErrorCode.LEADER_TRANSFER_DISABLED,

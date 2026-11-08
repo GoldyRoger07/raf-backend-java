@@ -88,7 +88,7 @@ final class ReconciliationQueries {
                 """));
         queries.add(link(ReconciliationCheck.WITHDRAWAL_DEBIT, "withdrawal_requests",
                 "WithdrawalRequest", "debit_transaction_id",
-                "b.status IN ('PENDING', 'APPROVED', 'PAID', 'REJECTED')", "WITHDRAWAL", "WINNINGS",
+                "b.status IN ('PENDING', 'APPROVED', 'SENDING', 'PAID', 'REJECTED')", "WITHDRAWAL", "WINNINGS",
                 "-b.amount_htg"));
         queries.add(link(ReconciliationCheck.WITHDRAWAL_REFUND, "withdrawal_requests",
                 "WithdrawalRequest", "refund_transaction_id", "b.status = 'REJECTED'", "REFUND",

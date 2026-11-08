@@ -1,7 +1,6 @@
 package com.raikiservice.raf.wallet.service;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
@@ -26,8 +25,6 @@ import com.raikiservice.raf.wallet.tranzak.TranzakException;
 import com.raikiservice.raf.wallet.tranzak.TranzakGateway;
 import com.raikiservice.raf.wallet.tranzak.TranzakGateway.NewPayment;
 import com.raikiservice.raf.wallet.tranzak.TranzakGateway.Payment;
-import com.raikiservice.raf.wallet.tranzak.TranzakProperties;
-import com.raikiservice.raf.wallet.tranzak.TranzakSignature;
 import com.raikiservice.raf.wallet.tranzak.TranzakWebhookEvent;
 
 import lombok.RequiredArgsConstructor;
@@ -55,6 +52,11 @@ import tools.jackson.databind.ObjectMapper;
  * webhook, verification planifiee et retour du joueur sont en plus serialises par
  * un verrou sur la recharge. Un paiement confirme apres l'abandon de la recharge
  * (echec ou expiration cote RAF) est tout de meme credite : l'argent est arrive.
+ *
+ * <p>Mode test (cle tk_test_) : Tranzak simule les paiements, NatCash se
+ * confirme tout seul. La recharge en ligne n'est alors proposee qu'aux comptes de
+ * test, et un paiement simule n'est jamais credite a un vrai joueur : sinon une
+ * cle de test oubliee en production donnerait des credits gratuits.
  *
  * <p>Frais : le joueur les paie. Pour recevoir {@code montant} apres le
  * prelevement de la passerelle (p %), RAF facture
@@ -94,7 +96,6 @@ public class OnlineTopUpService {
     private final SettingsService settingsService;
     private final PlayerAppService playerAppService;
     private final TranzakGateway gateway;
-    private final TranzakProperties properties;
     private final TransactionTemplate transactionTemplate;
     private final AuditService auditService;
     private final ObjectMapper objectMapper;
@@ -106,10 +107,21 @@ public class OnlineTopUpService {
     public record Quote(long amountHtg, long feeHtg, long chargedHtg) {
     }
 
+    /** Configuration vue sans joueur connu : en mode test, la recharge en ligne n'est pas proposee. */
     public Config config() {
+        return config(null);
+    }
+
+    /** Configuration vue par ce joueur (null : inconnu) ; en mode test, comptes de test seulement. */
+    public Config config(Long userId) {
         long rate = walletService.htgRate();
-        return new Config(playerAppService.onlineTopUpEnabled() && gateway.isConfigured(), feeBps(),
-                minHtg(rate), maxHtg(), rate);
+        boolean enabled = playerAppService.onlineTopUpEnabled() && gateway.isConfigured()
+                && (gateway.isLive() || isTestAccount(userId));
+        return new Config(enabled, feeBps(), minHtg(rate), maxHtg(), rate);
+    }
+
+    private boolean isTestAccount(Long userId) {
+        return userId != null && userRepository.findById(userId).map(User::isTest).orElse(false);
     }
 
     public Quote quote(long amountHtg) {
@@ -126,7 +138,7 @@ public class OnlineTopUpService {
         if (provider == null || !ONLINE_PROVIDERS.contains(provider)) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR, "Choisis MonCash ou NatCash.");
         }
-        Config config = config();
+        Config config = config(userId);
         if (!config.enabled()) {
             throw new ApiException(ErrorCode.ONLINE_TOPUP_DISABLED);
         }
@@ -190,15 +202,10 @@ public class OnlineTopUpService {
     }
 
     /**
-     * Webhook Tranzak. Une signature absente ou fausse est refusee (403) ; un
-     * paiement inconnu est accepte puis ignore, pour que Tranzak cesse de le renvoyer.
+     * Webhook payment.* de Tranzak, signature deja verifiee (TranzakWebhookService).
+     * Un paiement inconnu est accepte puis ignore, pour que Tranzak cesse de le renvoyer.
      */
-    public void handleWebhook(byte[] body, String signature) {
-        if (!TranzakSignature.verify(properties.webhookSecret(), body, signature)) {
-            log.warn("Webhook Tranzak refuse : signature absente ou invalide");
-            throw new ApiException(ErrorCode.ACCESS_DENIED, "Signature invalide.");
-        }
-        String raw = new String(body, StandardCharsets.UTF_8);
+    public void handlePaymentEvent(String raw) {
         TranzakWebhookEvent event;
         try {
             event = objectMapper.readValue(raw, TranzakWebhookEvent.class);
@@ -305,6 +312,17 @@ public class OnlineTopUpService {
 
             if (payment.completed()) {
                 if (request.getStatus() == TopUpStatus.CONFIRMED) {
+                    return;
+                }
+                if (!gateway.isLive() && !request.getUser().isTest()) {
+                    // Paiement simule (cle de test) : pas un centime n'a ete paye.
+                    if (request.getStatus() == TopUpStatus.PENDING) {
+                        request.setRawPayload(raw);
+                        topUpService.markFailed(topUpId, null,
+                                "Paiement de test refuse : cle Tranzak de test, compte joueur reel");
+                        log.warn("Recharge {} : paiement simule refuse pour le joueur reel {}", topUpId,
+                                request.getUser().getId());
+                    }
                     return;
                 }
                 if (!amountMatches(request, payment)) {

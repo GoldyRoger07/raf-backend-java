@@ -70,6 +70,12 @@ public class TestInfrastructure {
 
     @Bean
     @Primary
+    FakeTranzakPayoutGateway fakeTranzakPayoutGateway() {
+        return new FakeTranzakPayoutGateway();
+    }
+
+    @Bean
+    @Primary
     FakeQuestionGenerator fakeQuestionGenerator() {
         return new FakeQuestionGenerator();
     }

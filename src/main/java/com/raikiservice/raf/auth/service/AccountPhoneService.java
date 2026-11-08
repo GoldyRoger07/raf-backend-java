@@ -51,7 +51,8 @@ public class AccountPhoneService {
 
     /** Statuts ou de l'argent et des codes sont en route vers le numero actuel. */
     private static final EnumSet<WithdrawalStatus> WITHDRAWAL_IN_PROGRESS =
-            EnumSet.of(WithdrawalStatus.AWAITING_OTP, WithdrawalStatus.PENDING, WithdrawalStatus.APPROVED);
+            EnumSet.of(WithdrawalStatus.AWAITING_OTP, WithdrawalStatus.PENDING, WithdrawalStatus.APPROVED,
+            WithdrawalStatus.SENDING);
 
     /**
      * Un agent corrige le numero depuis le back-office, verifie ou non. Le numero

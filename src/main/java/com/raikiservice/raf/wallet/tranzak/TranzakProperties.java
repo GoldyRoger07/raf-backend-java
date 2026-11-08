@@ -10,7 +10,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * simplement indisponible : l'app ne la propose pas.
  */
 @ConfigurationProperties("app.tranzak")
-public record TranzakProperties(String apiKey, String webhookSecret, String baseUrl, Duration timeout) {
+public record TranzakProperties(String apiKey, String webhookSecret, String baseUrl, Duration timeout,
+        String payoutApiKey, String treasuryUrl) {
+
+    /**
+     * Payouts : cle reelle seulement (Tranzak refuse les cles de test), autorisee
+     * dans le tableau de bord (Payouts > Security > Authorize).
+     */
+    public boolean payoutsConfigured() {
+        return filled(payoutApiKey) && payoutApiKey.startsWith("tk_live_") && filled(treasuryUrl);
+    }
 
     public boolean isConfigured() {
         return filled(apiKey) && filled(baseUrl);

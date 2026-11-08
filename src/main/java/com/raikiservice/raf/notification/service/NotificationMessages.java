@@ -177,6 +177,19 @@ public final class NotificationMessages {
                 "/admin/retraits?statut=PENDING");
     }
 
+    public static NotificationMessage withdrawalPayoutFailed(WithdrawalRequest request) {
+        User player = request.getUser();
+        return new NotificationMessage(NotificationType.ADMIN_WITHDRAWAL_PAYOUT_FAILED,
+                "Envoi automatique d'un retrait echoue",
+                "Le retrait de " + request.getNetHtg() + " HTG de " + player.getFirstName() + " "
+                        + player.getLastName() + " sur " + request.getProvider() + " ("
+                        + request.getDestinationNumber() + ") n'a pas pu etre envoye : "
+                        + request.getPayoutError() + ". Les gains restent geles : relancez l'envoi, "
+                        + "versez a la main ou rejetez la demande.",
+                Map.of("withdrawalId", request.getId()),
+                "/admin/retraits?statut=APPROVED");
+    }
+
     // --- Outils -------------------------------------------------------------------
 
     private static NotificationMessage quiz(NotificationType type, Quiz quiz, String title,

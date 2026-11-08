@@ -38,6 +38,19 @@ public interface WithdrawalRequestRepository extends JpaRepository<WithdrawalReq
             + "com.raikiservice.raf.wallet.domain.WithdrawalStatus.CANCELLED)")
     long sumRequestedSince(@Param("userId") Long userId, @Param("since") Instant since);
 
+    Optional<WithdrawalRequest> findByPayoutId(String payoutId);
+
+    /** Envois automatiques en cours a reverifier, les moins recemment verifies d'abord. */
+    @Query("""
+            select w.id from WithdrawalRequest w
+            where w.status = com.raikiservice.raf.wallet.domain.WithdrawalStatus.SENDING
+              and w.payoutSentAt < :sentBefore
+              and (w.payoutCheckedAt is null or w.payoutCheckedAt < :checkedBefore)
+            order by w.payoutCheckedAt asc nulls first, w.id asc
+            """)
+    List<Long> findSendingToCheck(@Param("sentBefore") Instant sentBefore,
+            @Param("checkedBefore") Instant checkedBefore, Pageable pageable);
+
     /**
      * Verrouille la demande avant sa confirmation : deux validations simultanees
      * (double clic de l'agent) sont serialisees, la seconde retrouve la demande

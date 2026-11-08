@@ -67,8 +67,45 @@ class OnlineTopUpTest extends IntegrationTest {
     @AfterEach
     void restore() {
         settingsService.update(null, SettingKeys.CREDIT_HTG_RATE, previousRate);
-        playerAppService.update(null, new PlayerAppConfig(null, null, null, true));
+        playerAppService.update(null, new PlayerAppConfig(null, null, null, true, null));
         gateway.setConfigured(true);
+        gateway.setLive(true);
+    }
+
+    @Test
+    void withATestKeyOnlyTestAccountsCanTopUpAndASimulatedPaymentNeverCreditsARealPlayer() throws Exception {
+        User player = data.player();
+        // Recharge lancee avec la cle reelle, confirmee alors que la cle de test est en place.
+        TopUpRequest before = onlineTopUpService.start(player.getId(), 300, PaymentProvider.NATCASH);
+        gateway.setLive(false);
+
+        assertThat(onlineTopUpService.config(player.getId()).enabled()).isFalse();
+        assertThat(onlineTopUpService.config().enabled()).isFalse();
+        assertApiError(ErrorCode.ONLINE_TOPUP_DISABLED,
+                () -> onlineTopUpService.start(player.getId(), 300, PaymentProvider.NATCASH));
+        mvc.perform(get("/api/public/online-topup").header("Authorization", token(player)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(false));
+
+        String body = webhook("payment.success", before, "completed", "315.00");
+        sendWebhook(body, TranzakSignature.sign(SECRET, bytes(body))).andExpect(status().isOk());
+        TopUpRequest refused = reload(before);
+        assertThat(refused.getStatus()).isEqualTo(TopUpStatus.FAILED);
+        assertThat(refused.getNote()).contains("Paiement de test refuse");
+        assertThat(credits(player)).isZero();
+
+        // Un compte de test peut essayer la recharge en ligne, et ses paiements simules sont credites.
+        User tester = data.player();
+        tester.setTest(true);
+        userRepository.save(tester);
+        assertThat(onlineTopUpService.config(tester.getId()).enabled()).isTrue();
+        mvc.perform(get("/api/public/online-topup").header("Authorization", token(tester)))
+                .andExpect(jsonPath("$.enabled").value(true));
+        TopUpRequest test = onlineTopUpService.start(tester.getId(), 300, PaymentProvider.NATCASH);
+        String testBody = webhook("payment.success", test, "completed", "315.00");
+        sendWebhook(testBody, TranzakSignature.sign(SECRET, bytes(testBody))).andExpect(status().isOk());
+        assertThat(reload(test).getStatus()).isEqualTo(TopUpStatus.CONFIRMED);
+        assertThat(credits(tester)).isEqualTo(30);
     }
 
     @Test
@@ -236,12 +273,12 @@ class OnlineTopUpTest extends IntegrationTest {
                 () -> onlineTopUpService.start(player.getId(), 100, PaymentProvider.MONCASH));
 
         User other = data.player();
-        playerAppService.update(null, new PlayerAppConfig(null, null, null, false));
+        playerAppService.update(null, new PlayerAppConfig(null, null, null, false, null));
         assertThat(onlineTopUpService.config().enabled()).isFalse();
         assertApiError(ErrorCode.ONLINE_TOPUP_DISABLED,
                 () -> onlineTopUpService.start(other.getId(), 100, PaymentProvider.MONCASH));
 
-        playerAppService.update(null, new PlayerAppConfig(null, null, null, true));
+        playerAppService.update(null, new PlayerAppConfig(null, null, null, true, null));
         gateway.setConfigured(false);
         assertThat(onlineTopUpService.config().enabled()).isFalse();
     }

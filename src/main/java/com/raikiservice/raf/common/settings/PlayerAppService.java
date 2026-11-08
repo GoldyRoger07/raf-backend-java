@@ -23,6 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
  * seulement si la passerelle est configuree (OnlineTopUpService). La couper
  * masque l'option dans l'app et refuse toute nouvelle recharge en ligne ; les
  * paiements deja lances sont toujours credites.
+ *
+ * <p>Retraits automatiques : actives par defaut, effectifs seulement avec une cle
+ * Tranzak reelle autorisee aux payouts (AutoPayoutService). Les couper fait revenir
+ * au versement manuel (l'agent envoie l'argent puis saisit la reference).
  */
 @Service
 @RequiredArgsConstructor
@@ -32,14 +36,14 @@ public class PlayerAppService {
 
     /** En modification, un champ absent (null) garde sa valeur actuelle. */
     public record PlayerAppConfig(Boolean emailReminderEnabled, Boolean leaderTransferEnabled,
-            Boolean winningsConversionEnabled, Boolean onlineTopUpEnabled) {
+            Boolean winningsConversionEnabled, Boolean onlineTopUpEnabled, Boolean autoPayoutEnabled) {
     }
 
     @Transactional(readOnly = true)
     public PlayerAppConfig get() {
         return new PlayerAppConfig(flag(SettingKeys.APP_EMAIL_REMINDER_ENABLED),
                 flag(SettingKeys.APP_LEADER_TRANSFER_ENABLED), flag(SettingKeys.APP_WINNINGS_CONVERSION_ENABLED),
-                flag(SettingKeys.APP_ONLINE_TOPUP_ENABLED));
+                flag(SettingKeys.APP_ONLINE_TOPUP_ENABLED), flag(SettingKeys.APP_AUTO_PAYOUT_ENABLED));
     }
 
     @Transactional(readOnly = true)
@@ -50,6 +54,11 @@ public class PlayerAppService {
     @Transactional(readOnly = true)
     public boolean onlineTopUpEnabled() {
         return flag(SettingKeys.APP_ONLINE_TOPUP_ENABLED);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean autoPayoutEnabled() {
+        return flag(SettingKeys.APP_AUTO_PAYOUT_ENABLED);
     }
 
     @Transactional(readOnly = true)
@@ -69,6 +78,8 @@ public class PlayerAppService {
                 request.winningsConversionEnabled());
         change(actorId, SettingKeys.APP_ONLINE_TOPUP_ENABLED, current.onlineTopUpEnabled(),
                 request.onlineTopUpEnabled());
+        change(actorId, SettingKeys.APP_AUTO_PAYOUT_ENABLED, current.autoPayoutEnabled(),
+                request.autoPayoutEnabled());
         return get();
     }
 

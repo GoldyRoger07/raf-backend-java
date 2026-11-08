@@ -22,7 +22,12 @@ public record WithdrawalResponse(
         Instant paidAt,
         /** Agent ayant saisi un retrait au guichet ; null pour un retrait en ligne. */
         Long initiatedByAdminId,
-        String note) {
+        String note,
+        /** Frais de la passerelle au pourcentage : envoi automatique a l'approbation. */
+        boolean automaticPayout,
+        /** Raison du dernier echec d'envoi automatique, a traiter par l'admin. */
+        String payoutError,
+        int payoutAttempts) {
 
     public static WithdrawalResponse from(WithdrawalRequest request) {
         return new WithdrawalResponse(
@@ -40,6 +45,9 @@ public record WithdrawalResponse(
                 request.getReviewedAt(),
                 request.getPaidAt(),
                 request.getInitiatedByAdminId(),
-                request.getNote());
+                request.getNote(),
+                request.isAutomaticPayout(),
+                request.getPayoutError(),
+                request.getPayoutAttempts());
     }
 }

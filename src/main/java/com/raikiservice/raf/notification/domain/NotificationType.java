@@ -41,6 +41,9 @@ public enum NotificationType {
             EnumSet.of(NotificationChannel.EMAIL)),
     /** Reserve aux administrateurs : une demande de retrait attend d'etre traitee. */
     ADMIN_WITHDRAWAL_REQUESTED("Nouvelle demande de retrait",
+            EnumSet.of(NotificationChannel.EMAIL)),
+    /** Reserve aux administrateurs : l'envoi automatique d'un retrait a echoue. */
+    ADMIN_WITHDRAWAL_PAYOUT_FAILED("Echec de l'envoi automatique d'un retrait",
             EnumSet.of(NotificationChannel.EMAIL));
 
     private final String description;

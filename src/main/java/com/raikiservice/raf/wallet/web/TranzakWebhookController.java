@@ -1,6 +1,6 @@
 package com.raikiservice.raf.wallet.web;
 
-import com.raikiservice.raf.wallet.service.OnlineTopUpService;
+import com.raikiservice.raf.wallet.service.TranzakWebhookService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,13 +23,13 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Webhooks")
 public class TranzakWebhookController {
 
-    private final OnlineTopUpService onlineTopUpService;
+    private final TranzakWebhookService webhookService;
 
     @PostMapping("/tranzak")
-    @Operation(summary = "Webhook Tranzak (paiement reussi ou echoue)")
+    @Operation(summary = "Webhook Tranzak : paiement (recharge) ou versement (retrait) reussi ou echoue")
     public ResponseEntity<Void> tranzak(@RequestBody(required = false) byte[] body,
             @RequestHeader(value = "X-Tranzak-Signature", required = false) String signature) {
-        onlineTopUpService.handleWebhook(body == null ? new byte[0] : body, signature);
+        webhookService.handle(body == null ? new byte[0] : body, signature);
         return ResponseEntity.ok().build();
     }
 }

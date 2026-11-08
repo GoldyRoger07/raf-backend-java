@@ -19,6 +19,8 @@ public class FakeTranzakGateway implements TranzakGateway {
     private final Map<String, Payment> payments = new ConcurrentHashMap<>();
     private final Map<String, NewPayment> requests = new ConcurrentHashMap<>();
     private volatile boolean configured = true;
+    /** Cle reelle par defaut ; faux = mode test de Tranzak (paiements simules). */
+    private volatile boolean live = true;
     /** Echec a lever a la prochaine creation, une seule fois. */
     private volatile TranzakException nextCreateFailure;
     /** Si vrai, la prochaine creation enregistre le paiement puis echoue (delai depasse). */
@@ -31,6 +33,15 @@ public class FakeTranzakGateway implements TranzakGateway {
 
     public void setConfigured(boolean configured) {
         this.configured = configured;
+    }
+
+    @Override
+    public boolean isLive() {
+        return live;
+    }
+
+    public void setLive(boolean live) {
+        this.live = live;
     }
 
     public void failNextCreate(TranzakException failure) {

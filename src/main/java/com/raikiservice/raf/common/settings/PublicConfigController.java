@@ -1,11 +1,14 @@
 package com.raikiservice.raf.common.settings;
 
+import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.wallet.availability.TopUpAvailabilityService;
+import com.raikiservice.raf.wallet.service.AutoPayoutService;
 import com.raikiservice.raf.wallet.service.OnlineTopUpService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,6 +28,7 @@ public class PublicConfigController {
     private final TopUpAvailabilityService topUpAvailabilityService;
     private final PlayerAppService playerAppService;
     private final OnlineTopUpService onlineTopUpService;
+    private final AutoPayoutService autoPayoutService;
 
     @GetMapping("/social")
     @Operation(summary = "Liens vers les reseaux sociaux actives par l'administrateur")
@@ -50,9 +54,17 @@ public class PublicConfigController {
         return depositNumbersService.publicNumbers();
     }
 
+    @GetMapping("/payouts")
+    @Operation(summary = "Retraits MonCash / NatCash : envoi automatique actif, frais en points de base")
+    public AutoPayoutService.Config payouts() {
+        return autoPayoutService.config();
+    }
+
     @GetMapping("/online-topup")
     @Operation(summary = "Recharge en ligne MonCash / NatCash : disponibilite, frais (points de base) et bornes")
-    public OnlineTopUpService.Config onlineTopUp() {
-        return onlineTopUpService.config();
+    public OnlineTopUpService.Config onlineTopUp(@AuthenticationPrincipal UserPrincipal principal) {
+        // Public, mais le joueur connecte envoie son jeton : en mode test, seuls les
+        // comptes de test voient la recharge en ligne.
+        return onlineTopUpService.config(principal == null ? null : principal.getId());
     }
 }

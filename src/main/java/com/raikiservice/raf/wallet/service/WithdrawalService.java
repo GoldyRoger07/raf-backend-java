@@ -51,6 +51,7 @@ public class WithdrawalService {
     private final SettingsService settingsService;
     private final AuditService auditService;
     private final NotificationService notificationService;
+    private final PayoutPolicy payoutPolicy;
 
     /** Envoie le code de confirmation sur le telephone verifie du joueur. */
     @Transactional
@@ -87,9 +88,14 @@ public class WithdrawalService {
 
         assertWithinLimits(userId, amountHtg);
 
+        // Envoi automatique prevu : seuls les frais de la passerelle, au pourcentage
+        // (PayoutPolicy). Sinon, les frais fixes du versement manuel.
+        boolean automatic = !cash && PayoutPolicy.eligible(provider) && payoutPolicy.active();
         long feeHtg = cash
                 ? settingsService.getLong(SettingKeys.WITHDRAWAL_COUNTER_FEE_HTG, DEFAULT_FEE_HTG)
-                : settingsService.getLong(SettingKeys.WITHDRAWAL_FEE_HTG, DEFAULT_FEE_HTG);
+                : automatic
+                        ? amountHtg - payoutPolicy.netFor(amountHtg)
+                        : settingsService.getLong(SettingKeys.WITHDRAWAL_FEE_HTG, DEFAULT_FEE_HTG);
         if (feeHtg >= amountHtg) {
             throw new ApiException(ErrorCode.WITHDRAWAL_BELOW_MINIMUM,
                     "Le montant demande ne couvre pas les frais de " + feeHtg + " HTG.");
@@ -108,6 +114,7 @@ public class WithdrawalService {
         request.setDestinationNumber(cash ? null : destinationNumber);
         request.setStatus(WithdrawalStatus.PENDING);
         request.setOtpVerifiedAt(Instant.now());
+        request.setAutomaticPayout(automatic);
 
         WithdrawalRequest saved = withdrawalRequestRepository.save(request);
 
@@ -247,10 +254,18 @@ public class WithdrawalService {
         return request;
     }
 
-    /** Rejet : les gains geles retournent au joueur. */
+    /**
+     * Rejet : les gains geles retournent au joueur. Possible en attente de revue,
+     * ou apres approbation tant que rien n'est verse (envoi automatique en echec) ;
+     * jamais pendant un envoi en cours (SENDING).
+     */
     @Transactional
     public WithdrawalRequest reject(Long adminId, Long withdrawalId, String reason) {
-        WithdrawalRequest request = loadPending(withdrawalId);
+        WithdrawalRequest request = withdrawalRequestRepository.findByIdForUpdate(withdrawalId)
+                .orElseThrow(() -> ApiException.notFound("Demande de retrait"));
+        if (request.getStatus() != WithdrawalStatus.PENDING && request.getStatus() != WithdrawalStatus.APPROVED) {
+            throw new ApiException(ErrorCode.WITHDRAWAL_NOT_PENDING);
+        }
 
         WalletTransaction refund = walletService.credit(
                 request.getUser().getId(),

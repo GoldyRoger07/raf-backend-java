@@ -90,4 +90,31 @@ public class WithdrawalRequest extends AuditableEntity {
     public boolean isCounterWithdrawal() {
         return initiatedByAdminId != null;
     }
+
+    /** Frais au pourcentage de la passerelle : envoi automatique prevu a l'approbation. */
+    @Column(name = "automatic_payout", nullable = false)
+    private boolean automaticPayout;
+
+    /** Nombre d'envois automatiques tentes ; chacun a sa reference RAF-WD-{id}-{essai}. */
+    @Column(name = "payout_attempts", nullable = false)
+    private int payoutAttempts;
+
+    /** Identifiant du versement chez Tranzak (PAY_...), pour l'essai en cours. */
+    @Column(name = "payout_id", length = 60)
+    private String payoutId;
+
+    /** Raison du dernier echec d'envoi automatique, effacee au prochain essai. */
+    @Column(name = "payout_error", length = 255)
+    private String payoutError;
+
+    @Column(name = "payout_sent_at")
+    private Instant payoutSentAt;
+
+    @Column(name = "payout_checked_at")
+    private Instant payoutCheckedAt;
+
+    /** Reference de l'essai en cours chez Tranzak. */
+    public String currentPayoutReference() {
+        return "RAF-WD-" + getId() + "-" + payoutAttempts;
+    }
 }

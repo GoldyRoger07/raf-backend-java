@@ -76,7 +76,7 @@ public class DashboardService {
         DashboardResponse.Pending pending = new DashboardResponse.Pending(
                 count("SELECT COUNT(*) FROM withdrawal_requests WHERE status = 'PENDING'"),
                 count("SELECT COALESCE(SUM(net_htg), 0) FROM withdrawal_requests WHERE status = 'PENDING'"),
-                count("SELECT COUNT(*) FROM withdrawal_requests WHERE status = 'APPROVED'"),
+                count("SELECT COUNT(*) FROM withdrawal_requests WHERE status IN ('APPROVED', 'SENDING')"),
                 // Seuls comptent les signalements encore actionnables : une fois le
                 // quiz termine, les gains sont verses.
                 count("SELECT COUNT(*) FROM game_sessions s JOIN quizzes q ON q.id = s.quiz_id "

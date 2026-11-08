@@ -52,7 +52,7 @@ class TranzakGatewayTest {
         });
         server.start();
         String base = "http://127.0.0.1:" + server.getAddress().getPort() + "/api/gateway/v1";
-        gateway = new HttpTranzakGateway(new TranzakProperties("tk_test_abc", "whsec_x", base, Duration.ofSeconds(5)),
+        gateway = new HttpTranzakGateway(new TranzakProperties("tk_test_abc", "whsec_x", base, Duration.ofSeconds(5), null, null),
                 JsonMapper.builder().build());
     }
 

@@ -165,6 +165,8 @@ public enum ErrorCode {
             "Vous ne pouvez recharger que les joueurs qui vous sont rattaches."),
     LEADER_TRANSFER_AMOUNT_INVALID(HttpStatus.BAD_REQUEST, "Le montant de la recharge est invalide."),
 
+    AUTO_PAYOUT_UNAVAILABLE(HttpStatus.CONFLICT,
+            "L'envoi automatique des retraits n'est pas disponible : versez a la main."),
     ONLINE_TOPUP_DISABLED(HttpStatus.CONFLICT,
             "La recharge en ligne MonCash / NatCash n'est pas disponible pour le moment."),
     ONLINE_TOPUP_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
