@@ -221,6 +221,20 @@ com.raikiservice.raf
 
 → `choice_id` NULL : question expirée sans réponse (comptée fausse).
 
+**solo_mastered_questions** — questions déjà réussies en solo
+
+`id, user_id, category_id, question_id, session_id, mastered_at` — UNIQUE(user_id, category_id, question_id)
+
+→ alimentée à la fin d'une partie solo SUBMITTED, par ses bonnes réponses seulement
+(ni comptes de test, ni mode GROUP). Une question ratée ou sans réponse reste tirable.
+→ le tirage solo écarte les questions de la liste du joueur pour ce sujet. Si le vivier
+n'a plus assez de questions jamais réussies pour une partie, la liste est pleine : on
+retire les entrées les plus anciennes (`mastered_at`) du vivier, juste ce qu'il faut,
+et elles sont resservies.
+→ une nouvelle réussite remet `mastered_at` à jour (fin de file). Une partie invalidée
+par un administrateur après coup retire ses entrées (`session_id`).
+→ back-office : `GET /api/admin/players/{id}/solo-mastery` (nombre par sujet).
+
 **quiz_rankings** — classement figé à la clôture
 
 `id, quiz_id, user_id, best_session_id, score, first_started_at, rank, reward_credits, paid_at, transaction_id`

@@ -10,6 +10,8 @@ import com.raikiservice.raf.admin.service.PlayerSearchService;
 import com.raikiservice.raf.admin.web.dto.DashboardResponse;
 import com.raikiservice.raf.admin.web.dto.GameProfitResponse;
 import com.raikiservice.raf.admin.web.dto.PlayerSummary;
+import com.raikiservice.raf.game.service.SoloMasteryService;
+import java.util.List;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,6 +35,7 @@ public class AdminDashboardController {
     private final DashboardService dashboardService;
     private final GameProfitService gameProfitService;
     private final PlayerSearchService playerSearchService;
+    private final SoloMasteryService soloMasteryService;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Chiffres cles et travail en attente")
@@ -71,5 +74,14 @@ public class AdminDashboardController {
     @Operation(summary = "Fiche d'un joueur, avec ses soldes")
     public PlayerSummary player(@PathVariable Long id) {
         return playerSearchService.get(id);
+    }
+
+    @GetMapping("/players/{id}/solo-mastery")
+    @Operation(summary = "Questions deja reussies en solo par le joueur, sujet par sujet",
+            description = "Ces questions ne lui sont plus servies sur le sujet tant que le vivier "
+                    + "en compte assez d'autres.")
+    public List<SoloMasteryService.SubjectCount> soloMastery(@PathVariable Long id) {
+        playerSearchService.get(id);
+        return soloMasteryService.countBySubject(id);
     }
 }

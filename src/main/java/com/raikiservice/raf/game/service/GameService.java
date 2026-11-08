@@ -135,6 +135,7 @@ public class GameService {
     private final AuditService auditService;
     private final NotificationService notificationService;
     private final CommissionService commissionService;
+    private final SoloMasteryService soloMasteryService;
 
     // --- Demarrage ------------------------------------------------------------
 
@@ -329,9 +330,16 @@ public class GameService {
         }
 
         // Tirage independant par joueur dans un vivier bien plus large que la
-        // partie : c'est la premiere barriere contre la fuite des enonces.
-        Collections.shuffle(pool, random);
-        List<Long> picked = pool.subList(0, Math.min(quiz.getQuestionsPerGame(), pool.size()));
+        // partie : c'est la premiere barriere contre la fuite des enonces. En solo,
+        // les questions deja reussies sur ce sujet sont ecartees (SoloMasteryService).
+        List<Long> picked;
+        if (session.isSolo() && session.getCategoryId() != null) {
+            picked = soloMasteryService.draw(session.getUser().getId(), session.getCategoryId(),
+                    pool, quiz.getQuestionsPerGame(), random);
+        } else {
+            Collections.shuffle(pool, random);
+            picked = pool.subList(0, Math.min(quiz.getQuestionsPerGame(), pool.size()));
+        }
         if (picked.size() < quiz.getQuestionsPerGame()) {
             log.warn("Quiz {} : vivier de {} question(s), {} prevue(s) par partie",
                     quiz.getId(), pool.size(), quiz.getQuestionsPerGame());
@@ -796,6 +804,11 @@ public class GameService {
         }
 
         if (session.isSolo()) {
+            // Les questions reussies ne lui seront plus servies sur ce sujet.
+            if (!session.isTest() && session.getCategoryId() != null) {
+                soloMasteryService.record(session.getUser().getId(), session.getCategoryId(),
+                        session.getId(), correctQuestionIds, now);
+            }
             // Compte de test : pas de gain, il joue pour essayer.
             if (correctQuestionIds.size() == totalQuestions && !session.isTest()) {
                 payPrize(session);
@@ -879,6 +892,11 @@ public class GameService {
     }
 
     private void invalidate(GameSession session, String reason, Instant now, Long actorId) {
+        // Une partie soumise puis invalidee par un administrateur ne doit plus
+        // ecarter les questions qu'elle avait inscrites comme reussies.
+        if (session.isSolo() && session.getStatus() == GameSessionStatus.SUBMITTED) {
+            soloMasteryService.forgetSession(session.getId());
+        }
         session.setStatus(GameSessionStatus.INVALIDATED);
         session.setInvalidationReason(reason);
         if (session.getSubmittedAt() == null) {
