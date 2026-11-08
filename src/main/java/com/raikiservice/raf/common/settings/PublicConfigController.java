@@ -1,6 +1,7 @@
 package com.raikiservice.raf.common.settings;
 
 import com.raikiservice.raf.wallet.availability.TopUpAvailabilityService;
+import com.raikiservice.raf.wallet.service.OnlineTopUpService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,6 +24,7 @@ public class PublicConfigController {
     private final DepositNumbersService depositNumbersService;
     private final TopUpAvailabilityService topUpAvailabilityService;
     private final PlayerAppService playerAppService;
+    private final OnlineTopUpService onlineTopUpService;
 
     @GetMapping("/social")
     @Operation(summary = "Liens vers les reseaux sociaux actives par l'administrateur")
@@ -46,5 +48,11 @@ public class PublicConfigController {
     @Operation(summary = "Numeros MonCash / NatCash ou envoyer une recharge a distance")
     public DepositNumbersService.PublicNumbers depositNumbers() {
         return depositNumbersService.publicNumbers();
+    }
+
+    @GetMapping("/online-topup")
+    @Operation(summary = "Recharge en ligne MonCash / NatCash : disponibilite, frais (points de base) et bornes")
+    public OnlineTopUpService.Config onlineTopUp() {
+        return onlineTopUpService.config();
     }
 }

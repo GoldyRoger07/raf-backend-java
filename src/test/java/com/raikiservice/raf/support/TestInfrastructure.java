@@ -61,6 +61,13 @@ public class TestInfrastructure {
         return new CapturingPushSender();
     }
 
+    /** Passerelle Tranzak simulee : aucun appel reseau, meme avec une cle dans .env.dev.properties. */
+    @Bean
+    @Primary
+    FakeTranzakGateway fakeTranzakGateway() {
+        return new FakeTranzakGateway();
+    }
+
     @Bean
     @Primary
     FakeQuestionGenerator fakeQuestionGenerator() {

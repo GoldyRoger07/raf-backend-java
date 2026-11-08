@@ -59,6 +59,8 @@ public class SecurityConfig {
                                 "/api/auth/password/reset")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
+                        // Authentifie par la signature HMAC du corps (TranzakWebhookController).
+                        .requestMatchers(HttpMethod.POST, "/api/webhooks/tranzak").permitAll()
                         // Images publiques : leur nom aleatoire est leur seule protection.
                         .requestMatchers(HttpMethod.GET, "/media/**").permitAll()
                         .requestMatchers(

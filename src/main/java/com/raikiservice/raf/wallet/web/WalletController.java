@@ -2,10 +2,12 @@ package com.raikiservice.raf.wallet.web;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.auth.web.dto.MessageResponse;
+import com.raikiservice.raf.wallet.service.OnlineTopUpService;
 import com.raikiservice.raf.wallet.service.TopUpRetentionService;
 import com.raikiservice.raf.wallet.service.TopUpService;
 import com.raikiservice.raf.wallet.service.WalletService;
 import com.raikiservice.raf.wallet.service.WithdrawalService;
+import com.raikiservice.raf.wallet.web.dto.OnlineTopUpDto;
 import com.raikiservice.raf.wallet.web.dto.TopUpResponse;
 import com.raikiservice.raf.wallet.web.dto.TransactionResponse;
 import com.raikiservice.raf.wallet.web.dto.WalletResponse;
@@ -25,6 +27,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,6 +43,7 @@ public class WalletController {
     private final WithdrawalService withdrawalService;
     private final TopUpService topUpService;
     private final TopUpRetentionService retentionService;
+    private final OnlineTopUpService onlineTopUpService;
 
     @GetMapping
     @Operation(summary = "Consulter ses soldes")
@@ -62,6 +66,20 @@ public class WalletController {
     public Page<TopUpResponse> topups(@AuthenticationPrincipal UserPrincipal principal,
             @PageableDefault(size = 20) Pageable pageable) {
         return topUpService.historyForUser(principal.getId(), pageable).map(TopUpResponse::from);
+    }
+
+    @PostMapping("/topups/online")
+    @Operation(summary = "Lancer une recharge en ligne MonCash / NatCash (frais a la charge du joueur)")
+    public ResponseEntity<TopUpResponse> startOnlineTopUp(@AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody OnlineTopUpDto request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(TopUpResponse.from(
+                onlineTopUpService.start(principal.getId(), request.amountHtg(), request.provider())));
+    }
+
+    @GetMapping("/topups/{id}")
+    @Operation(summary = "Etat d'une recharge ; une recharge en ligne en attente est reverifiee")
+    public TopUpResponse topUp(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id) {
+        return TopUpResponse.from(onlineTopUpService.refreshForPlayer(principal.getId(), id));
     }
 
     @PostMapping("/conversions")

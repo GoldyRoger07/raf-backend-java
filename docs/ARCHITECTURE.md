@@ -121,6 +121,12 @@ com.raikiservice.raf
 
 → **aucun crédit n'est versé avant le callback confirmé**.
 
+→ Recharge en ligne (passerelle Tranzak, `wallet/tranzak`, `OnlineTopUpService`) : `fee_htg`, `charged_htg` (montant + frais, payé par le joueur), `payment_url`, `checked_at` (V29). `provider_ref` = `transaction_id` Tranzak, référence envoyée `RAF-TOPUP-{id}`.
+  - Frais à la charge du joueur : `fee = ceil(montant × p / (1 − p))`, `p` = `topup.online_fee_bps` (450 = 4,5 %). Bornes `topup.online_min_htg` / `topup.online_max_htg`, interrupteur `app.online_topup.enabled`, clé `TRANZAK_API_KEY`.
+  - `POST /api/wallet/topups/online` crée la recharge puis le paiement ; l'app redirige vers `payment_url`. Retour sur `app.rafhaiti.com/recharge/retour` (ou `/recharge/annulee`), qui interroge `GET /api/wallet/topups/{id}` (relecture chez Tranzak au plus toutes les 10 s).
+  - `POST /api/webhooks/tranzak` (public) : HMAC-SHA256 du corps brut avec `TRANZAK_WEBHOOK_SECRET`, sinon 403. Filet : `OnlineTopUpScheduler` relit chaque minute les recharges en attente ; expiration après 45 min ; une création interrompue (délai dépassé) est retrouvée par sa référence.
+  - Crédit uniquement via `TopUpService.confirm`, sous verrou de la recharge ; un montant reçu inférieur à `charged_htg` n'est pas crédité (note + audit `TOPUP_AMOUNT_MISMATCH`) ; un paiement confirmé après échec ou expiration est tout de même crédité (`TOPUP_LATE_PAYMENT`).
+
 **withdrawal_requests**
 
 `id, user_id, amount_credits, amount_htg, fee_htg, provider, destination_number, status (PENDING | APPROVED | PAID | REJECTED), otp_verified_at, reviewed_by_admin_id, reviewed_at, rejection_reason, created_at`

@@ -22,7 +22,13 @@ public record TopUpResponse(
         /** Retenue precedente ajoutee a cette recharge. */
         long retentionUsedHtg,
         /** Reste garde pour la recharge suivante. */
-        long retentionKeptHtg) {
+        long retentionKeptHtg,
+        /** Recharge en ligne : frais de la passerelle payes par le joueur. */
+        long feeHtg,
+        /** Recharge en ligne : montant facture (montant + frais), null sinon. */
+        Long chargedHtg,
+        /** Recharge en ligne en attente : page ou terminer le paiement. */
+        String paymentUrl) {
 
     public static TopUpResponse from(TopUpRequest request) {
         return new TopUpResponse(
@@ -38,6 +44,9 @@ public record TopUpResponse(
                 request.getConfirmedAt(),
                 request.getHtgRate(),
                 request.getRetentionUsedHtg(),
-                request.getRetentionKeptHtg());
+                request.getRetentionKeptHtg(),
+                request.getFeeHtg(),
+                request.getChargedHtg(),
+                request.getStatus() == TopUpStatus.PENDING ? request.getPaymentUrl() : null);
     }
 }

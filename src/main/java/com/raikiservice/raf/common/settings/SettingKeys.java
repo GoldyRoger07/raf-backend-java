@@ -17,6 +17,10 @@ public final class SettingKeys {
     public static final String QUESTION_IMPORT_MAX_ROWS = "question.import_max_rows";
     public static final String AI_MAX_QUESTIONS_PER_REQUEST = "ai.max_questions_per_request";
     public static final String AI_MAX_REQUESTS_PER_DAY = "ai.max_requests_per_day";
+    /** Recharge en ligne (Tranzak) : frais factures au joueur en points de base, bornes en HTG. */
+    public static final String TOPUP_ONLINE_FEE_BPS = "topup.online_fee_bps";
+    public static final String TOPUP_ONLINE_MIN_HTG = "topup.online_min_htg";
+    public static final String TOPUP_ONLINE_MAX_HTG = "topup.online_max_htg";
     /** Bornes d'une recharge d'un joueur par son leader, en credits. */
     public static final String LEADER_TRANSFER_MIN_CREDITS = "leader.transfer_min_credits";
     public static final String LEADER_TRANSFER_MAX_CREDITS = "leader.transfer_max_credits";
@@ -39,6 +43,8 @@ public final class SettingKeys {
     public static final String APP_LEADER_TRANSFER_ENABLED = "app.leader_transfer.enabled";
     /** Conversion des gains (HTG) en credits par le joueur, voir TopUpService#convertWinnings. */
     public static final String APP_WINNINGS_CONVERSION_ENABLED = "app.winnings_conversion.enabled";
+    /** Recharge en ligne MonCash / NatCash par la passerelle, voir OnlineTopUpService. */
+    public static final String APP_ONLINE_TOPUP_ENABLED = "app.online_topup.enabled";
     private static final String APP_PREFIX = "app.";
 
     /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */
@@ -52,16 +58,18 @@ public final class SettingKeys {
      * entiers ; ceux qui servent de diviseur ou de seuil d'existence (valeur du
      * credit, ratio du vivier, plafonds) ne peuvent pas descendre a zero.
      */
-    private static final Map<String, Long> MIN_VALUES = Map.of(
-            CREDIT_HTG_RATE, 1L,
-            WITHDRAWAL_MIN_HTG, 1L,
-            WITHDRAWAL_MAX_HTG_PER_DAY, 1L,
-            GAME_POOL_RATIO_MIN, 1L,
-            GAME_FAST_ANSWER_FLAG_COUNT, 1L,
-            QUESTION_IMPORT_MAX_ROWS, 1L,
-            AI_MAX_QUESTIONS_PER_REQUEST, 1L,
-            LEADER_TRANSFER_MIN_CREDITS, 1L,
-            LEADER_TRANSFER_MAX_CREDITS, 1L);
+    private static final Map<String, Long> MIN_VALUES = Map.ofEntries(
+            Map.entry(CREDIT_HTG_RATE, 1L),
+            Map.entry(WITHDRAWAL_MIN_HTG, 1L),
+            Map.entry(WITHDRAWAL_MAX_HTG_PER_DAY, 1L),
+            Map.entry(GAME_POOL_RATIO_MIN, 1L),
+            Map.entry(GAME_FAST_ANSWER_FLAG_COUNT, 1L),
+            Map.entry(QUESTION_IMPORT_MAX_ROWS, 1L),
+            Map.entry(AI_MAX_QUESTIONS_PER_REQUEST, 1L),
+            Map.entry(LEADER_TRANSFER_MIN_CREDITS, 1L),
+            Map.entry(LEADER_TRANSFER_MAX_CREDITS, 1L),
+            Map.entry(TOPUP_ONLINE_MIN_HTG, 1L),
+            Map.entry(TOPUP_ONLINE_MAX_HTG, 1L));
 
     public static long minValue(String key) {
         return MIN_VALUES.getOrDefault(key, 0L);

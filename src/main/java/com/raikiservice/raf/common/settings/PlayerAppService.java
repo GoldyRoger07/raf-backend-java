@@ -18,6 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Conversion des gains en credits : active par defaut. La couper masque le bouton
  * de l'ecran Recharger et refuse toute nouvelle conversion (TopUpService).
+ *
+ * <p>Recharge en ligne MonCash / NatCash : active par defaut, mais proposee
+ * seulement si la passerelle est configuree (OnlineTopUpService). La couper
+ * masque l'option dans l'app et refuse toute nouvelle recharge en ligne ; les
+ * paiements deja lances sont toujours credites.
  */
 @Service
 @RequiredArgsConstructor
@@ -27,18 +32,24 @@ public class PlayerAppService {
 
     /** En modification, un champ absent (null) garde sa valeur actuelle. */
     public record PlayerAppConfig(Boolean emailReminderEnabled, Boolean leaderTransferEnabled,
-            Boolean winningsConversionEnabled) {
+            Boolean winningsConversionEnabled, Boolean onlineTopUpEnabled) {
     }
 
     @Transactional(readOnly = true)
     public PlayerAppConfig get() {
         return new PlayerAppConfig(flag(SettingKeys.APP_EMAIL_REMINDER_ENABLED),
-                flag(SettingKeys.APP_LEADER_TRANSFER_ENABLED), flag(SettingKeys.APP_WINNINGS_CONVERSION_ENABLED));
+                flag(SettingKeys.APP_LEADER_TRANSFER_ENABLED), flag(SettingKeys.APP_WINNINGS_CONVERSION_ENABLED),
+                flag(SettingKeys.APP_ONLINE_TOPUP_ENABLED));
     }
 
     @Transactional(readOnly = true)
     public boolean winningsConversionEnabled() {
         return flag(SettingKeys.APP_WINNINGS_CONVERSION_ENABLED);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean onlineTopUpEnabled() {
+        return flag(SettingKeys.APP_ONLINE_TOPUP_ENABLED);
     }
 
     @Transactional(readOnly = true)
@@ -56,6 +67,8 @@ public class PlayerAppService {
                 request.leaderTransferEnabled());
         change(actorId, SettingKeys.APP_WINNINGS_CONVERSION_ENABLED, current.winningsConversionEnabled(),
                 request.winningsConversionEnabled());
+        change(actorId, SettingKeys.APP_ONLINE_TOPUP_ENABLED, current.onlineTopUpEnabled(),
+                request.onlineTopUpEnabled());
         return get();
     }
 

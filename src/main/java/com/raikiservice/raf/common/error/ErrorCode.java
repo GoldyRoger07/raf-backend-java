@@ -165,6 +165,12 @@ public enum ErrorCode {
             "Vous ne pouvez recharger que les joueurs qui vous sont rattaches."),
     LEADER_TRANSFER_AMOUNT_INVALID(HttpStatus.BAD_REQUEST, "Le montant de la recharge est invalide."),
 
+    ONLINE_TOPUP_DISABLED(HttpStatus.CONFLICT,
+            "La recharge en ligne MonCash / NatCash n'est pas disponible pour le moment."),
+    ONLINE_TOPUP_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
+            "Le service de paiement ne repond pas. Aucun montant n'a ete debite, reessaie dans quelques minutes."),
+    ONLINE_TOPUP_TOO_MANY_PENDING(HttpStatus.TOO_MANY_REQUESTS,
+            "Tu as deja plusieurs paiements en attente. Termine-les ou patiente quelques minutes."),
     WINNINGS_CONVERSION_DISABLED(HttpStatus.CONFLICT,
             "La recharge avec les gains est momentanement desactivee."),
     WINNINGS_CONVERSION_TOO_SMALL(HttpStatus.UNPROCESSABLE_CONTENT,

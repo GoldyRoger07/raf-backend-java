@@ -82,4 +82,20 @@ public class TopUpRequest extends AuditableEntity {
     /** Reste de cette recharge, garde pour la suivante. */
     @Column(name = "retention_kept_htg", nullable = false)
     private long retentionKeptHtg;
+
+    /** Recharge en ligne : frais de la passerelle payes par le joueur, en plus du montant. */
+    @Column(name = "fee_htg", nullable = false)
+    private long feeHtg;
+
+    /** Recharge en ligne : montant facture au joueur (montant + frais), null sinon. */
+    @Column(name = "charged_htg")
+    private Long chargedHtg;
+
+    /** Recharge en ligne : page de paiement de la passerelle. */
+    @Column(name = "payment_url", length = 500)
+    private String paymentUrl;
+
+    /** Recharge en ligne : derniere verification de l'etat aupres de la passerelle. */
+    @Column(name = "checked_at")
+    private Instant checkedAt;
 }
