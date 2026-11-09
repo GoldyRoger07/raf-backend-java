@@ -23,6 +23,10 @@ public enum NotificationType {
     QUIZ_CANCELLED("Quiz annule et tickets rembourses",
             EnumSet.of(NotificationChannel.EMAIL, NotificationChannel.PUSH)),
     QUIZ_RESULTS("Resultats d'un quiz", EnumSet.of(NotificationChannel.PUSH)),
+    /** Envoye a tous les joueurs : push seulement, un email par quiz serait du bruit. */
+    SOLO_QUIZ_OPENED("Nouveau quiz solo disponible", EnumSet.of(NotificationChannel.PUSH)),
+    /** Tickets en vente : envoye a tous les joueurs, push seulement comme le solo. */
+    GROUP_QUIZ_OPENED("Nouveau quiz de groupe disponible", EnumSet.of(NotificationChannel.PUSH)),
     PRIZE_WON("Gain remporte", EnumSet.of(NotificationChannel.EMAIL, NotificationChannel.PUSH)),
     TOPUP_CONFIRMED("Recharge confirmee", EnumSet.of(NotificationChannel.PUSH)),
     WITHDRAWAL_APPROVED("Retrait approuve", EnumSet.of(NotificationChannel.PUSH)),

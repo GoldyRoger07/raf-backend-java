@@ -46,4 +46,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("select distinct u.id from User u join u.roles r where r.name in :roles "
             + "and u.status = com.raikiservice.raf.auth.domain.UserStatus.ACTIVE")
     List<Long> findIdsByRoles(@Param("roles") Collection<RoleName> roles);
+
+    /**
+     * Joueurs actifs, sans role d'equipe (moderateur, admin) : memes destinataires
+     * qu'une annonce a tous. testOnly restreint aux comptes de test.
+     */
+    @Query(value = "SELECT u.id FROM users u WHERE u.status = 'ACTIVE' "
+            + "AND (:testOnly = FALSE OR u.is_test = TRUE) "
+            + "AND NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id "
+            + "WHERE ur.user_id = u.id AND r.name IN ('MODERATOR', 'ADMIN', 'SUPER_ADMIN'))",
+            nativeQuery = true)
+    List<Long> findActivePlayerIds(@Param("testOnly") boolean testOnly);
 }

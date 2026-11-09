@@ -243,6 +243,9 @@ public class QuizService {
 
         auditService.record(actorId, "QUIZ_PUBLISHED", "Quiz", String.valueOf(quizId),
                 QuizStatus.DRAFT.name(), QuizStatus.REGISTRATION.name());
+
+        // Envoye apres le commit seulement, comme a l'ouverture d'un quiz solo.
+        notificationService.notifyAllPlayers(quiz.isTest(), NotificationMessages.groupQuizOpened(quiz));
         return quiz;
     }
 
@@ -356,6 +359,9 @@ public class QuizService {
                 QuizStatus.DRAFT.name(), QuizStatus.RUNNING.name() + " (solo, " + frozen
                         + " questions figees)");
         log.info("Quiz solo {} ouvert avec un vivier de {} questions", quiz.getId(), frozen);
+
+        // Envoye apres le commit seulement : une ouverture qui echoue n'annonce rien.
+        notificationService.notifyAllPlayers(quiz.isTest(), NotificationMessages.soloQuizOpened(quiz));
         return quiz;
     }
 

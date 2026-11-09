@@ -21,7 +21,9 @@ import com.raikiservice.raf.notification.service.NotificationService;
 import com.raikiservice.raf.notification.web.dto.NotificationResponse;
 import com.raikiservice.raf.notification.web.dto.PreferenceUpdateDto;
 import com.raikiservice.raf.notification.web.dto.PushSubscriptionDto;
+import com.raikiservice.raf.quiz.domain.Quiz;
 import com.raikiservice.raf.quiz.repository.QuizRepository;
+import com.raikiservice.raf.quiz.web.dto.SoloQuizDto;
 import com.raikiservice.raf.quiz.service.QuizService;
 import com.raikiservice.raf.quiz.service.TicketService;
 import com.raikiservice.raf.reconciliation.domain.ReconciliationTrigger;
@@ -93,7 +95,10 @@ class NotificationTest extends IntegrationTest {
                     .doesNotContain(NotificationType.PRIZE_WON);
         });
         // Recompense fixee en gourdes : annoncee telle quelle, sans conversion.
-        assertThat(inbox(first).get(0).body()).contains("1re").contains("100 HTG");
+        // L'annonce du quiz a tous les joueurs part sur un autre thread : ne pas
+        // compter sur l'ordre de la boite, chercher le gain.
+        assertThat(inbox(first)).filteredOn(n -> n.type() == NotificationType.PRIZE_WON)
+                .singleElement().satisfies(n -> assertThat(n.body()).contains("1re").contains("100 HTG"));
 
         // Gain : email et push. Simple resultat : push seulement.
         assertThat(mails.to(first.getEmail())).anySatisfy(mail ->
@@ -101,6 +106,58 @@ class NotificationTest extends IntegrationTest {
         assertThat(mails.to(third.getEmail())).isEmpty();
         assertThat(pushes.to(third.getId())).anySatisfy(push ->
                 assertThat(push.payload()).contains("QUIZ_RESULTS").contains("/quiz/" + quizId));
+    }
+
+    @Test
+    void aNewSoloQuizIsPushedToEveryPlayer() throws Exception {
+        User player = subscribed(data.player());
+        User other = data.player();
+        User admin = data.admin();
+
+        Long quizId = data.soloQuiz(categoryId, 3);
+
+        eventually(() -> {
+            assertThat(types(player)).contains(NotificationType.SOLO_QUIZ_OPENED);
+            assertThat(types(other)).contains(NotificationType.SOLO_QUIZ_OPENED);
+        });
+        assertThat(inbox(player).get(0).body()).contains(TestData.SOLO_PRIZE + " HTG");
+        assertThat(pushes.to(player.getId())).anySatisfy(push ->
+                assertThat(push.payload()).contains("SOLO_QUIZ_OPENED").contains("/quiz/" + quizId));
+        // Push seulement, et pas a l'equipe.
+        assertThat(mails.to(player.getEmail())).isEmpty();
+        assertThat(types(admin)).doesNotContain(NotificationType.SOLO_QUIZ_OPENED);
+    }
+
+    @Test
+    void aNewGroupQuizIsPushedToEveryPlayer() throws Exception {
+        User player = subscribed(data.player());
+        User admin = data.admin();
+
+        Long quizId = data.publishedQuiz(categoryId, 3, 1000, 1000, null, null);
+
+        eventually(() -> assertThat(types(player)).contains(NotificationType.GROUP_QUIZ_OPENED));
+        assertThat(inbox(player)).filteredOn(n -> n.type() == NotificationType.GROUP_QUIZ_OPENED)
+                .singleElement().satisfies(n -> assertThat(n.body())
+                        .contains(TestData.TICKET_PRICE + " credit(s)"));
+        assertThat(pushes.to(player.getId())).anySatisfy(push ->
+                assertThat(push.payload()).contains("GROUP_QUIZ_OPENED").contains("/quiz/" + quizId));
+        assertThat(mails.to(player.getEmail())).isEmpty();
+        assertThat(types(admin)).doesNotContain(NotificationType.GROUP_QUIZ_OPENED);
+    }
+
+    @Test
+    void aTestSoloQuizIsOnlyAnnouncedToTestAccounts() throws Exception {
+        User tester = data.player();
+        jdbc.update("UPDATE users SET is_test = TRUE WHERE id = ?", tester.getId());
+        User player = data.player();
+
+        Quiz quiz = quizService.createSolo(null, new SoloQuizDto("Solo de test " + UUID.randomUUID(),
+                null, categoryId, null, 1, TestData.SOLO_PRIZE, 3, TestData.QUESTION_SECONDS));
+        quizService.setTest(null, quiz.getId(), true);
+        quizService.publish(null, quiz.getId(), null);
+
+        eventually(() -> assertThat(types(tester)).contains(NotificationType.SOLO_QUIZ_OPENED));
+        assertThat(types(player)).doesNotContain(NotificationType.SOLO_QUIZ_OPENED);
     }
 
     @Test

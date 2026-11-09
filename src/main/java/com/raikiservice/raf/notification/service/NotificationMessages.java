@@ -9,6 +9,7 @@ import java.util.Map;
 import com.raikiservice.raf.auth.domain.User;
 import com.raikiservice.raf.notification.domain.NotificationType;
 import com.raikiservice.raf.quiz.domain.Quiz;
+import com.raikiservice.raf.quiz.domain.TopicMode;
 import com.raikiservice.raf.wallet.domain.PaymentProvider;
 import com.raikiservice.raf.wallet.domain.WithdrawalRequest;
 
@@ -77,6 +78,27 @@ public final class NotificationMessages {
                         + prizeHtg + " HTG, credites sur votre solde de gains.",
                 Map.of("quizId", quiz.getId(), "sessionId", sessionId, "rewardHtg", prizeHtg),
                 "/portefeuille");
+    }
+
+    /** Ouverture d'un quiz solo, annoncee a tous les joueurs. */
+    public static NotificationMessage soloQuizOpened(Quiz quiz) {
+        Long prize = quiz.getSoloPrizeHtg();
+        String body = prize != null && prize > 0
+                ? "« " + quiz.getTitle() + " » est ouvert : faites un sans-faute et remportez "
+                        + prize + " HTG."
+                : "« " + quiz.getTitle() + " » est ouvert : lancez votre partie quand vous voulez.";
+        return quiz(NotificationType.SOLO_QUIZ_OPENED, quiz, "Nouveau quiz solo", body);
+    }
+
+    /** Publication d'un quiz de groupe (tickets en vente), annoncee a tous les joueurs. */
+    public static NotificationMessage groupQuizOpened(Quiz quiz) {
+        String ticket = quiz.isFree() ? "le ticket est gratuit"
+                : "le ticket coute " + quiz.getTicketPriceCredits() + " credit(s)";
+        String body = quiz.getTopicMode() == TopicMode.VOTE
+                ? "« " + quiz.getTitle() + " » est ouvert : " + ticket
+                        + ". Prenez le votre et votez pour le sujet."
+                : "« " + quiz.getTitle() + " » est ouvert : " + ticket + ". Prenez le votre !";
+        return quiz(NotificationType.GROUP_QUIZ_OPENED, quiz, "Nouveau quiz de groupe", body);
     }
 
     public static NotificationMessage quizResults(Quiz quiz, int rank, long ranked) {

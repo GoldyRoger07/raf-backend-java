@@ -44,6 +44,14 @@ public class NotificationService {
                 message);
     }
 
+    /**
+     * Tous les joueurs actifs (hors equipe). testOnly restreint aux comptes de test :
+     * un quiz de test n'est visible que d'eux, inutile de prevenir les autres.
+     */
+    public void notifyAllPlayers(boolean testOnly, NotificationMessage message) {
+        notifyUsers(userRepository.findActivePlayerIds(testOnly), message);
+    }
+
     /** Messages personnalises (un rang, un montant), envoyes ensemble apres le commit. */
     public void notify(List<Delivery> deliveries) {
         if (deliveries.isEmpty()) {
