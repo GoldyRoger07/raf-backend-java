@@ -106,6 +106,10 @@ public class Quiz extends AuditableEntity {
     @Column(name = "solo_prize_htg")
     private Long soloPrizeHtg;
 
+    /** SOLO : le quiz se ferme de lui-meme au premier sans-faute. Toujours false en GROUP. */
+    @Column(name = "close_on_perfect", nullable = false)
+    private boolean closeOnPerfect;
+
     /** Premier joueur a le depasser : declenche le compte a rebours de cloture. */
     @Column(name = "min_score_threshold", nullable = false)
     private int minScoreThreshold;

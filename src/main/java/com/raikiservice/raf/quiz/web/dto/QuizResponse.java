@@ -46,6 +46,8 @@ public record QuizResponse(
         int questionsPerGame,
         int pointsPerCorrect,
         Long soloPrizeHtg,
+        /** Solo : fermeture automatique au premier sans-faute. */
+        boolean closeOnPerfect,
         int minScoreThreshold,
         int closingCountdownMinutes,
         int startDelayMinutes,
@@ -101,6 +103,7 @@ public record QuizResponse(
                 quiz.getQuestionsPerGame(),
                 quiz.getPointsPerCorrect(),
                 quiz.getSoloPrizeHtg(),
+                quiz.isCloseOnPerfect(),
                 quiz.getMinScoreThreshold(),
                 quiz.getClosingCountdownMinutes(),
                 quiz.getStartDelayMinutes(),

@@ -98,6 +98,57 @@ class SoloGameTest extends IntegrationTest {
                 .isEmpty();
     }
 
+    // --- Fermeture au premier sans-faute -----------------------------------------------
+
+    @Test
+    void aPerfectGameClosesAQuizThatAsksForIt() {
+        User winner = funded(1);
+        User late = funded(1);
+        Long quizId = data.soloQuiz(categoryId, 3, TestData.SOLO_ENTRY, true);
+
+        GameResultResponse result = play(winner, gameService.start(winner.getId(), quizId, IP, UA), 3);
+
+        assertThat(result.won()).isTrue();
+        assertThat(data.balance(winner.getId(), BalanceType.WINNINGS)).isEqualTo(TestData.SOLO_PRIZE);
+        assertThat(quizService.view(quizId).status()).isEqualTo(QuizStatus.FINISHED);
+        assertThat(quizService.view(quizId).closeOnPerfect()).isTrue();
+        // Plus aucune partie, et rien n'est debite.
+        assertApiError(ErrorCode.GAME_NOT_PLAYABLE, () -> gameService.start(late.getId(), quizId, IP, UA));
+        assertThat(data.balance(late.getId(), BalanceType.CREDIT)).isEqualTo(TestData.SOLO_ENTRY);
+    }
+
+    @Test
+    void aGameStartedBeforeTheClosingStillWinsItsPrize() {
+        User first = funded(1);
+        User second = funded(1);
+        Long quizId = data.soloQuiz(categoryId, 3, TestData.SOLO_ENTRY, true);
+        GameStartResponse firstGame = gameService.start(first.getId(), quizId, IP, UA);
+        GameStartResponse secondGame = gameService.start(second.getId(), quizId, IP, UA);
+
+        play(first, firstGame, 3);
+        assertThat(quizService.view(quizId).status()).isEqualTo(QuizStatus.FINISHED);
+
+        // Le joueur a paye sur la foi des regles : sa partie va a son terme.
+        GameResultResponse result = play(second, secondGame, 3);
+        assertThat(result.won()).isTrue();
+        assertThat(data.balance(second.getId(), BalanceType.WINNINGS)).isEqualTo(TestData.SOLO_PRIZE);
+    }
+
+    @Test
+    void onlyAPerfectGameClosesTheQuiz() {
+        User player = funded(1);
+        Long closing = data.soloQuiz(categoryId, 3, TestData.SOLO_ENTRY, true);
+        play(player, gameService.start(player.getId(), closing, IP, UA), 2);
+        assertThat(quizService.view(closing).status()).isEqualTo(QuizStatus.RUNNING);
+
+        // Sans l'option, un sans-faute laisse le quiz ouvert.
+        User winner = funded(1);
+        Long ordinary = data.soloQuiz(categoryId, 3);
+        play(winner, gameService.start(winner.getId(), ordinary, IP, UA), 3);
+        assertThat(quizService.view(ordinary).status()).isEqualTo(QuizStatus.RUNNING);
+        assertThat(quizService.view(ordinary).closeOnPerfect()).isFalse();
+    }
+
     @Test
     void oneMistakeWinsNothing() {
         User player = funded(1);
@@ -278,7 +329,7 @@ class SoloGameTest extends IntegrationTest {
         Long quizId = data.soloQuiz(categoryId, 3);
 
         assertApiError(ErrorCode.QUIZ_INVALID_STATE, () -> quizService.updateSolo(null, quizId,
-                new SoloQuizDto("Autre", null, categoryId, null, 1, 1000, 3, 5)));
+                new SoloQuizDto("Autre", null, categoryId, null, 1, 1000, 3, 5, null)));
     }
 
     // --- Outils -------------------------------------------------------------------

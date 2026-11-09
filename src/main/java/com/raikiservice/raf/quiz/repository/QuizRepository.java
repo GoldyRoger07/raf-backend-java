@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -78,4 +79,22 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
     /** Projection scalaire : savoir si le quiz est de test sans le charger. */
     @Query("select q.test from Quiz q where q.id = :id")
     Optional<Boolean> findTestFlag(@Param("id") Long id);
+
+    /**
+     * Ferme un quiz solo ouvert qui se ferme au premier sans-faute. Mise a jour
+     * conditionnelle et atomique : elle verrouille la ligne et ne depend pas de la
+     * copie du quiz deja chargee dans la transaction (voir findByIdForUpdate).
+     * Deux sans-faute simultanes : un seul ferme le quiz (1 ligne), l'autre 0.
+     *
+     * <p>Sans vider le contexte de persistance : la partie en cours y reste geree.
+     * Le quiz qui s'y trouve peut garder l'ancien statut, mais il n'est pas
+     * modifie ensuite, donc pas reecrit.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("update Quiz q set q.status = com.raikiservice.raf.quiz.domain.QuizStatus.FINISHED, "
+            + "q.endsAt = :now, q.finishedAt = :now "
+            + "where q.id = :id and q.closeOnPerfect = true "
+            + "and q.gameMode = com.raikiservice.raf.quiz.domain.GameMode.SOLO "
+            + "and q.status = com.raikiservice.raf.quiz.domain.QuizStatus.RUNNING")
+    int closeSoloOnPerfect(@Param("id") Long id, @Param("now") Instant now);
 }

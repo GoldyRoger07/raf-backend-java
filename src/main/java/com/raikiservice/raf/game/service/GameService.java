@@ -810,8 +810,17 @@ public class GameService {
                 soloMasteryService.record(session.getUser().getId(), session.getCategoryId(),
                         session.getId(), correctQuestionIds, now);
             }
+            boolean perfect = correctQuestionIds.size() == totalQuestions;
+            // Fermeture au premier sans-faute, si le quiz la prevoit. Avant le prix :
+            // le verrou du quiz est pris avant celui du portefeuille, dans le meme
+            // ordre qu'au lancement d'une partie. Un compte de test ne ferme qu'un
+            // quiz de test, comme en groupe pour le seuil de cloture.
+            if (perfect && (!session.isTest()
+                    || quizRepository.findTestFlag(session.getQuiz().getId()).orElse(false))) {
+                quizService.closeSoloOnPerfect(session.getQuiz().getId(), session.getId());
+            }
             // Compte de test : pas de gain, il joue pour essayer.
-            if (correctQuestionIds.size() == totalQuestions && !session.isTest()) {
+            if (perfect && !session.isTest()) {
                 payPrize(session);
             } else {
                 // Partie perdue : commission au leader du joueur, s'il en a un.

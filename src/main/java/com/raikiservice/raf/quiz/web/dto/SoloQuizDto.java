@@ -38,5 +38,15 @@ public record SoloQuizDto(
 
         @Min(value = 3, message = "Une question dure au moins 3 secondes.")
         @Max(value = 300, message = "Une question dure au plus 5 minutes.")
-        int questionDurationSeconds) {
+        int questionDurationSeconds,
+
+        /**
+         * Fermer le quiz des le premier sans-faute. Absent (anciens clients) : non.
+         * Les parties deja lancees vont a leur terme et peuvent aussi gagner.
+         */
+        Boolean closeOnPerfect) {
+
+    public boolean closesOnPerfect() {
+        return Boolean.TRUE.equals(closeOnPerfect);
+    }
 }

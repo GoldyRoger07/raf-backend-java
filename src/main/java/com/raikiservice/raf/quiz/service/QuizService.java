@@ -283,6 +283,7 @@ public class QuizService {
         copy.setQuestionsPerGame(source.getQuestionsPerGame());
         copy.setPointsPerCorrect(source.getPointsPerCorrect());
         copy.setSoloPrizeHtg(source.getSoloPrizeHtg());
+        copy.setCloseOnPerfect(source.isCloseOnPerfect());
         copy.setMinScoreThreshold(source.getMinScoreThreshold());
         copy.setClosingCountdownMinutes(source.getClosingCountdownMinutes());
         Quiz saved = quizRepository.save(copy);
@@ -394,6 +395,29 @@ public class QuizService {
     }
 
     /**
+     * Fermeture automatique d'un quiz solo au premier sans-faute, si l'admin l'a
+     * demandee. Appelee par le jeu dans la transaction du sans-faute : si elle
+     * echoue, rien n'est valide, ni la fermeture ni le prix.
+     *
+     * <p>Effet immediat pour les nouvelles parties : un lancement en vol attend le
+     * commit (verrou partage contre le verrou de ligne de la mise a jour), puis lit
+     * le quiz ferme. Les parties deja lancees vont a leur terme.
+     *
+     * @return true si cet appel a ferme le quiz
+     */
+    @Transactional
+    public boolean closeSoloOnPerfect(Long quizId, Long sessionId) {
+        if (quizRepository.closeSoloOnPerfect(quizId, Instant.now()) == 0) {
+            return false; // option absente, deja ferme, ou quiz de groupe
+        }
+        auditService.record(null, "QUIZ_CLOSED", "Quiz", String.valueOf(quizId),
+                QuizStatus.RUNNING.name(), QuizStatus.FINISHED.name()
+                        + " (sans-faute, partie " + sessionId + ")");
+        log.info("Quiz solo {} ferme automatiquement : sans-faute de la partie {}", quizId, sessionId);
+        return true;
+    }
+
+    /**
      * Ajoute au vivier d'un quiz solo ouvert les questions publiees de son sujet qui
      * n'y sont pas encore (import, publication apres l'ouverture). Rien n'en est
      * retire : une question archivee depuis reste tirable, comme avant.
@@ -449,6 +473,7 @@ public class QuizService {
                 : mediaService.require(request.bannerMediaId()));
         quiz.setTicketPriceCredits(request.entryPriceCredits());
         quiz.setSoloPrizeHtg(request.prizeHtg());
+        quiz.setCloseOnPerfect(request.closesOnPerfect());
         // Chaque partie engage de l'argent et un sans-faute en rapporte : le joueur
         // ne doit jamais voir une question avant son tour.
         quiz.setPlayMode(PlayMode.SEQUENTIAL);
