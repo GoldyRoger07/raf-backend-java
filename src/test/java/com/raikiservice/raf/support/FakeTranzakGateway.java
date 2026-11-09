@@ -25,6 +25,8 @@ public class FakeTranzakGateway implements TranzakGateway {
     private volatile TranzakException nextCreateFailure;
     /** Si vrai, la prochaine creation enregistre le paiement puis echoue (delai depasse). */
     private volatile boolean nextCreateTimesOutAfterCreating;
+    /** Lien de paiement a renvoyer a la prochaine creation, une seule fois (null : lien court). */
+    private volatile String nextPaymentUrl;
 
     @Override
     public boolean isConfigured() {
@@ -48,6 +50,11 @@ public class FakeTranzakGateway implements TranzakGateway {
         this.nextCreateFailure = failure;
     }
 
+    /** Comme MonCash en live : un lien de redirection portant un long jeton. */
+    public void nextPaymentUrl(String url) {
+        this.nextPaymentUrl = url;
+    }
+
     public void timeOutNextCreateAfterCreating() {
         this.nextCreateTimesOutAfterCreating = true;
     }
@@ -60,8 +67,10 @@ public class FakeTranzakGateway implements TranzakGateway {
             throw failure;
         }
         String id = String.valueOf(sequence.incrementAndGet());
+        String url = nextPaymentUrl != null ? nextPaymentUrl : "https://pay.tranzak.test/" + id;
+        nextPaymentUrl = null;
         Payment created = new Payment(id, "processing", BigDecimal.valueOf(payment.amountHtg()).setScale(2),
-                "HTG", payment.reference(), "https://pay.tranzak.test/" + id, null);
+                "HTG", payment.reference(), url, null);
         payments.put(id, created);
         requests.put(id, payment);
         if (nextCreateTimesOutAfterCreating) {

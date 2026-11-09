@@ -283,6 +283,22 @@ class OnlineTopUpTest extends IntegrationTest {
         assertThat(onlineTopUpService.config().enabled()).isFalse();
     }
 
+    /** En live, MonCash renvoie un lien de redirection avec un long jeton (plus de 500 caracteres). */
+    @Test
+    void longPaymentUrlFromLiveMonCash() throws Exception {
+        User player = data.player();
+        String url = "https://moncashbutton.digicelgroup.com/Moncash-middleware/Payment/Redirect?token="
+                + "x".repeat(1500);
+        gateway.nextPaymentUrl(url);
+
+        mvc.perform(post("/api/wallet/topups/online").header("Authorization", token(player))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amountHtg\":500,\"provider\":\"MONCASH\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.paymentUrl").value(url));
+    }
+
     @Test
     void playerEndpoints() throws Exception {
         User player = data.player();

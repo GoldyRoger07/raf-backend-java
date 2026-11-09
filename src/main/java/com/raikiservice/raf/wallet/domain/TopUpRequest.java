@@ -92,7 +92,7 @@ public class TopUpRequest extends AuditableEntity {
     private Long chargedHtg;
 
     /** Recharge en ligne : page de paiement de la passerelle. */
-    @Column(name = "payment_url", length = 500)
+    @Column(name = "payment_url", columnDefinition = "TEXT")
     private String paymentUrl;
 
     /** Recharge en ligne : derniere verification de l'etat aupres de la passerelle. */
