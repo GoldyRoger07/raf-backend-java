@@ -1,9 +1,11 @@
 package com.raikiservice.raf.admin;
 
+import com.raikiservice.raf.admin.service.DailyStatsService;
 import com.raikiservice.raf.admin.service.DashboardService;
 import com.raikiservice.raf.admin.service.GameProfitService;
 import com.raikiservice.raf.admin.service.GameProfitService.Period;
 import com.raikiservice.raf.admin.service.PlayerSearchService;
+import com.raikiservice.raf.admin.web.dto.DailyStatsResponse;
 import com.raikiservice.raf.admin.web.dto.DashboardResponse;
 import com.raikiservice.raf.admin.web.dto.GameProfitResponse;
 import com.raikiservice.raf.admin.web.dto.PlayerSummary;
@@ -52,6 +54,7 @@ class AdminDashboardTest extends IntegrationTest {
     @Autowired private GameService gameService;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private DashboardService dashboardService;
+    @Autowired private DailyStatsService dailyStatsService;
     @Autowired private WithdrawalService withdrawalService;
     @Autowired private GameProfitService gameProfitService;
     @Autowired private QuizService quizService;
@@ -291,5 +294,32 @@ class AdminDashboardTest extends IntegrationTest {
         assertThat(lastMonth.from()).isBefore(lastMonth.to());
         assertThat(allTime.from()).isNull();
         assertThat(allTime.salesCredits()).isGreaterThanOrEqualTo(thisMonth.salesCredits());
+    }
+
+    @Test
+    void todaysActivityShowsInTheDailySeriesAndMatchesTheExactTotals() {
+        DailyStatsResponse before = dailyStatsService.daily(7);
+
+        User player = data.player();
+        data.credit(player.getId(), BalanceType.CREDIT, TestData.TICKET_PRICE);
+        Long category = data.categoryWithQuestions(30);
+        Long quiz = data.publishedQuiz(category, 3, 1000, 10, null, null);
+        ticketService.purchase(player.getId(), quiz, UUID.randomUUID().toString());
+
+        DailyStatsResponse after = dailyStatsService.daily(7);
+        LocalDate today = LocalDate.now(ZoneId.of("America/Port-au-Prince"));
+        assertThat(after.days()).hasSize(7);
+        assertThat(after.days().get(6).date()).isEqualTo(today);
+        assertThat(after.today()).isEqualTo(after.days().get(6));
+        assertThat(after.yesterday().date()).isEqualTo(today.minusDays(1));
+        assertThat(after.yesterdaySameTime().date()).isEqualTo(today.minusDays(1));
+
+        assertThat(after.today().newPlayers() - before.today().newPlayers()).isEqualTo(1);
+        assertThat(after.today().ticketsSold() - before.today().ticketsSold()).isEqualTo(1);
+        assertThat(after.today().salesHtg() - before.today().salesHtg())
+                .isEqualTo(TestData.TICKET_PRICE * after.htgRate());
+        // Hier a la meme heure ne peut pas depasser hier entier.
+        assertThat(after.yesterdaySameTime().salesHtg()).isLessThanOrEqualTo(after.yesterday().salesHtg());
+        assertThat(dailyStatsService.daily(1000).days()).hasSize(DailyStatsService.MAX_DAYS);
     }
 }

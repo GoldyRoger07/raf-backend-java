@@ -1,5 +1,6 @@
 package com.raikiservice.raf.admin.web;
 
+import com.raikiservice.raf.admin.service.DailyStatsService;
 import com.raikiservice.raf.admin.service.DashboardService;
 import com.raikiservice.raf.admin.service.GameProfitService;
 import com.raikiservice.raf.admin.service.PlayerFilter;
@@ -7,6 +8,7 @@ import java.time.LocalDate;
 
 import com.raikiservice.raf.auth.domain.UserStatus;
 import com.raikiservice.raf.admin.service.PlayerSearchService;
+import com.raikiservice.raf.admin.web.dto.DailyStatsResponse;
 import com.raikiservice.raf.admin.web.dto.DashboardResponse;
 import com.raikiservice.raf.admin.web.dto.GameProfitResponse;
 import com.raikiservice.raf.admin.web.dto.PlayerSummary;
@@ -33,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminDashboardController {
 
     private final DashboardService dashboardService;
+    private final DailyStatsService dailyStatsService;
     private final GameProfitService gameProfitService;
     private final PlayerSearchService playerSearchService;
     private final SoloMasteryService soloMasteryService;
@@ -41,6 +44,13 @@ public class AdminDashboardController {
     @Operation(summary = "Chiffres cles et travail en attente")
     public DashboardResponse dashboard() {
         return dashboardService.dashboard();
+    }
+
+    @GetMapping("/dashboard/daily")
+    @Operation(summary = "Activite jour par jour (jours d'Haiti) : aujourd'hui, hier, hier a la meme heure, et la serie",
+            description = "days : nombre de jours de la serie, aujourd'hui compris (2 a 90, 30 par defaut).")
+    public DailyStatsResponse daily(@RequestParam(defaultValue = "30") int days) {
+        return dailyStatsService.daily(days);
     }
 
     @GetMapping("/dashboard/profit")
