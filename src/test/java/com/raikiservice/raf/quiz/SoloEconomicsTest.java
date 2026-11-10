@@ -36,7 +36,7 @@ class SoloEconomicsTest extends IntegrationTest {
         Long categoryId = data.categoryWithQuestions(30);
         long entry = 10 * walletService.htgRate();
 
-        SoloEconomics economics = soloEconomicsService.preview(categoryId, 10, 500, 10);
+        SoloEconomics economics = soloEconomicsService.preview(categoryId, 10, 500, 10, null);
 
         assertThat(economics.poolQuestions()).isEqualTo(30);
         assertThat(economics.questionsWithStats()).isZero();
@@ -54,8 +54,8 @@ class SoloEconomicsTest extends IntegrationTest {
     void moreQuestionsMakeTheSamePrizeSafer() {
         Long categoryId = data.categoryWithQuestions(30);
 
-        SoloEconomics few = soloEconomicsService.preview(categoryId, 1, 5_000, 3);
-        SoloEconomics many = soloEconomicsService.preview(categoryId, 1, 5_000, 20);
+        SoloEconomics few = soloEconomicsService.preview(categoryId, 1, 5_000, 3, null);
+        SoloEconomics many = soloEconomicsService.preview(categoryId, 1, 5_000, 20, null);
 
         assertThat(few.profitable()).isFalse();
         assertThat(many.estimatedWinRate()).isLessThan(few.estimatedWinRate());
@@ -66,7 +66,7 @@ class SoloEconomicsTest extends IntegrationTest {
     void aFreeQuizIsNeverProfitable() {
         Long categoryId = data.categoryWithQuestions(30);
 
-        SoloEconomics economics = soloEconomicsService.preview(categoryId, 0, 200, 10);
+        SoloEconomics economics = soloEconomicsService.preview(categoryId, 0, 200, 10, null);
 
         assertThat(economics.entryPriceHtg()).isZero();
         assertThat(economics.breakEvenWinRate()).isZero();

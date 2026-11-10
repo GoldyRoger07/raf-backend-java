@@ -1,5 +1,6 @@
 package com.raikiservice.raf.quiz.web.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -52,7 +53,14 @@ public record SoloQuizDto(
          */
         @Min(value = 1, message = "Le delai doit etre d'au moins une minute.")
         @Max(value = MAX_COOLDOWN_MINUTES, message = "Le delai ne peut pas depasser un an.")
-        Integer perfectCooldownMinutes) {
+        Integer perfectCooldownMinutes,
+
+        /**
+         * Part des questions faciles / moyennes / difficiles de chaque partie. Absent
+         * ou vide : tirage libre dans le vivier.
+         */
+        @Valid
+        DifficultyMixDto difficultyMix) {
 
     /** Un an. */
     public static final int MAX_COOLDOWN_MINUTES = 525_600;

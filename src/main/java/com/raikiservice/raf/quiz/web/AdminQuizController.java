@@ -15,6 +15,7 @@ import com.raikiservice.raf.quiz.service.SoloEconomicsService;
 import com.raikiservice.raf.quiz.service.SoloQuizStatsService;
 import com.raikiservice.raf.quiz.service.VoteService;
 import com.raikiservice.raf.quiz.web.dto.CancelQuizDto;
+import com.raikiservice.raf.quiz.web.dto.DifficultyMixDto;
 import com.raikiservice.raf.quiz.web.dto.QuizDto;
 import com.raikiservice.raf.quiz.web.dto.QuizResponse;
 import com.raikiservice.raf.quiz.web.dto.RewardTierDto;
@@ -107,8 +108,12 @@ public class AdminQuizController {
     @Operation(summary = "Simuler le bilan d'un quiz solo avant de l'enregistrer")
     public SoloEconomicsService.SoloEconomics previewSoloEconomics(@RequestParam Long categoryId,
             @RequestParam int entryPriceCredits, @RequestParam long prizeHtg,
-            @RequestParam int questionsPerGame) {
-        return soloEconomicsService.preview(categoryId, entryPriceCredits, prizeHtg, questionsPerGame);
+            @RequestParam int questionsPerGame,
+            @RequestParam(required = false) Integer easyPercent,
+            @RequestParam(required = false) Integer mediumPercent,
+            @RequestParam(required = false) Integer hardPercent) {
+        return soloEconomicsService.preview(categoryId, entryPriceCredits, prizeHtg, questionsPerGame,
+                DifficultyMixDto.toMix(easyPercent, mediumPercent, hardPercent));
     }
 
     @GetMapping("/{id}/solo-economics")
@@ -177,6 +182,16 @@ public class AdminQuizController {
     public QuizResponse setPerfectCooldown(@AuthenticationPrincipal UserPrincipal admin, @PathVariable Long id,
             @Valid @RequestBody PerfectCooldownDto request) {
         quizService.setPerfectCooldown(admin.getId(), id, request.minutes());
+        return quizService.view(id);
+    }
+
+    @PostMapping("/{id}/difficulty-mix")
+    @Operation(summary = "Solo : part des questions faciles, moyennes et difficiles de chaque partie",
+            description = "Pourcentages entiers dont le total vaut 100 ; les trois vides pour revenir au "
+                    + "tirage libre. Modifiable a tout moment : seules les parties lancees ensuite changent.")
+    public QuizResponse setDifficultyMix(@AuthenticationPrincipal UserPrincipal admin, @PathVariable Long id,
+            @Valid @RequestBody DifficultyMixDto request) {
+        quizService.setDifficultyMix(admin.getId(), id, request.toMix());
         return quizService.view(id);
     }
 

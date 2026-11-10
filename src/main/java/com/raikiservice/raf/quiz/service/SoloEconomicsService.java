@@ -1,6 +1,9 @@
 package com.raikiservice.raf.quiz.service;
 
+import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
@@ -9,6 +12,7 @@ import com.raikiservice.raf.game.repository.GameSessionRepository;
 import com.raikiservice.raf.question.domain.Difficulty;
 import com.raikiservice.raf.question.domain.QuestionStatus;
 import com.raikiservice.raf.question.repository.QuestionRepository;
+import com.raikiservice.raf.quiz.domain.DifficultyMix;
 import com.raikiservice.raf.quiz.domain.Quiz;
 import com.raikiservice.raf.quiz.domain.QuizStatus;
 import com.raikiservice.raf.quiz.repository.QuizQuestionPoolRepository;
@@ -25,7 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
  * gagne : tout depend donc de la probabilite d'un sans-faute. Elle est estimee a
  * partir du taux de reussite reel de chaque question du vivier. Un joueur tire
  * N questions au hasard : sa chance de toutes les reussir vaut la reussite
- * moyenne du vivier elevee a la puissance N.
+ * moyenne du vivier elevee a la puissance N. Avec une repartition par difficulte,
+ * chaque niveau compte pour son nombre de questions : facile^n1 x moyen^n2 x
+ * difficile^n3, la reussite de chaque niveau etant celle de ses questions.
  *
  * <p>Une question peu servie n'a pas de taux fiable : son taux observe est
  * tire vers un taux a priori selon sa difficulte declaree, d'autant plus que
@@ -58,7 +64,10 @@ public class SoloEconomicsService {
      *        l'argent ; 0 pour un quiz gratuit
      * @param breakEvenPrizeHtg prix le plus eleve que le quiz supporte sans
      *        perte, au taux de sans-faute estime
+     * @param estimatedAccuracy reussite par question equivalente : la racine N-ieme
+     *        du taux de sans-faute (la moyenne du vivier en tirage libre)
      * @param gamesPlayed parties jouees (null tant que le quiz est en brouillon)
+     * @param byDifficulty detail par niveau quand une repartition est fixee, vide sinon
      */
     public record SoloEconomics(
             int entryPriceCredits,
@@ -76,17 +85,35 @@ public class SoloEconomicsService {
             Long gamesPlayed,
             Long gamesWon,
             Double observedWinRate,
-            Long observedMarginHtg) {
+            Long observedMarginHtg,
+            List<LevelEstimate> byDifficulty) {
+    }
+
+    /**
+     * Un niveau de la repartition.
+     *
+     * @param targetPerGame questions voulues par partie (pourcentage applique)
+     * @param servedPerGame questions effectivement servies, une fois complete par les
+     *        niveaux voisins si le vivier en manque
+     * @param accuracy reussite moyenne des questions de ce niveau ; null s'il n'y en a pas
+     */
+    public record LevelEstimate(
+            Difficulty difficulty,
+            int percent,
+            int targetPerGame,
+            int servedPerGame,
+            int poolQuestions,
+            Double accuracy) {
     }
 
     /** Simulation pour le formulaire : rien n'est enregistre. */
     @Transactional(readOnly = true)
     public SoloEconomics preview(Long categoryId, int entryPriceCredits, long prizeHtg,
-            int questionsPerGame) {
+            int questionsPerGame, DifficultyMix mix) {
         if (categoryId == null || entryPriceCredits < 0 || prizeHtg < 1 || questionsPerGame < 1) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
-        return estimate(entryPriceCredits, prizeHtg, questionsPerGame,
+        return estimate(entryPriceCredits, prizeHtg, questionsPerGame, mix,
                 questionRepository.usageStats(categoryId, QuestionStatus.PUBLISHED), null, null);
     }
 
@@ -107,32 +134,67 @@ public class SoloEconomicsService {
                     : questionRepository.usageStats(quiz.getSelectedCategory().getId(),
                             QuestionStatus.PUBLISHED);
             return estimate(quiz.getTicketPriceCredits(), prize, quiz.getQuestionsPerGame(),
-                    stats, null, null);
+                    quiz.getDifficultyMix(), stats, null, null);
         }
 
         return estimate(quiz.getTicketPriceCredits(), prize, quiz.getQuestionsPerGame(),
-                quizQuestionPoolRepository.usageStats(quiz.getId()),
+                quiz.getDifficultyMix(), quizQuestionPoolRepository.usageStats(quiz.getId()),
                 gameSessionRepository.countByQuizIdAndStatusNotAndTestFalse(quiz.getId(),
                         GameSessionStatus.IN_PROGRESS),
                 gameSessionRepository.countByQuizIdAndWonTrue(quiz.getId()));
     }
 
     private SoloEconomics estimate(int entryPriceCredits, long prizeHtg, int questionsPerGame,
-            List<QuestionRepository.UsageStats> pool, Long gamesPlayed, Long gamesWon) {
+            DifficultyMix mix, List<QuestionRepository.UsageStats> pool, Long gamesPlayed,
+            Long gamesWon) {
 
         long entry = entryPriceCredits * walletService.htgRate();
 
         int withStats = 0;
         double sum = 0;
+        Map<Difficulty, Double> levelSum = new EnumMap<>(Difficulty.class);
+        Map<Difficulty, Integer> levelCount = new EnumMap<>(Difficulty.class);
         for (QuestionRepository.UsageStats question : pool) {
             if (question.getTimesServed() >= MIN_SERVED_FOR_STATS) {
                 withStats++;
             }
-            sum += (question.getTimesCorrect() + PRIOR_WEIGHT * prior(question.getDifficulty()))
+            Difficulty level = question.getDifficulty() == null ? Difficulty.MEDIUM : question.getDifficulty();
+            double smoothed = (question.getTimesCorrect() + PRIOR_WEIGHT * prior(level))
                     / (question.getTimesServed() + PRIOR_WEIGHT);
+            sum += smoothed;
+            levelSum.merge(level, smoothed, Double::sum);
+            levelCount.merge(level, 1, Integer::sum);
         }
-        double accuracy = pool.isEmpty() ? prior(Difficulty.MEDIUM) : sum / pool.size();
-        double winRate = Math.pow(accuracy, questionsPerGame);
+        double poolAccuracy = pool.isEmpty() ? prior(Difficulty.MEDIUM) : sum / pool.size();
+
+        double accuracy;
+        double winRate;
+        List<LevelEstimate> levels = new ArrayList<>();
+        if (mix == null) {
+            accuracy = poolAccuracy;
+            winRate = Math.pow(accuracy, questionsPerGame);
+        } else {
+            // Meme repartition que le tirage : un niveau trop petit est complete par
+            // ses voisins. Seul un vivier entier trop petit laisse des questions sans
+            // niveau : elles comptent a la reussite moyenne du vivier.
+            Map<Difficulty, Integer> targets = mix.split(questionsPerGame);
+            Map<Difficulty, Integer> served = DifficultyMix.allocate(targets, levelCount);
+            winRate = 1;
+            int counted = 0;
+            for (Difficulty level : Difficulty.values()) {
+                int count = levelCount.getOrDefault(level, 0);
+                Double levelAccuracy = count == 0 ? null : levelSum.get(level) / count;
+                int n = served.get(level);
+                if (n > 0) {
+                    winRate *= Math.pow(levelAccuracy, n);
+                    counted += n;
+                }
+                levels.add(new LevelEstimate(level, mix.percent(level), targets.get(level), n, count,
+                        levelAccuracy));
+            }
+            winRate *= Math.pow(poolAccuracy, questionsPerGame - counted);
+            accuracy = Math.pow(winRate, 1.0 / questionsPerGame);
+        }
 
         Double observedWinRate = null;
         Long observedMargin = null;
@@ -158,7 +220,8 @@ public class SoloEconomicsService {
                 gamesPlayed,
                 gamesWon,
                 observedWinRate,
-                observedMargin);
+                observedMargin,
+                levels);
     }
 
     /** Reussite attendue d'une question jamais servie, selon sa difficulte declaree. */

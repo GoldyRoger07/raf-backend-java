@@ -152,7 +152,7 @@ class NotificationTest extends IntegrationTest {
         User player = data.player();
 
         Quiz quiz = quizService.createSolo(null, new SoloQuizDto("Solo de test " + UUID.randomUUID(),
-                null, categoryId, null, 1, TestData.SOLO_PRIZE, 3, TestData.QUESTION_SECONDS, null, null));
+                null, categoryId, null, 1, TestData.SOLO_PRIZE, 3, TestData.QUESTION_SECONDS, null, null, null));
         quizService.setTest(null, quiz.getId(), true);
         quizService.publish(null, quiz.getId(), null);
 

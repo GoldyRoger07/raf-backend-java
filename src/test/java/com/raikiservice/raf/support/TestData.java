@@ -136,6 +136,32 @@ public class TestData {
         return categoryId;
     }
 
+    /** Sujet aux questions publiees de chaque niveau, dans ces nombres. */
+    public Long categoryWithQuestions(int easy, int medium, int hard) {
+        long n = SEQUENCE.incrementAndGet();
+        Long categoryId = categoryService.create(null, "Categorie " + RUN + " " + n, null, null, null)
+                .id();
+        int i = 0;
+        for (Difficulty level : Difficulty.values()) {
+            int count = switch (level) {
+                case EASY -> easy;
+                case MEDIUM -> medium;
+                case HARD -> hard;
+            };
+            for (int k = 0; k < count; k++, i++) {
+                List<ChoiceDto> choices = new ArrayList<>();
+                for (int c = 0; c < 4; c++) {
+                    choices.add(new ChoiceDto("Reponse " + c + " de la question " + i, c == 0, null));
+                }
+                Question question = questionService.createEntity(null, categoryId,
+                        "Question " + i + " (" + level + ") de la categorie " + n + " ?",
+                        QuestionType.SINGLE_CHOICE, level, null, null, choices);
+                questionService.changeStatus(null, question.getId(), QuestionStatus.PUBLISHED);
+            }
+        }
+        return categoryId;
+    }
+
     public Long correctChoice(Long questionId) {
         return questionRepository.findWithChoicesById(questionId).orElseThrow()
                 .correctChoice().getId();
@@ -222,7 +248,7 @@ public class TestData {
         long n = SEQUENCE.incrementAndGet();
         Quiz quiz = quizService.createSolo(null, new SoloQuizDto(
                 "Solo " + RUN + " " + n, null, categoryId, null, entryCredits, SOLO_PRIZE,
-                questionsPerGame, QUESTION_SECONDS, closeOnPerfect, null));
+                questionsPerGame, QUESTION_SECONDS, closeOnPerfect, null, null));
         quizService.publish(null, quiz.getId(), null);
         return quiz.getId();
     }

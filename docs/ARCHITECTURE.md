@@ -182,6 +182,7 @@ com.raikiservice.raf
 | play_mode | BATCH ou SEQUENTIAL (défaut SEQUENTIAL ; toujours SEQUENTIAL en SOLO) |
 | question_duration_seconds | chrono par question, défaut 5 |
 | questions_per_game | INT |
+| solo_easy_percent / solo_medium_percent / solo_hard_percent | SOLO : part des questions faciles / moyennes / difficiles d'une partie (V36). Vides ensemble = tirage libre ; sinon 0 à 100, total 100 |
 | points_per_correct | INT |
 | min_score_threshold | déclencheur du compte à rebours final |
 | closing_countdown_minutes | INT |
@@ -427,6 +428,24 @@ DRAFT ──publish──▶ RUNNING (vivier figé, ouvert en continu) ──clo
   publication, mais n'affecte pas un quiz déjà publié (tickets vendus).
 - Le rapprochement contrôle le débit d'entrée (`SOLO_ENTRY_DEBIT`) et le versement
   du prix (`SOLO_PRIZE_PAYMENT`) de chaque partie solo.
+- **Répartition par difficulté** (facultative, V36) : pourcentages facile / moyen /
+  difficile, total 100. Sans réglage, le tirage reste libre dans le vivier.
+  - Nombre de questions par niveau (`DifficultyMix.split`) : partie entière de chaque
+    part, les questions restantes aux plus fortes décimales, à égalité au plus
+    difficile (33/33/34 % sur 10 → 3/3/4). Un niveau à 0 % n'est jamais servi.
+  - Tirage (`SoloMasteryService.drawMixed`), niveau par niveau : questions jamais
+    réussies par le joueur ; s'il en manque, ses réussites les plus anciennes du même
+    niveau ; s'il en manque encore, un niveau de repli (facile → moyen puis difficile,
+    moyen → difficile puis facile, difficile → moyen puis facile). L'ordre de la
+    partie est mélangé. L'ouverture n'exige pas de minimum par niveau : le formulaire
+    signale un niveau trop petit.
+  - Modifiable à tout moment, y compris ouvert (`POST /api/admin/quizzes/{id}/difficulty-mix`,
+    corps vide pour revenir au tirage libre, tracé `QUIZ_DIFFICULTY_MIX_CHANGED`) :
+    seules les parties lancées ensuite changent. Copiée par la duplication.
+  - Rentabilité : chance d'un sans-faute = Π (réussite du niveau)^(questions du
+    niveau), avec la même règle de repli que le tirage ; `byDifficulty` détaille
+    chaque niveau. La simulation (`GET /solo/economics`) accepte
+    `easyPercent`, `mediumPercent`, `hardPercent`.
 
 ## 5. Cycle de vie du quiz
 
@@ -741,6 +760,7 @@ prix). Voir §4.1.
 | POST / PUT | `/api/admin/quizzes/solo` , `/api/admin/quizzes/solo/{id}` | admin |
 | POST | `/api/admin/quizzes/{id}/publish` (solo : ouverture directe) | admin |
 | POST | `/api/admin/quizzes/{id}/close` | admin, quiz solo |
+| POST | `/api/admin/quizzes/{id}/difficulty-mix` | admin, quiz solo : `{easyPercent, mediumPercent, hardPercent}`, `{}` = tirage libre |
 | POST | `/api/admin/quizzes/{id}/duplicate` | admin, tout quiz : copie en brouillon (règles, récompenses, sujets du vote), sans l'historique |
 | GET | `/api/admin/quizzes?status=&mode=` | admin |
 | GET | `/api/quizzes?mode=` (GROUP ou SOLO) | joueur |

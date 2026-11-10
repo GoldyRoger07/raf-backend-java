@@ -52,6 +52,8 @@ public record QuizResponse(
         boolean closeOnPerfect,
         /** Solo : minutes pendant lesquelles le quiz est cache a un joueur apres son sans-faute ; null = desactive. */
         Integer perfectCooldownMinutes,
+        /** Solo : part des questions faciles / moyennes / difficiles d'une partie ; null = tirage libre. */
+        DifficultyMixDto difficultyMix,
         int minScoreThreshold,
         int closingCountdownMinutes,
         int startDelayMinutes,
@@ -110,6 +112,7 @@ public record QuizResponse(
                 quiz.getSoloPrizeHtg(),
                 quiz.isCloseOnPerfect(),
                 quiz.getPerfectCooldownMinutes(),
+                DifficultyMixDto.from(quiz.getDifficultyMix()),
                 quiz.getMinScoreThreshold(),
                 quiz.getClosingCountdownMinutes(),
                 quiz.getStartDelayMinutes(),

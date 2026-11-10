@@ -329,7 +329,7 @@ class SoloGameTest extends IntegrationTest {
         Long quizId = data.soloQuiz(categoryId, 3);
 
         assertApiError(ErrorCode.QUIZ_INVALID_STATE, () -> quizService.updateSolo(null, quizId,
-                new SoloQuizDto("Autre", null, categoryId, null, 1, 1000, 3, 5, null, null)));
+                new SoloQuizDto("Autre", null, categoryId, null, 1, 1000, 3, 5, null, null, null)));
     }
 
     // --- Outils -------------------------------------------------------------------

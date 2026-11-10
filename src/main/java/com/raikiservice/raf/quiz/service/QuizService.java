@@ -22,6 +22,7 @@ import com.raikiservice.raf.question.service.CategoryService;
 import com.raikiservice.raf.question.service.QuestionService;
 import com.raikiservice.raf.notification.service.NotificationMessages;
 import com.raikiservice.raf.notification.service.NotificationService;
+import com.raikiservice.raf.quiz.domain.DifficultyMix;
 import com.raikiservice.raf.quiz.domain.GameMode;
 import com.raikiservice.raf.quiz.domain.PlayMode;
 import com.raikiservice.raf.quiz.domain.Quiz;
@@ -139,6 +140,32 @@ public class QuizService {
                     String.valueOf(previous), String.valueOf(minutes));
         }
         return quiz;
+    }
+
+    /**
+     * Repartition par difficulte d'un quiz solo, modifiable a tout moment (meme ouvert) :
+     * elle ne touche que les parties lancees ensuite. Un ajustement apres l'ouverture
+     * corrige un quiz ou les sans-fautes sont trop frequents, ou trop rares.
+     *
+     * @param mix repartition, ou null pour revenir au tirage libre
+     */
+    @Transactional
+    public Quiz setDifficultyMix(Long actorId, Long quizId, DifficultyMix mix) {
+        Quiz quiz = quizRepository.findByIdForUpdate(quizId)
+                .orElseThrow(() -> ApiException.notFound("Quiz"));
+        assertMode(quiz, GameMode.SOLO);
+        DifficultyMix previous = quiz.getDifficultyMix();
+        if (!java.util.Objects.equals(previous, mix)) {
+            quiz.setDifficultyMix(mix);
+            auditService.record(actorId, "QUIZ_DIFFICULTY_MIX_CHANGED", "Quiz", String.valueOf(quizId),
+                    describe(previous), describe(mix));
+        }
+        return quiz;
+    }
+
+    private static String describe(DifficultyMix mix) {
+        return mix == null ? "libre"
+                : mix.easyPercent() + "/" + mix.mediumPercent() + "/" + mix.hardPercent();
     }
 
     /**
@@ -334,6 +361,7 @@ public class QuizService {
         copy.setSoloPrizeHtg(source.getSoloPrizeHtg());
         copy.setCloseOnPerfect(source.isCloseOnPerfect());
         copy.setPerfectCooldownMinutes(source.getPerfectCooldownMinutes());
+        copy.setDifficultyMix(source.getDifficultyMix());
         copy.setMinScoreThreshold(source.getMinScoreThreshold());
         copy.setClosingCountdownMinutes(source.getClosingCountdownMinutes());
         Quiz saved = quizRepository.save(copy);
@@ -526,6 +554,7 @@ public class QuizService {
         quiz.setSoloPrizeHtg(request.prizeHtg());
         quiz.setCloseOnPerfect(request.closesOnPerfect());
         quiz.setPerfectCooldownMinutes(request.perfectCooldownMinutes());
+        quiz.setDifficultyMix(request.difficultyMix() == null ? null : request.difficultyMix().toMix());
         // Chaque partie engage de l'argent et un sans-faute en rapporte : le joueur
         // ne doit jamais voir une question avant son tour.
         quiz.setPlayMode(PlayMode.SEQUENTIAL);

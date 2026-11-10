@@ -2,14 +2,22 @@ package com.raikiservice.raf.game.service;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+
+import com.raikiservice.raf.question.domain.Difficulty;
+import com.raikiservice.raf.quiz.domain.DifficultyMix;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -78,6 +86,89 @@ public class SoloMasteryService {
             Collections.shuffle(picked, random);
         }
         return picked;
+    }
+
+    /**
+     * Tirage solo reparti par difficulte : {@code targets} donne le nombre de questions
+     * voulu par niveau, {@code pool} le vivier par niveau. Pour chaque niveau :
+     * <ol>
+     *   <li>les questions jamais reussies par le joueur, au hasard ;</li>
+     *   <li>s'il en manque, ses reussites les plus anciennes du meme niveau, retirees de
+     *       sa liste et resservies ;</li>
+     *   <li>s'il en manque encore (niveau trop petit dans le vivier), un niveau de repli
+     *       ({@link DifficultyMix#fallbacks}) complete, jamais reussies d'abord.</li>
+     * </ol>
+     * La partie n'est plus courte que si le vivier entier l'est. L'ordre renvoye est
+     * aleatoire : les niveaux sont melanges.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<Long> drawMixed(Long userId, Long categoryId, Map<Difficulty, List<Long>> pool,
+            Map<Difficulty, Integer> targets, Random random) {
+        Set<Long> masteredSet = new HashSet<>();
+        Map<Difficulty, Deque<Long>> fresh = new EnumMap<>(Difficulty.class);
+        Map<Difficulty, Deque<Long>> oldest = new EnumMap<>(Difficulty.class);
+        Map<Long, Difficulty> levelOf = new HashMap<>();
+        for (Difficulty level : Difficulty.values()) {
+            fresh.put(level, new ArrayDeque<>());
+            oldest.put(level, new ArrayDeque<>());
+            for (Long id : pool.getOrDefault(level, List.of())) {
+                levelOf.put(id, level);
+            }
+        }
+
+        // Plus anciennes d'abord : c'est l'ordre de purge, niveau par niveau.
+        for (Long id : jdbc.queryForList(
+                "SELECT question_id FROM solo_mastered_questions "
+                        + "WHERE user_id = ? AND category_id = ? ORDER BY mastered_at, id",
+                Long.class, userId, categoryId)) {
+            masteredSet.add(id);
+            Difficulty level = levelOf.get(id);
+            if (level != null) {
+                oldest.get(level).add(id);
+            }
+        }
+        for (Difficulty level : Difficulty.values()) {
+            List<Long> candidates = new ArrayList<>();
+            for (Long id : new LinkedHashSet<>(pool.getOrDefault(level, List.of()))) {
+                if (!masteredSet.contains(id)) {
+                    candidates.add(id);
+                }
+            }
+            Collections.shuffle(candidates, random);
+            fresh.get(level).addAll(candidates);
+        }
+
+        List<Long> picked = new ArrayList<>();
+        List<Long> evicted = new ArrayList<>();
+        Map<Difficulty, Integer> missing = new EnumMap<>(Difficulty.class);
+        for (Difficulty level : Difficulty.values()) {
+            int want = targets.getOrDefault(level, 0);
+            want -= take(fresh.get(level), want, picked);
+            want -= take(oldest.get(level), want, evicted);
+            missing.put(level, want);
+        }
+        for (Difficulty level : Difficulty.values()) {
+            int want = missing.get(level);
+            for (Difficulty fallback : DifficultyMix.fallbacks(level)) {
+                want -= take(fresh.get(fallback), want, picked);
+                want -= take(oldest.get(fallback), want, evicted);
+            }
+        }
+
+        remove(userId, categoryId, evicted);
+        picked.addAll(evicted);
+        Collections.shuffle(picked, random);
+        return picked;
+    }
+
+    /** Deplace jusqu'a {@code count} elements de la tete de {@code from} vers {@code to}. */
+    private static int take(Deque<Long> from, int count, List<Long> to) {
+        int moved = 0;
+        while (moved < count && !from.isEmpty()) {
+            to.add(from.poll());
+            moved++;
+        }
+        return moved;
     }
 
     /**

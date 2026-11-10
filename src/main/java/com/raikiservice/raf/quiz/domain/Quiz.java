@@ -125,6 +125,25 @@ public class Quiz extends AuditableEntity {
     @Column(name = "perfect_cooldown_minutes")
     private Integer perfectCooldownMinutes;
 
+    /**
+     * SOLO : part des questions faciles / moyennes / difficiles de chaque partie. Vides
+     * ensemble : tirage libre dans le vivier. Lire et ecrire par {@link #getDifficultyMix()}.
+     */
+    @Getter(lombok.AccessLevel.NONE)
+    @Setter(lombok.AccessLevel.NONE)
+    @Column(name = "solo_easy_percent")
+    private Integer soloEasyPercent;
+
+    @Getter(lombok.AccessLevel.NONE)
+    @Setter(lombok.AccessLevel.NONE)
+    @Column(name = "solo_medium_percent")
+    private Integer soloMediumPercent;
+
+    @Getter(lombok.AccessLevel.NONE)
+    @Setter(lombok.AccessLevel.NONE)
+    @Column(name = "solo_hard_percent")
+    private Integer soloHardPercent;
+
     /** Premier joueur a le depasser : declenche le compte a rebours de cloture. */
     @Column(name = "min_score_threshold", nullable = false)
     private int minScoreThreshold;
@@ -190,5 +209,19 @@ public class Quiz extends AuditableEntity {
         return status == QuizStatus.DRAFT
                 || status == QuizStatus.REGISTRATION
                 || status == QuizStatus.SCHEDULED;
+    }
+
+    /** Repartition par difficulte d'une partie solo ; null : tirage libre. */
+    public DifficultyMix getDifficultyMix() {
+        if (soloEasyPercent == null || soloMediumPercent == null || soloHardPercent == null) {
+            return null;
+        }
+        return new DifficultyMix(soloEasyPercent, soloMediumPercent, soloHardPercent);
+    }
+
+    public void setDifficultyMix(DifficultyMix mix) {
+        soloEasyPercent = mix == null ? null : mix.easyPercent();
+        soloMediumPercent = mix == null ? null : mix.mediumPercent();
+        soloHardPercent = mix == null ? null : mix.hardPercent();
     }
 }

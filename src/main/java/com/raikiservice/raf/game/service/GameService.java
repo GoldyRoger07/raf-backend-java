@@ -9,6 +9,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,11 +47,13 @@ import com.raikiservice.raf.game.web.dto.SubmitGameDto.AnswerDto;
 import com.raikiservice.raf.notification.service.NotificationMessages;
 import com.raikiservice.raf.notification.service.NotificationService;
 import com.raikiservice.raf.question.domain.Category;
+import com.raikiservice.raf.question.domain.Difficulty;
 import com.raikiservice.raf.question.domain.Question;
 import com.raikiservice.raf.question.domain.QuestionChoice;
 import com.raikiservice.raf.question.domain.QuestionType;
 import com.raikiservice.raf.question.repository.QuestionRepository;
 import com.raikiservice.raf.question.service.CategoryService;
+import com.raikiservice.raf.quiz.domain.DifficultyMix;
 import com.raikiservice.raf.quiz.domain.GameMode;
 import com.raikiservice.raf.quiz.domain.PlayMode;
 import com.raikiservice.raf.quiz.domain.Quiz;
@@ -336,8 +339,19 @@ public class GameService {
         // Tirage independant par joueur dans un vivier bien plus large que la
         // partie : c'est la premiere barriere contre la fuite des enonces. En solo,
         // les questions deja reussies sur ce sujet sont ecartees (SoloMasteryService).
+        // Une repartition par difficulte fixe le nombre de questions par niveau.
         List<Long> picked;
-        if (session.isSolo() && session.getCategoryId() != null) {
+        DifficultyMix mix = quiz.getDifficultyMix();
+        if (session.isSolo() && session.getCategoryId() != null && mix != null) {
+            Map<Difficulty, List<Long>> byLevel = new EnumMap<>(Difficulty.class);
+            for (QuizQuestionPoolRepository.PooledQuestion entry
+                    : quizQuestionPoolRepository.findQuestionsWithDifficulty(quiz.getId())) {
+                Difficulty level = entry.getDifficulty() == null ? Difficulty.MEDIUM : entry.getDifficulty();
+                byLevel.computeIfAbsent(level, l -> new ArrayList<>()).add(entry.getQuestionId());
+            }
+            picked = soloMasteryService.drawMixed(session.getUser().getId(), session.getCategoryId(),
+                    byLevel, mix.split(quiz.getQuestionsPerGame()), random);
+        } else if (session.isSolo() && session.getCategoryId() != null) {
             picked = soloMasteryService.draw(session.getUser().getId(), session.getCategoryId(),
                     pool, quiz.getQuestionsPerGame(), random);
         } else {
