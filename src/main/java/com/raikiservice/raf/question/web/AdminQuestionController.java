@@ -4,8 +4,11 @@ import java.nio.charset.StandardCharsets;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.auth.web.dto.MessageResponse;
+import com.raikiservice.raf.question.domain.Difficulty;
 import com.raikiservice.raf.question.domain.QuestionSource;
 import com.raikiservice.raf.question.domain.QuestionStatus;
+import com.raikiservice.raf.question.domain.QuestionType;
+import com.raikiservice.raf.question.service.QuestionFilter;
 import com.raikiservice.raf.question.service.QuestionExportService;
 import com.raikiservice.raf.question.service.QuestionGenerationService;
 import com.raikiservice.raf.question.service.QuestionImportService;
@@ -95,14 +98,21 @@ public class AdminQuestionController {
     }
 
     @GetMapping
-    @Operation(summary = "Lister les questions par statut, categorie et origine")
+    @Operation(summary = "Lister les questions : recherche, filtres cumulables et tri",
+            description = "Sans statut, toutes les questions. Tris : text, category, difficulty, "
+                    + "successRate, timesServed, status, createdAt (par defaut les plus recentes).")
     public Page<QuestionResponse> list(
-            @RequestParam(defaultValue = "PUBLISHED") QuestionStatus status,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) QuestionStatus status,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) QuestionSource source,
+            @RequestParam(required = false) Difficulty difficulty,
+            @RequestParam(required = false) QuestionType type,
+            @RequestParam(required = false) QuestionFilter.Usage usage,
             @PageableDefault(size = 20) Pageable pageable) {
 
-        return questionService.list(status, categoryId, source, pageable);
+        return questionService.list(
+                new QuestionFilter(q, status, categoryId, source, difficulty, type, usage), pageable);
     }
 
     @GetMapping("/search")

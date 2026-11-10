@@ -33,6 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -134,6 +135,60 @@ class LeaderCommissionTest extends IntegrationTest {
                     assertThat(line.source()).isEqualTo("SOLO");
                     assertThat(line.commissionPercent()).isEqualByComparingTo("10");
                 });
+    }
+
+    @Test
+    void leaderListsCanBeSearchedFilteredAndSorted() {
+        User leader = leader("10");
+        User loser = data.player();
+        User idle = data.player();
+        leaderService.addPlayer(null, leader.getId(), loser.getId());
+        leaderService.addPlayer(null, leader.getId(), idle.getId());
+        data.credit(loser.getId(), BalanceType.CREDIT, TestData.SOLO_ENTRY);
+        assertThat(playSolo(loser, data.soloQuiz(categoryId, 3), 2).won()).isFalse();
+
+        // Joueurs : recherche, origine du rattachement, tris.
+        assertThat(leaderService.players(leader.getId(), loser.getEmail(), null, PageRequest.of(0, 10)).getContent())
+                .extracting(p -> p.id()).containsExactly(loser.getId());
+        assertThat(leaderService.players(leader.getId(), null, true, PageRequest.of(0, 10)).getContent()).isEmpty();
+        assertThat(leaderService.players(leader.getId(), null, null,
+                PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "commissions"))).getContent())
+                .extracting(p -> p.id()).containsExactly(loser.getId(), idle.getId());
+        // Jamais joue : en fin de liste dans les deux sens.
+        for (Sort.Direction direction : Sort.Direction.values()) {
+            assertThat(leaderService.players(leader.getId(), null, null,
+                    PageRequest.of(0, 10, Sort.by(direction, "lastPlayed"))).getContent())
+                    .extracting(p -> p.id()).containsExactly(loser.getId(), idle.getId());
+        }
+        for (String field : List.of("name", "addedAt")) {
+            assertThat(leaderService.players(leader.getId(), null, null,
+                    PageRequest.of(0, 10, Sort.by(field))).getContent()).as(field).hasSize(2);
+        }
+
+        // Commissions : origine, recherche, periode, tris.
+        assertThat(leaderService.commissions(leader.getId(), null, "SOLO", null, null, PageRequest.of(0, 10))
+                .getContent()).hasSize(1);
+        assertThat(leaderService.commissions(leader.getId(), null, "QUIZ", null, null, PageRequest.of(0, 10))
+                .getContent()).isEmpty();
+        assertThat(leaderService.commissions(leader.getId(), loser.getFirstName(), null, null, null,
+                PageRequest.of(0, 10)).getContent()).hasSize(1);
+        java.time.LocalDate tomorrow = java.time.LocalDate.now(java.time.ZoneId.of("America/Port-au-Prince")).plusDays(1);
+        assertThat(leaderService.commissions(leader.getId(), null, null, tomorrow, null, PageRequest.of(0, 10))
+                .getContent()).isEmpty();
+        for (String field : List.of("createdAt", "player", "quiz", "baseCredits", "amount")) {
+            assertThat(leaderService.commissions(leader.getId(), null, null, null, null,
+                    PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, field))).getContent()).as(field).hasSize(1);
+        }
+
+        // Liste des leaders : statut et tris.
+        assertThat(leaderService.list(leader.getEmail(), "ACTIVE", PageRequest.of(0, 10)).getContent()).hasSize(1);
+        assertThat(leaderService.list(leader.getEmail(), "BANNED", PageRequest.of(0, 10)).getContent()).isEmpty();
+        for (String field : List.of("name", "commission", "players", "last30Days", "total")) {
+            assertThat(leaderService.list(leader.getEmail(), null,
+                    PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, field))).getContent()).as(field).hasSize(1);
+        }
+        assertApiError(ErrorCode.VALIDATION_ERROR, () -> leaderService.list(null, null,
+                PageRequest.of(0, 10, Sort.by("u.id; drop table users"))));
     }
 
     @Test

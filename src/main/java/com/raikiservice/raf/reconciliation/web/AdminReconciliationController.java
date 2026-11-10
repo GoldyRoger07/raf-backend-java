@@ -1,5 +1,8 @@
 package com.raikiservice.raf.reconciliation.web;
 
+import java.time.LocalDate;
+
+import com.raikiservice.raf.reconciliation.domain.ReconciliationStatus;
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.reconciliation.domain.ReconciliationTrigger;
 import com.raikiservice.raf.reconciliation.service.ReconciliationService;
@@ -11,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -36,9 +41,17 @@ public class AdminReconciliationController {
     }
 
     @GetMapping("/runs")
-    @Operation(summary = "Historique des rapprochements, du plus recent au plus ancien")
-    public Page<ReconciliationRunResponse> history(@PageableDefault(size = 20) Pageable pageable) {
-        return reconciliationService.history(pageable);
+    @Operation(summary = "Historique des rapprochements, du plus recent au plus ancien",
+            description = "Filtres facultatifs : q (numero ou message d'erreur), status, trigger, from, to "
+                    + "(jours d'Haiti). Tris : startedAt, status, findingCount, walletsChecked, "
+                    + "totalWinningsBalance, totalCreditBalance.")
+    public Page<ReconciliationRunResponse> history(@RequestParam(required = false) String q,
+            @RequestParam(required = false) ReconciliationStatus status,
+            @RequestParam(required = false) ReconciliationTrigger trigger,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return reconciliationService.history(q, status, trigger, from, to, pageable);
     }
 
     @GetMapping("/runs/{id}")

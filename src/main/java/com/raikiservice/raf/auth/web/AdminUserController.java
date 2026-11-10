@@ -20,9 +20,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import com.raikiservice.raf.leader.service.LeaderService;
 
+import com.raikiservice.raf.common.web.SortableFields;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -55,11 +58,23 @@ public class AdminUserController {
     private final AuditService auditService;
     private final LeaderService leaderService;
 
+    /** Tris de la liste des comptes ; rien d'autre n'entre dans l'ORDER BY. */
+    private static final SortableFields ACCOUNT_SORTS = SortableFields
+            .of("id", Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
+            .field("name", SortableFields.Key.of("firstName"), SortableFields.Key.of("lastName"))
+            .field("email", "email")
+            .field("status", "status")
+            .field("createdAt", "createdAt");
+
     @GetMapping
-    @Operation(summary = "Lister ou rechercher les comptes (staffOnly : personnel uniquement)")
+    @Operation(summary = "Lister ou rechercher les comptes (staffOnly : personnel uniquement)",
+            description = "Filtres facultatifs : role, status. Tris : name, email, status, createdAt "
+                    + "(par defaut les derniers crees).")
     @Transactional(readOnly = true)
     public Page<UserResponse> list(@RequestParam(required = false) String query,
             @RequestParam(defaultValue = "false") boolean staffOnly,
+            @RequestParam(required = false) RoleName role,
+            @RequestParam(required = false) UserStatus status,
             @PageableDefault(size = 20) Pageable pageable) {
         String text = query == null ? "" : query.trim().toLowerCase();
         // % et _ saisis par l'agent sont cherches tels quels, pas comme jokers.
@@ -68,7 +83,8 @@ public class AdminUserController {
         // Un telephone ne se cherche qu'a partir de 4 chiffres ; sinon motif impossible
         // (aucun numero ne contient #).
         String phone = digits.length() >= 4 ? "%" + digits + "%" : (text.isEmpty() ? "%" : "#");
-        return userRepository.searchAccounts(term, phone, staffOnly, pageable).map(UserResponse::from);
+        return userRepository.searchAccounts(term, phone, staffOnly, role, status, ACCOUNT_SORTS.apply(pageable))
+                .map(UserResponse::from);
     }
 
     @GetMapping("/{id}")

@@ -109,6 +109,28 @@ class AdminPhase3Test extends IntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void accountsCanBeFilteredByRoleAndStatusAndSorted() throws Exception {
+        User boss = superAdmin();
+        User moderator = data.moderator();
+        String token = token(boss);
+
+        mvc.perform(get("/api/admin/users").param("query", moderator.getEmail()).param("role", "MODERATOR")
+                        .param("status", "ACTIVE").header("Authorization", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(get("/api/admin/users").param("query", moderator.getEmail()).param("role", "ADMIN")
+                        .header("Authorization", token))
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        for (String sort : List.of("name,asc", "email,desc", "status,asc", "createdAt,desc")) {
+            mvc.perform(get("/api/admin/users").param("sort", sort).header("Authorization", token))
+                    .andExpect(status().isOk());
+        }
+        mvc.perform(get("/api/admin/users").param("sort", "passwordHash,asc").header("Authorization", token))
+                .andExpect(status().isBadRequest());
+    }
+
     // --- Journal d'audit ------------------------------------------------------------
 
     @Test

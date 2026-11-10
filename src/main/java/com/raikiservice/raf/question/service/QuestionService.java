@@ -11,6 +11,8 @@ import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.common.settings.SettingKeys;
 import com.raikiservice.raf.common.settings.SettingsService;
 import com.raikiservice.raf.common.util.Hashes;
+import com.raikiservice.raf.common.web.SearchTerms;
+import com.raikiservice.raf.common.web.SortableFields;
 import com.raikiservice.raf.media.service.MediaService;
 import com.raikiservice.raf.question.domain.Category;
 import com.raikiservice.raf.question.domain.Difficulty;
@@ -28,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -81,10 +84,39 @@ public class QuestionService {
         return new QuestionNeighborsResponse(previous, next, position, total);
     }
 
+    /**
+     * Tris de la liste du back-office. La difficulte suit l'ordre facile, moyen, difficile ;
+     * les questions jamais servies restent en fin de liste quand on trie par reussite.
+     */
+    private static final SortableFields SORTS = SortableFields
+            .of("id", Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
+            .field("text", "text")
+            .field("category", "category.name")
+            .field("difficulty", "(case when q.difficulty = " + Difficulty.class.getName() + ".EASY then 0"
+                    + " when q.difficulty = " + Difficulty.class.getName() + ".MEDIUM then 1 else 2 end)")
+            .field("successRate",
+                    SortableFields.Key.alwaysAscending("(case when q.timesServed = 0 then 1 else 0 end)"),
+                    SortableFields.Key.of("(case when q.timesServed = 0 then 0"
+                            + " else cast(q.timesCorrect as double) / q.timesServed end)"))
+            .field("timesServed", "timesServed")
+            .field("status", "status")
+            .field("createdAt", "createdAt");
+
     @Transactional(readOnly = true)
     public Page<QuestionResponse> list(QuestionStatus status, Long categoryId, QuestionSource source,
             Pageable pageable) {
-        return questionRepository.filter(status, categoryId, source, pageable).map(QuestionResponse::from);
+        return list(QuestionFilter.of(status, categoryId, source), pageable);
+    }
+
+    /** Liste du back-office : criteres cumulables, tri valide par {@link #SORTS}. */
+    @Transactional(readOnly = true)
+    public Page<QuestionResponse> list(QuestionFilter filter, Pageable pageable) {
+        return questionRepository.filter(filter.status(), filter.categoryId(), filter.source(),
+                        filter.difficulty(), filter.type(), SearchTerms.contains(filter.query()),
+                        filter.usage() == null ? null : filter.usage().name(),
+                        QuestionFilter.SUSPICIOUS_MIN_SERVED, QuestionFilter.SUSPICIOUS_MIN_RATE,
+                        SORTS.apply(pageable))
+                .map(QuestionResponse::from);
     }
 
     @Transactional(readOnly = true)

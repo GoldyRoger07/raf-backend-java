@@ -2,6 +2,7 @@ package com.raikiservice.raf.notification.web;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.notification.domain.AnnouncementAudience;
+import com.raikiservice.raf.notification.domain.AnnouncementStatus;
 import com.raikiservice.raf.notification.service.AnnouncementService;
 import com.raikiservice.raf.notification.web.dto.AnnouncementRequest;
 import com.raikiservice.raf.notification.web.dto.AnnouncementResponse;
@@ -41,9 +42,15 @@ public class AdminAnnouncementController {
     private final AnnouncementService announcementService;
 
     @GetMapping
-    @Operation(summary = "Messages envoyes ou programmes, les plus recents d'abord")
-    public Page<AnnouncementResponse> list(@PageableDefault(size = 20) Pageable pageable) {
-        return announcementService.list(pageable);
+    @Operation(summary = "Messages envoyes ou programmes, les plus recents d'abord",
+            description = "q : titre, texte ou destinataire. Filtres facultatifs : status, audience, "
+                    + "important. Tris : scheduledAt, title, audience, status.")
+    public Page<AnnouncementResponse> list(@RequestParam(required = false) String q,
+            @RequestParam(required = false) AnnouncementStatus status,
+            @RequestParam(required = false) AnnouncementAudience audience,
+            @RequestParam(required = false) Boolean important,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return announcementService.list(q, status, audience, important, pageable);
     }
 
     @GetMapping("/{id}")

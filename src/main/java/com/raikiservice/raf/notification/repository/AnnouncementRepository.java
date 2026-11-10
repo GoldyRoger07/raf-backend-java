@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 
 import com.raikiservice.raf.notification.domain.Announcement;
+import com.raikiservice.raf.notification.domain.AnnouncementAudience;
 import com.raikiservice.raf.notification.domain.AnnouncementStatus;
 
 import org.springframework.data.domain.Page;
@@ -16,6 +17,21 @@ import org.springframework.data.repository.query.Param;
 public interface AnnouncementRepository extends JpaRepository<Announcement, Long> {
 
     Page<Announcement> findAllByOrderByCreatedAtDescIdDesc(Pageable pageable);
+
+    /**
+     * Historique du back-office, criteres facultatifs et cumulables. {@code term} (deja
+     * entoure de {@code %}) cherche dans le titre, le texte et le nom du destinataire.
+     * Ordre : celui du Pageable.
+     */
+    @Query("select a from Announcement a where (:status is null or a.status = :status) "
+            + "and (:audience is null or a.audience = :audience) "
+            + "and (:important is null or a.important = :important) "
+            + "and (:term is null or lower(a.title) like :term or lower(a.body) like :term "
+            + "  or a.targetUserId in (select u.id from User u "
+            + "    where lower(concat(coalesce(u.firstName, ''), ' ', coalesce(u.lastName, ''))) like :term))")
+    Page<Announcement> adminList(@Param("term") String term, @Param("status") AnnouncementStatus status,
+            @Param("audience") AnnouncementAudience audience, @Param("important") Boolean important,
+            Pageable pageable);
 
     @Query("select a.id from Announcement a where a.status = "
             + "com.raikiservice.raf.notification.domain.AnnouncementStatus.SCHEDULED "

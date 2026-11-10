@@ -1,6 +1,8 @@
 package com.raikiservice.raf.leader.service;
 
 import java.math.BigDecimal;
+import java.time.ZoneId;
+import java.time.LocalDate;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -16,6 +18,8 @@ import com.raikiservice.raf.auth.domain.UserStatus;
 import com.raikiservice.raf.auth.repository.RoleRepository;
 import com.raikiservice.raf.auth.repository.UserRepository;
 import com.raikiservice.raf.common.audit.AuditService;
+import com.raikiservice.raf.common.web.SqlSorts;
+import com.raikiservice.raf.common.web.SearchTerms;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.leader.web.dto.LeaderDtos;
@@ -64,6 +68,8 @@ public class LeaderService {
             WHERE %s
             """.formatted(IS_LEADER);
 
+    private static final ZoneId HAITI = ZoneId.of("America/Port-au-Prince");
+
     private final JdbcTemplate jdbc;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -73,10 +79,25 @@ public class LeaderService {
 
     @Transactional(readOnly = true)
     public Page<LeaderSummary> list(String query, Pageable pageable) {
+        return list(query, null, pageable);
+    }
+
+    /** Tris de la liste des leaders ; par defaut l'ordre alphabetique. */
+    private static final SqlSorts LEADER_SORTS = SqlSorts
+            .of("u.id", "u.first_name, u.last_name, u.id")
+            .field("name", "LOWER(u.first_name) %s", "LOWER(u.last_name) %s")
+            .field("commission", "commission_percent %s")
+            .field("players", "player_count %s")
+            .field("last30Days", "last_30_days %s")
+            .field("total", "total %s");
+
+    /** Leaders, recherche (nom, email, telephone) et statut du compte facultatifs. */
+    @Transactional(readOnly = true)
+    public Page<LeaderSummary> list(String query, String status, Pageable pageable) {
         String where = "";
         List<Object> args = new ArrayList<>();
         if (query != null && !query.isBlank()) {
-            String term = "%" + query.trim().toLowerCase().replace("%", "\\%").replace("_", "\\_") + "%";
+            String term = SearchTerms.contains(query);
             String digits = query.replaceAll("[^0-9]", "");
             where = " AND (LOWER(u.email) LIKE ? OR LOWER(CONCAT(u.first_name, ' ', u.last_name)) LIKE ?"
                     + (digits.length() >= 4 ? " OR u.phone LIKE ?" : "") + ")";
@@ -85,6 +106,10 @@ public class LeaderService {
             if (digits.length() >= 4) {
                 args.add("%" + digits + "%");
             }
+        }
+        if (status != null && !status.isBlank()) {
+            where += " AND u.status = ?";
+            args.add(status);
         }
 
         Long total = jdbc.queryForObject("SELECT COUNT(*) FROM users u WHERE " + IS_LEADER + where,
@@ -97,7 +122,7 @@ public class LeaderService {
         pageArgs.add(pageable.getPageSize());
         pageArgs.add(pageable.getOffset());
         List<LeaderSummary> content = jdbc.query(
-                SUMMARY + where + " ORDER BY u.first_name, u.last_name, u.id LIMIT ? OFFSET ?",
+                SUMMARY + where + LEADER_SORTS.orderBy(pageable.getSort()) + " LIMIT ? OFFSET ?",
                 (rs, row) -> summary(rs), pageArgs.toArray());
         return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
@@ -111,9 +136,46 @@ public class LeaderService {
 
     @Transactional(readOnly = true)
     public Page<LeaderPlayer> players(Long leaderId, Pageable pageable) {
+        return players(leaderId, null, null, pageable);
+    }
+
+    /** Tris des joueurs d'un leader ; par defaut le dernier rattache d'abord. */
+    private static final SqlSorts PLAYER_SORTS = SqlSorts
+            .of("u.id", "lp.added_at DESC, u.id DESC")
+            .field("name", "LOWER(u.first_name) %s", "LOWER(u.last_name) %s")
+            .field("addedAt", "lp.added_at %s")
+            .field("lastPlayed", "(last_played IS NULL)", "last_played %s")
+            .field("commissions", "commissions %s");
+
+    /**
+     * Joueurs d'un leader, recherche (nom, email, telephone) et origine du rattachement
+     * ({@code viaInvite}) facultatives.
+     */
+    @Transactional(readOnly = true)
+    public Page<LeaderPlayer> players(Long leaderId, String query, Boolean viaInvite, Pageable pageable) {
         get(leaderId);
-        Long total = jdbc.queryForObject("SELECT COUNT(*) FROM leader_players WHERE leader_id = ?",
-                Long.class, leaderId);
+        StringBuilder where = new StringBuilder(" WHERE lp.leader_id = ?");
+        List<Object> args = new ArrayList<>(List.of(leaderId));
+        if (query != null && !query.isBlank()) {
+            String term = SearchTerms.contains(query);
+            String digits = query.replaceAll("[^0-9]", "");
+            where.append(" AND (LOWER(u.email) LIKE ? OR LOWER(CONCAT(u.first_name, ' ', u.last_name)) LIKE ?")
+                    .append(digits.length() >= 4 ? " OR u.phone LIKE ?" : "").append(")");
+            args.add(term);
+            args.add(term);
+            if (digits.length() >= 4) {
+                args.add("%" + digits + "%");
+            }
+        }
+        if (viaInvite != null) {
+            where.append(" AND lp.via_invite = ?");
+            args.add(viaInvite);
+        }
+        Long total = jdbc.queryForObject("SELECT COUNT(*) FROM leader_players lp JOIN users u ON u.id = lp.player_id"
+                + where, Long.class, args.toArray());
+        List<Object> pageArgs = new ArrayList<>(args);
+        pageArgs.add(pageable.getPageSize());
+        pageArgs.add(pageable.getOffset());
         List<LeaderPlayer> content = jdbc.query("""
                 SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.status, u.is_test,
                        lp.added_at, lp.via_invite, lp.signup_bonus_credits,
@@ -124,10 +186,7 @@ public class LeaderService {
                 FROM leader_players lp
                 JOIN users u ON u.id = lp.player_id
                 LEFT JOIN leader_invite_bonuses b ON b.player_id = lp.player_id
-                WHERE lp.leader_id = ?
-                ORDER BY lp.added_at DESC, u.id DESC
-                LIMIT ? OFFSET ?
-                """, (rs, row) -> new LeaderPlayer(
+                """ + where + PLAYER_SORTS.orderBy(pageable.getSort()) + " LIMIT ? OFFSET ?", (rs, row) -> new LeaderPlayer(
                         rs.getLong("id"),
                         rs.getString("first_name"),
                         rs.getString("last_name"),
@@ -141,26 +200,63 @@ public class LeaderService {
                         instant(rs, "bonus_paid_at"),
                         rs.getLong("commissions"),
                         instant(rs, "last_played")),
-                leaderId, pageable.getPageSize(), pageable.getOffset());
+                pageArgs.toArray());
         return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
 
     @Transactional(readOnly = true)
     public Page<LeaderCommission> commissions(Long leaderId, Pageable pageable) {
+        return commissions(leaderId, null, null, null, null, pageable);
+    }
+
+    /** Tris des commissions ; par defaut la plus recente d'abord. */
+    private static final SqlSorts COMMISSION_SORTS = SqlSorts
+            .of("c.id", "c.created_at DESC, c.id DESC")
+            .field("createdAt", "c.created_at %s")
+            .field("player", "LOWER(u.first_name) %s", "LOWER(u.last_name) %s")
+            .field("quiz", "LOWER(q.title) %s")
+            .field("baseCredits", "c.base_credits %s")
+            .field("amount", "c.amount_htg %s");
+
+    /**
+     * Commissions d'un leader, criteres facultatifs : recherche (joueur, quiz), origine
+     * (QUIZ ou SOLO), periode (jours d'Haiti, bornes incluses).
+     */
+    @Transactional(readOnly = true)
+    public Page<LeaderCommission> commissions(Long leaderId, String query, String source, LocalDate from,
+            LocalDate to, Pageable pageable) {
         get(leaderId);
-        Long total = jdbc.queryForObject("SELECT COUNT(*) FROM leader_commissions WHERE leader_id = ?",
-                Long.class, leaderId);
+        StringBuilder where = new StringBuilder(" WHERE c.leader_id = ?");
+        List<Object> args = new ArrayList<>(List.of(leaderId));
+        if (query != null && !query.isBlank()) {
+            String term = SearchTerms.contains(query);
+            where.append(" AND (LOWER(CONCAT(u.first_name, ' ', u.last_name)) LIKE ? OR LOWER(q.title) LIKE ?)");
+            args.add(term);
+            args.add(term);
+        }
+        if (source != null && !source.isBlank()) {
+            where.append(" AND c.source = ?");
+            args.add(source);
+        }
+        if (from != null) {
+            where.append(" AND c.created_at >= ?");
+            args.add(Timestamp.from(from.atStartOfDay(HAITI).toInstant()));
+        }
+        if (to != null) {
+            where.append(" AND c.created_at < ?");
+            args.add(Timestamp.from(to.plusDays(1).atStartOfDay(HAITI).toInstant()));
+        }
+        String joins = " FROM leader_commissions c JOIN users u ON u.id = c.player_id JOIN quizzes q ON q.id = c.quiz_id";
+        Long total = jdbc.queryForObject("SELECT COUNT(*)" + joins + where, Long.class, args.toArray());
+        List<Object> pageArgs = new ArrayList<>(args);
+        pageArgs.add(pageable.getPageSize());
+        pageArgs.add(pageable.getOffset());
         List<LeaderCommission> content = jdbc.query("""
                 SELECT c.id, c.player_id, u.first_name, u.last_name, c.source, c.quiz_id, q.title,
                        c.session_id, c.base_credits, c.htg_rate, c.commission_percent, c.amount_htg,
                        c.created_at
-                FROM leader_commissions c
-                JOIN users u ON u.id = c.player_id
-                JOIN quizzes q ON q.id = c.quiz_id
-                WHERE c.leader_id = ?
-                ORDER BY c.created_at DESC, c.id DESC
-                LIMIT ? OFFSET ?
-                """, (rs, row) -> new LeaderCommission(
+                """ + joins + where + COMMISSION_SORTS.orderBy(pageable.getSort()) + " LIMIT ? OFFSET ?",
+                (rs, row) -> new LeaderCommission(
                         rs.getLong("id"),
                         rs.getLong("player_id"),
                         rs.getString("first_name"),
@@ -174,7 +270,7 @@ public class LeaderService {
                         rs.getBigDecimal("commission_percent"),
                         rs.getLong("amount_htg"),
                         rs.getTimestamp("created_at").toInstant()),
-                leaderId, pageable.getPageSize(), pageable.getOffset());
+                pageArgs.toArray());
         return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
 

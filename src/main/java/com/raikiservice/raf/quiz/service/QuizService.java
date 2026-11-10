@@ -11,6 +11,8 @@ import java.util.Set;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
+import com.raikiservice.raf.common.web.SearchTerms;
+import com.raikiservice.raf.common.web.SortableFields;
 import com.raikiservice.raf.media.service.MediaService;
 import com.raikiservice.raf.question.domain.Category;
 import com.raikiservice.raf.question.domain.Question;
@@ -42,6 +44,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -636,7 +639,33 @@ public class QuizService {
 
     @Transactional(readOnly = true)
     public Page<QuizResponse> viewByStatus(QuizStatus status, GameMode mode, Pageable pageable) {
-        return byStatus(status, mode, pageable).map(this::toResponse);
+        return viewByStatus(status, mode, AdminQuizFilter.NONE, pageable);
+    }
+
+    /**
+     * Tris de la liste du back-office. « players » compte les joueurs inscrits comme
+     * {@link TicketService#registeredPlayers} ; « deadline » suit l'echeance affichee
+     * (fin, cloture, demarrage effectif ou prevu, sinon creation).
+     */
+    private static final SortableFields ADMIN_SORTS = SortableFields
+            .of("id", Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
+            .field("title", "title")
+            .field("category", SortableFields.Key.alwaysAscending("(case when c.id is null then 1 else 0 end)"),
+                    SortableFields.Key.of("c.name"))
+            .field("ticketPrice", "ticketPriceCredits")
+            .field("players", "(select count(distinct t.user.id) from Ticket t where t.quiz = z "
+                    + "and t.status <> " + TicketStatus.class.getName() + ".REFUNDED "
+                    + "and (z.test = true or t.test = false))")
+            .field("deadline", "(coalesce(z.finishedAt, z.endsAt, z.startedAt, z.scheduledStartAt, z.createdAt))")
+            .field("createdAt", "createdAt");
+
+    /** Liste du back-office : recherche et filtres cumulables, tri valide par {@link #ADMIN_SORTS}. */
+    @Transactional(readOnly = true)
+    public Page<QuizResponse> viewByStatus(QuizStatus status, GameMode mode, AdminQuizFilter filter,
+            Pageable pageable) {
+        return quizRepository.adminList(status, mode, SearchTerms.contains(filter.query()),
+                        filter.categoryId(), filter.free(), filter.test(), ADMIN_SORTS.apply(pageable))
+                .map(this::toResponse);
     }
 
     QuizResponse toResponse(Quiz quiz) {

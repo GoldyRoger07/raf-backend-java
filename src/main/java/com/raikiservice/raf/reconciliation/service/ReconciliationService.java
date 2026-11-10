@@ -1,9 +1,13 @@
 package com.raikiservice.raf.reconciliation.service;
 
+import java.time.ZoneId;
+import java.time.LocalDate;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.raikiservice.raf.common.web.SortableFields;
+import com.raikiservice.raf.common.web.SearchTerms;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.notification.service.NotificationMessages;
@@ -21,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -112,8 +117,35 @@ public class ReconciliationService {
 
     @Transactional(readOnly = true)
     public Page<ReconciliationRunResponse> history(Pageable pageable) {
+        return history(null, null, null, null, null, pageable);
+    }
+
+    private static final ZoneId HAITI = ZoneId.of("America/Port-au-Prince");
+
+    /** Tris de l'historique ; par defaut le plus recent d'abord. */
+    private static final SortableFields SORTS = SortableFields
+            .of("id", Sort.by(Sort.Order.desc("startedAt"), Sort.Order.desc("id")))
+            .field("startedAt", "startedAt")
+            .field("status", "status")
+            .field("findingCount", "findingCount")
+            .field("walletsChecked", "walletsChecked")
+            .field("totalWinningsBalance", "totalWinningsBalance")
+            .field("totalCreditBalance", "totalCreditBalance");
+
+    /**
+     * Historique filtre : resultat, declenchement, periode (jours d'Haiti, bornes incluses)
+     * et recherche (numero d'execution ou message d'erreur), tous facultatifs.
+     */
+    @Transactional(readOnly = true)
+    public Page<ReconciliationRunResponse> history(String query, ReconciliationStatus status,
+            ReconciliationTrigger trigger, LocalDate from, LocalDate to, Pageable pageable) {
         long rate = walletService.htgRate();
-        return runRepository.findAllByOrderByStartedAtDesc(pageable)
+        String text = query == null ? "" : query.trim();
+        Long id = text.matches("#?\\d{1,18}") ? Long.valueOf(text.replace("#", "")) : null;
+        return runRepository.search(status, trigger,
+                        from == null ? null : from.atStartOfDay(HAITI).toInstant(),
+                        to == null ? null : to.plusDays(1).atStartOfDay(HAITI).toInstant(),
+                        SearchTerms.contains(text), id, SORTS.apply(pageable))
                 .map(run -> ReconciliationRunResponse.from(run, null, rate));
     }
 

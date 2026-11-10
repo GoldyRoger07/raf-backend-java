@@ -54,6 +54,25 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
 
     Page<GameSession> findByQuizIdOrderByStartedAtDesc(Long quizId, Pageable pageable);
 
+    /**
+     * Parties du back-office. {@code quizId} null : tous quiz confondus. {@code actionable} :
+     * seulement les signalements encore traitables (voir {@link #findActionableFlagged}).
+     * {@code term} et {@code phone} arrivent deja entoures de {@code %} ; {@code id} est le
+     * numero de partie quand la recherche en est un. Ordre : celui du Pageable (alias u, z).
+     */
+    @Query("select s from GameSession s join s.user u join s.quiz z where (:quizId is null or z.id = :quizId) "
+            + "and (:flaggedOnly = false or s.flagged = true) "
+            + "and (:actionable = false or (s.status = com.raikiservice.raf.game.domain.GameSessionStatus.SUBMITTED "
+            + "  and z.status not in (com.raikiservice.raf.quiz.domain.QuizStatus.FINISHED, "
+            + "  com.raikiservice.raf.quiz.domain.QuizStatus.CANCELLED))) "
+            + "and (:status is null or s.status = :status) "
+            + "and (:term is null or lower(concat(coalesce(u.firstName, ''), ' ', coalesce(u.lastName, ''))) like :term "
+            + "  or lower(u.email) like :term or s.ip like :term or lower(z.title) like :term "
+            + "  or (:phone is not null and u.phone like :phone) or s.id = :id)")
+    Page<GameSession> adminList(@Param("quizId") Long quizId, @Param("flaggedOnly") boolean flaggedOnly,
+            @Param("actionable") boolean actionable, @Param("status") GameSessionStatus status,
+            @Param("term") String term, @Param("phone") String phone, @Param("id") Long id, Pageable pageable);
+
     Page<GameSession> findByQuizIdAndFlaggedTrueOrderByStartedAtDesc(Long quizId, Pageable pageable);
 
     /**

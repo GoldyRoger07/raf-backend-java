@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import com.raikiservice.raf.common.web.SqlSorts;
+import com.raikiservice.raf.common.web.SearchTerms;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
@@ -131,17 +133,42 @@ public class LeaderTransferService {
     /** Back-office : recharges d'un leader, avec son solde apres chacune. */
     @Transactional(readOnly = true)
     public Page<TransferResponse> adminHistory(Long leaderId, Pageable pageable) {
-        Long total = jdbc.queryForObject("SELECT COUNT(*) FROM leader_credit_transfers WHERE leader_id = ?",
-                Long.class, leaderId);
-        List<TransferResponse> content = jdbc.query("""
-                SELECT t.id, t.player_id, u.first_name, u.last_name, t.credits, t.created_at, d.balance_after
-                FROM leader_credit_transfers t
-                JOIN users u ON u.id = t.player_id
-                JOIN wallet_transactions d ON d.id = t.debit_transaction_id
-                WHERE t.leader_id = ? ORDER BY t.id DESC LIMIT ? OFFSET ?
-                """, (rs, row) -> new TransferResponse(rs.getLong(1), rs.getLong(2), rs.getString(3),
-                rs.getString(4), rs.getLong(5), rs.getTimestamp(6).toInstant(), rs.getLong(7)),
-                leaderId, pageable.getPageSize(), pageable.getOffset());
+        return adminHistory(leaderId, null, pageable);
+    }
+
+    /** Tris de l'historique des recharges d'un leader ; par defaut la plus recente d'abord. */
+    private static final SqlSorts TRANSFER_SORTS = SqlSorts
+            .of("t.id", "t.id DESC")
+            .field("createdAt", "t.created_at %s")
+            .field("player", "LOWER(u.first_name) %s", "LOWER(u.last_name) %s")
+            .field("credits", "t.credits %s");
+
+    /** Recharges d'un leader, recherche facultative sur le joueur recharge (nom, telephone). */
+    @Transactional(readOnly = true)
+    public Page<TransferResponse> adminHistory(Long leaderId, String query, Pageable pageable) {
+        StringBuilder where = new StringBuilder(" WHERE t.leader_id = ?");
+        List<Object> args = new ArrayList<>(List.of(leaderId));
+        if (query != null && !query.isBlank()) {
+            String digits = query.replaceAll("[^0-9]", "");
+            where.append(" AND (LOWER(CONCAT(u.first_name, ' ', u.last_name)) LIKE ?")
+                    .append(digits.length() >= 4 ? " OR u.phone LIKE ?" : "").append(")");
+            args.add(SearchTerms.contains(query));
+            if (digits.length() >= 4) {
+                args.add("%" + digits + "%");
+            }
+        }
+        String joins = " FROM leader_credit_transfers t JOIN users u ON u.id = t.player_id";
+        Long total = jdbc.queryForObject("SELECT COUNT(*)" + joins + where, Long.class, args.toArray());
+        List<Object> pageArgs = new ArrayList<>(args);
+        pageArgs.add(pageable.getPageSize());
+        pageArgs.add(pageable.getOffset());
+        List<TransferResponse> content = jdbc.query(
+                "SELECT t.id, t.player_id, u.first_name, u.last_name, t.credits, t.created_at, d.balance_after"
+                        + joins + " JOIN wallet_transactions d ON d.id = t.debit_transaction_id" + where
+                        + TRANSFER_SORTS.orderBy(pageable.getSort()) + " LIMIT ? OFFSET ?",
+                (rs, row) -> new TransferResponse(rs.getLong(1), rs.getLong(2), rs.getString(3),
+                        rs.getString(4), rs.getLong(5), rs.getTimestamp(6).toInstant(), rs.getLong(7)),
+                pageArgs.toArray());
         return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
 

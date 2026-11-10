@@ -1,5 +1,7 @@
 package com.raikiservice.raf.admin.web;
 
+import java.time.LocalDate;
+
 import com.raikiservice.raf.admin.service.AuditQueryService;
 import com.raikiservice.raf.admin.web.dto.AuditEntryResponse;
 
@@ -9,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,13 +30,18 @@ public class AdminAuditController {
     private final AuditQueryService auditQueryService;
 
     @GetMapping
-    @Operation(summary = "Consulter le journal (filtres facultatifs), du plus recent au plus ancien")
+    @Operation(summary = "Consulter le journal (filtres facultatifs), du plus recent au plus ancien",
+            description = "q : recherche libre. Dates : jours d'Haiti, bornes incluses. "
+                    + "Tris : createdAt, action, entityType.")
     public Page<AuditEntryResponse> search(@RequestParam(required = false) String action,
             @RequestParam(required = false) String entityType,
             @RequestParam(required = false) String entityId,
             @RequestParam(required = false) Long actorId,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @PageableDefault(size = 50) Pageable pageable) {
-        return auditQueryService.search(action, entityType, entityId, actorId, pageable);
+        return auditQueryService.search(action, entityType, entityId, actorId, q, from, to, pageable);
     }
 
     @GetMapping("/filters")

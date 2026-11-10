@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import com.raikiservice.raf.wallet.domain.PaymentProvider;
 import com.raikiservice.raf.wallet.domain.WithdrawalRequest;
 import com.raikiservice.raf.wallet.domain.WithdrawalStatus;
 
@@ -21,6 +22,30 @@ public interface WithdrawalRequestRepository extends JpaRepository<WithdrawalReq
     Page<WithdrawalRequest> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
     Page<WithdrawalRequest> findByStatusOrderByCreatedAtAsc(WithdrawalStatus status, Pageable pageable);
+
+    /**
+     * Liste du back-office : statut obligatoire, le reste facultatif et cumulable.
+     * {@code term} et {@code phone} arrivent deja entoures de {@code %} ; {@code id} est
+     * le numero de demande quand la recherche en est un. L'alias {@code u} (joueur) sert
+     * aussi au tri.
+     */
+    @Query("select w from WithdrawalRequest w join w.user u where (:status is null or w.status = :status) "
+            + "and (:userId is null or u.id = :userId) "
+            + "and (:term is null or lower(concat(coalesce(u.firstName, ''), ' ', coalesce(u.lastName, ''))) like :term "
+            + "  or lower(u.email) like :term or w.destinationNumber like :term "
+            + "  or (:phone is not null and (u.phone like :phone or w.destinationNumber like :phone)) "
+            + "  or w.id = :id) "
+            + "and (:provider is null or w.provider = :provider) "
+            + "and (:counter is null or (:counter = true and w.initiatedByAdminId is not null) "
+            + "  or (:counter = false and w.initiatedByAdminId is null)) "
+            + "and (:from is null or w.createdAt >= :from) "
+            + "and (:to is null or w.createdAt < :to)")
+    Page<WithdrawalRequest> adminList(@Param("status") WithdrawalStatus status, @Param("userId") Long userId,
+            @Param("term") String term,
+            @Param("phone") String phone, @Param("id") Long id,
+            @Param("provider") PaymentProvider provider,
+            @Param("counter") Boolean counter, @Param("from") Instant from, @Param("to") Instant to,
+            Pageable pageable);
 
     List<WithdrawalRequest> findByUserIdAndStatus(Long userId, WithdrawalStatus status);
 

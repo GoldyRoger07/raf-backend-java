@@ -16,8 +16,11 @@ import com.raikiservice.raf.auth.repository.UserRepository;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
+import com.raikiservice.raf.common.web.SearchTerms;
+import com.raikiservice.raf.common.web.SortableFields;
 import com.raikiservice.raf.notification.domain.Announcement;
 import com.raikiservice.raf.notification.domain.AnnouncementAudience;
+import com.raikiservice.raf.notification.domain.AnnouncementStatus;
 import com.raikiservice.raf.notification.domain.NotificationChannel;
 import com.raikiservice.raf.notification.repository.AnnouncementRecipientRepository;
 import com.raikiservice.raf.notification.repository.AnnouncementRecipientRepository.AudienceCounts;
@@ -38,6 +41,7 @@ import com.raikiservice.raf.notification.web.dto.AudienceResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -146,7 +150,23 @@ public class AnnouncementService {
 
     @Transactional(readOnly = true)
     public Page<AnnouncementResponse> list(Pageable pageable) {
-        Page<Announcement> page = announcementRepository.findAllByOrderByCreatedAtDescIdDesc(pageable);
+        return list(null, null, null, null, pageable);
+    }
+
+    /** Tris de l'historique ; par defaut le plus recent d'abord. */
+    private static final SortableFields SORTS = SortableFields
+            .of("id", Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
+            .field("scheduledAt", "scheduledAt")
+            .field("title", "title")
+            .field("audience", "audience")
+            .field("status", "status");
+
+    /** Historique filtre et trie (criteres facultatifs). */
+    @Transactional(readOnly = true)
+    public Page<AnnouncementResponse> list(String query, AnnouncementStatus status, AnnouncementAudience audience,
+            Boolean important, Pageable pageable) {
+        Page<Announcement> page = announcementRepository.adminList(SearchTerms.contains(query), status, audience,
+                important, SORTS.apply(pageable));
         List<Long> ids = page.getContent().stream().map(Announcement::getId).toList();
         Map<Long, Stats> stats = stats(ids);
 

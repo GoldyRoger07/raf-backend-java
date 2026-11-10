@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,9 +35,14 @@ public class AdminNewsController {
     private final NewsService newsService;
 
     @GetMapping
-    @Operation(summary = "Toutes les actualites, brouillons compris")
-    public Page<NewsResponse> list(@PageableDefault(size = 20) Pageable pageable) {
-        return newsService.list(pageable);
+    @Operation(summary = "Toutes les actualites, brouillons compris",
+            description = "q : titre ou texte. Filtres : published, pinned. Tris : title, published, "
+                    + "publishedAt, updatedAt.")
+    public Page<NewsResponse> list(@RequestParam(required = false) String q,
+            @RequestParam(required = false) Boolean published,
+            @RequestParam(required = false) Boolean pinned,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return newsService.list(q, published, pinned, pageable);
     }
 
     @GetMapping("/{id}")

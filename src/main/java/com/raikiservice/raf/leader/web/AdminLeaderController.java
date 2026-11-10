@@ -1,5 +1,8 @@
 package com.raikiservice.raf.leader.web;
 
+import java.time.LocalDate;
+
+import com.raikiservice.raf.auth.domain.UserStatus;
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.leader.service.LeaderService;
 import com.raikiservice.raf.leader.service.LeaderTransferService;
@@ -19,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -50,8 +54,9 @@ public class AdminLeaderController {
     @GetMapping
     @Operation(summary = "Lister les leaders (recherche facultative), avec leur commission et leurs gains")
     public Page<LeaderSummary> list(@RequestParam(required = false) String query,
+            @RequestParam(required = false) UserStatus status,
             @PageableDefault(size = 20) Pageable pageable) {
-        return leaderService.list(query, pageable);
+        return leaderService.list(query, status == null ? null : status.name(), pageable);
     }
 
     @PostMapping
@@ -90,9 +95,11 @@ public class AdminLeaderController {
     }
 
     @GetMapping("/{id}/players")
-    @Operation(summary = "Joueurs rattaches au leader")
-    public Page<LeaderPlayer> players(@PathVariable Long id, @PageableDefault(size = 20) Pageable pageable) {
-        return leaderService.players(id, pageable);
+    @Operation(summary = "Joueurs rattaches au leader",
+            description = "Recherche (q) et viaInvite facultatifs. Tris : name, addedAt, lastPlayed, commissions.")
+    public Page<LeaderPlayer> players(@PathVariable Long id, @RequestParam(required = false) String q,
+            @RequestParam(required = false) Boolean viaInvite, @PageableDefault(size = 20) Pageable pageable) {
+        return leaderService.players(id, q, viaInvite, pageable);
     }
 
     @PostMapping("/{id}/players")
@@ -114,15 +121,23 @@ public class AdminLeaderController {
     @GetMapping("/{id}/commissions")
     @Operation(summary = "Commissions versees au leader, detaillees par joueur")
     public Page<LeaderCommission> commissions(@PathVariable Long id,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) CommissionSource source,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @PageableDefault(size = 20) Pageable pageable) {
-        return leaderService.commissions(id, pageable);
+        return leaderService.commissions(id, q, source == null ? null : source.name(), from, to, pageable);
     }
+
+    /** Origine d'une commission : quiz en groupe ou partie solo. */
+    public enum CommissionSource { QUIZ, SOLO }
 
     @GetMapping("/{id}/transfers")
     @Operation(summary = "Recharges effectuees par le leader au profit de ses joueurs")
     public Page<TransferResponse> transfers(@PathVariable Long id,
+            @RequestParam(required = false) String q,
             @PageableDefault(size = 20) Pageable pageable) {
         leaderService.get(id);
-        return transferService.adminHistory(id, pageable);
+        return transferService.adminHistory(id, q, pageable);
     }
 }

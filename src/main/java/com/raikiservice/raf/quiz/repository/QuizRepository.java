@@ -26,6 +26,22 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
 
     Page<Quiz> findByStatusOrderByCreatedAtDesc(QuizStatus status, Pageable pageable);
 
+    /**
+     * Liste du back-office : statut obligatoire, le reste facultatif et cumulable.
+     * {@code term} arrive deja en minuscules et entoure de {@code %}. L'alias {@code c}
+     * (sujet arrete) sert aussi au tri par sujet.
+     */
+    @Query("select z from Quiz z left join z.selectedCategory c where z.status = :status "
+            + "and (:mode is null or z.gameMode = :mode) "
+            + "and (:term is null or lower(z.title) like :term or lower(z.themeLabel) like :term) "
+            + "and (:categoryId is null or c.id = :categoryId) "
+            + "and (:free is null or (:free = true and z.ticketPriceCredits = 0) "
+            + "  or (:free = false and z.ticketPriceCredits > 0)) "
+            + "and (:test is null or z.test = :test)")
+    Page<Quiz> adminList(@Param("status") QuizStatus status, @Param("mode") GameMode mode,
+            @Param("term") String term, @Param("categoryId") Long categoryId,
+            @Param("free") Boolean free, @Param("test") Boolean test, Pageable pageable);
+
     Page<Quiz> findByStatusInOrderByCreatedAtDesc(List<QuizStatus> statuses, Pageable pageable);
 
     Page<Quiz> findByGameModeAndStatusOrderByCreatedAtDesc(GameMode mode, QuizStatus status,

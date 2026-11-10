@@ -4,10 +4,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
+import com.raikiservice.raf.common.web.SearchTerms;
+import com.raikiservice.raf.common.web.SqlSorts;
 import com.raikiservice.raf.media.service.MediaUrls;
 import com.raikiservice.raf.news.web.dto.NewsDtos.NewsItem;
 import com.raikiservice.raf.news.web.dto.NewsDtos.NewsRequest;
@@ -64,11 +67,45 @@ public class NewsService {
 
     @Transactional(readOnly = true)
     public Page<NewsResponse> list(Pageable pageable) {
-        Long total = jdbc.queryForObject("SELECT COUNT(*) FROM news_posts", Long.class);
-        List<NewsResponse> content = jdbc.query(SELECT + """
-                ORDER BY n.pinned DESC, COALESCE(n.published_at, n.created_at) DESC, n.id DESC
-                LIMIT ? OFFSET ?
-                """, (rs, row) -> map(rs), pageable.getPageSize(), pageable.getOffset());
+        return list(null, null, null, pageable);
+    }
+
+    /** Tris du back-office ; par defaut les epinglees puis les plus recentes. */
+    private static final SqlSorts SORTS = SqlSorts
+            .of("n.id", "n.pinned DESC, COALESCE(n.published_at, n.created_at) DESC, n.id DESC")
+            .field("title", "LOWER(n.title) %s")
+            .field("published", "n.published %s", "n.pinned %s")
+            .field("publishedAt", "(n.published_at IS NULL)", "n.published_at %s")
+            .field("updatedAt", "n.updated_at %s");
+
+    /**
+     * Actualites du back-office, criteres facultatifs : recherche (titre, texte), publiee
+     * ou brouillon, epinglee ou non.
+     */
+    @Transactional(readOnly = true)
+    public Page<NewsResponse> list(String query, Boolean published, Boolean pinned, Pageable pageable) {
+        StringBuilder where = new StringBuilder(" WHERE 1 = 1");
+        List<Object> args = new ArrayList<>();
+        String term = SearchTerms.contains(query);
+        if (term != null) {
+            where.append(" AND (LOWER(n.title) LIKE ? OR LOWER(n.body) LIKE ?)");
+            args.add(term);
+            args.add(term);
+        }
+        if (published != null) {
+            where.append(" AND n.published = ?");
+            args.add(published);
+        }
+        if (pinned != null) {
+            where.append(" AND n.pinned = ?");
+            args.add(pinned);
+        }
+        Long total = jdbc.queryForObject("SELECT COUNT(*) FROM news_posts n" + where, Long.class, args.toArray());
+        List<Object> pageArgs = new ArrayList<>(args);
+        pageArgs.add(pageable.getPageSize());
+        pageArgs.add(pageable.getOffset());
+        List<NewsResponse> content = jdbc.query(SELECT + where + SORTS.orderBy(pageable.getSort()) + " LIMIT ? OFFSET ?",
+                (rs, row) -> map(rs), pageArgs.toArray());
         return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
 

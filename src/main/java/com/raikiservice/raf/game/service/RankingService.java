@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import com.raikiservice.raf.common.web.SortableFields;
+import com.raikiservice.raf.common.web.SearchTerms;
 import com.raikiservice.raf.auth.domain.User;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
@@ -33,6 +35,7 @@ import com.raikiservice.raf.wallet.service.WalletService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -227,6 +230,36 @@ public class RankingService {
                 page.getSize(),
                 entries,
                 mine.map(ranking -> toEntry(ranking, viewerId)).orElse(null));
+    }
+
+    /** Tris du classement dans le back-office ; par defaut le rang. */
+    private static final SortableFields BOARD_SORTS = SortableFields
+            .of("id", Sort.by(Sort.Order.asc("rank"), Sort.Order.asc("id")))
+            .field("rank", "rank")
+            .field("player", SortableFields.Key.of("u.firstName"), SortableFields.Key.of("u.lastName"))
+            .field("score", "score")
+            .field("reward", "rewardHtg");
+
+    /**
+     * Classement d'un quiz termine pour le back-office : recherche d'un joueur (nom, email,
+     * telephone), filtre avec ou sans gain, et tri, tous facultatifs.
+     */
+    @Transactional(readOnly = true)
+    public LeaderboardResponse adminLeaderboard(Long quizId, String query, Boolean rewarded, Pageable pageable) {
+        Quiz quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> ApiException.notFound("Quiz"));
+        if (quiz.getStatus() != QuizStatus.FINISHED) {
+            throw new ApiException(ErrorCode.GAME_RESULTS_NOT_READY);
+        }
+        String text = query == null ? "" : query.trim();
+        String digits = text.replaceAll("[^0-9]", "");
+        Page<QuizRanking> page = quizRankingRepository.adminSearch(quizId, rewarded, SearchTerms.contains(text),
+                digits.length() >= 4 ? "%" + digits + "%" : null, BOARD_SORTS.apply(pageable));
+        List<LeaderboardResponse.Entry> entries = page.getContent().stream()
+                .map(ranking -> toEntry(ranking, null))
+                .toList();
+        return new LeaderboardResponse(quiz.getId(), quiz.getTitle(), quiz.getFinishedAt(), page.getTotalElements(),
+                page.getNumber(), page.getSize(), entries, null);
     }
 
     private LeaderboardResponse.Entry toEntry(QuizRanking ranking, Long viewerId) {

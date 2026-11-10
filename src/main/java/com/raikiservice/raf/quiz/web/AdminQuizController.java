@@ -6,6 +6,7 @@ import java.util.List;
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.quiz.domain.GameMode;
 import com.raikiservice.raf.quiz.domain.QuizStatus;
+import com.raikiservice.raf.quiz.service.AdminQuizFilter;
 import com.raikiservice.raf.quiz.service.QuizService;
 import com.raikiservice.raf.quiz.service.RewardService;
 import com.raikiservice.raf.quiz.service.SoloEconomicsService;
@@ -140,11 +141,17 @@ public class AdminQuizController {
     }
 
     @GetMapping
-    @Operation(summary = "Lister les quiz par statut, et eventuellement par mode de jeu")
+    @Operation(summary = "Lister les quiz par statut, et eventuellement par mode de jeu",
+            description = "Recherche dans le titre et le theme, filtres cumulables. Tris : title, "
+                    + "category, ticketPrice, players, deadline, createdAt (par defaut les plus recents).")
     public Page<QuizResponse> list(@RequestParam(defaultValue = "DRAFT") QuizStatus status,
             @RequestParam(required = false) GameMode mode,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Boolean free,
+            @RequestParam(required = false) Boolean test,
             @PageableDefault(size = 20) Pageable pageable) {
-        return quizService.viewByStatus(status, mode, pageable);
+        return quizService.viewByStatus(status, mode, new AdminQuizFilter(q, categoryId, free, test), pageable);
     }
 
     @GetMapping("/{id}")

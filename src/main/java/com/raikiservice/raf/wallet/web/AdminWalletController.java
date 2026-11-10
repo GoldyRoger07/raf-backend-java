@@ -1,10 +1,16 @@
 package com.raikiservice.raf.wallet.web;
 
+import java.time.LocalDate;
+
+import com.raikiservice.raf.wallet.domain.WalletTransactionType;
+import com.raikiservice.raf.wallet.domain.BalanceType;
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.auth.web.dto.MessageResponse;
+import com.raikiservice.raf.wallet.domain.PaymentProvider;
 import com.raikiservice.raf.wallet.domain.TopUpStatus;
 import com.raikiservice.raf.wallet.domain.WithdrawalStatus;
 import com.raikiservice.raf.wallet.service.AdjustmentService;
+import com.raikiservice.raf.wallet.service.AdminWithdrawalFilter;
 import com.raikiservice.raf.wallet.service.AutoPayoutService;
 import com.raikiservice.raf.wallet.service.CounterWithdrawalService;
 import com.raikiservice.raf.wallet.service.TopUpRetentionService;
@@ -30,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -85,12 +92,21 @@ public class AdminWalletController {
     }
 
     @GetMapping("/withdrawals")
-    @Operation(summary = "Demandes de retrait par statut, ou toutes celles d'un joueur (userId)")
+    @Operation(summary = "Demandes de retrait par statut, ou toutes celles d'un joueur (userId)",
+            description = "Recherche : nom, email, telephone, numero de destination ou numero de demande. "
+                    + "Dates : jours d'Haiti, bornes incluses. Tris : createdAt (par defaut, plus anciennes "
+                    + "d'abord), player, netHtg, provider.")
     public Page<AdminWithdrawalResponse> withdrawals(
-            @RequestParam(defaultValue = "PENDING") WithdrawalStatus status,
+            @RequestParam(required = false) WithdrawalStatus status,
             @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) PaymentProvider provider,
+            @RequestParam(required = false) Boolean counter,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @PageableDefault(size = 20) Pageable pageable) {
-        return withdrawalService.adminView(status, userId, pageable);
+        return withdrawalService.adminView(status, userId,
+                new AdminWithdrawalFilter(q, provider, counter, from, to), pageable);
     }
 
     @PostMapping("/withdrawals/{id}/approve")
@@ -203,8 +219,14 @@ public class AdminWalletController {
     @GetMapping("/users/{userId}/transactions")
     @Operation(summary = "Consulter l'historique d'un joueur")
     public Page<TransactionResponse> userTransactions(@PathVariable Long userId,
+            @RequestParam(required = false) WalletTransactionType type,
+            @RequestParam(required = false) BalanceType balanceType,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) String q,
             @PageableDefault(size = 20) Pageable pageable) {
         walletService.getOrCreate(userId);
-        return walletService.history(userId, pageable).map(TransactionResponse::from);
+        return walletService.adminHistory(userId, type, balanceType, from, to, q, pageable)
+                .map(TransactionResponse::from);
     }
 }

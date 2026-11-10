@@ -1,5 +1,7 @@
 package com.raikiservice.raf.admin.service;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -12,10 +14,13 @@ import com.raikiservice.raf.auth.domain.User;
 import com.raikiservice.raf.auth.repository.UserRepository;
 import com.raikiservice.raf.common.audit.AuditLog;
 import com.raikiservice.raf.common.audit.AuditLogRepository;
+import com.raikiservice.raf.common.web.SearchTerms;
+import com.raikiservice.raf.common.web.SortableFields;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,11 +35,34 @@ public class AuditQueryService {
     public record Filters(List<String> actions, List<String> entityTypes) {
     }
 
+    private static final ZoneId HAITI = ZoneId.of("America/Port-au-Prince");
+
+    /** Tris du journal ; par defaut le plus recent d'abord. */
+    private static final SortableFields SORTS = SortableFields
+            .of("id", Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
+            .field("createdAt", "createdAt")
+            .field("action", "action")
+            .field("entityType", SortableFields.Key.of("entityType"), SortableFields.Key.of("entityId"));
+
     @Transactional(readOnly = true)
     public Page<AuditEntryResponse> search(String action, String entityType, String entityId,
             Long actorId, Pageable pageable) {
+        return search(action, entityType, entityId, actorId, null, null, null, pageable);
+    }
+
+    /**
+     * @param query recherche libre (action, objet, IP, contenu du changement, auteur)
+     * @param from entrees de ce jour-la ou apres (jour d'Haiti)
+     * @param to entrees de ce jour-la ou avant (jour d'Haiti)
+     */
+    @Transactional(readOnly = true)
+    public Page<AuditEntryResponse> search(String action, String entityType, String entityId,
+            Long actorId, String query, LocalDate from, LocalDate to, Pageable pageable) {
         Page<AuditLog> page = auditLogRepository.search(blankToNull(action), blankToNull(entityType),
-                blankToNull(entityId), actorId, pageable);
+                blankToNull(entityId), actorId, SearchTerms.contains(query),
+                from == null ? null : from.atStartOfDay(HAITI).toInstant(),
+                to == null ? null : to.plusDays(1).atStartOfDay(HAITI).toInstant(),
+                SORTS.apply(pageable));
 
         // Noms des auteurs en une requete pour toute la page, pas une par ligne.
         Set<Long> actorIds = page.getContent().stream()

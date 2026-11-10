@@ -9,6 +9,7 @@ import com.raikiservice.raf.question.domain.Difficulty;
 import com.raikiservice.raf.question.domain.Question;
 import com.raikiservice.raf.question.domain.QuestionSource;
 import com.raikiservice.raf.question.domain.QuestionStatus;
+import com.raikiservice.raf.question.domain.QuestionType;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -52,12 +53,26 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     Page<Question> findByCategoryIdAndStatus(Long categoryId, QuestionStatus status,
             Pageable pageable);
 
-    /** Liste du back-office : statut obligatoire, categorie et origine facultatives. */
-    @Query("select q from Question q where q.status = :status "
+    /**
+     * Liste du back-office : chaque critere est facultatif et se cumule aux autres.
+     * {@code term} arrive deja en minuscules et entoure de {@code %} ; {@code usage} vaut
+     * NEVER_SERVED, SERVED ou SUSPICIOUS (voir QuestionFilter.Usage).
+     */
+    @Query("select q from Question q where (:status is null or q.status = :status) "
             + "and (:categoryId is null or q.category.id = :categoryId) "
-            + "and (:source is null or q.source = :source)")
+            + "and (:source is null or q.source = :source) "
+            + "and (:difficulty is null or q.difficulty = :difficulty) "
+            + "and (:type is null or q.type = :type) "
+            + "and (:term is null or lower(q.text) like :term) "
+            + "and (:usage is null "
+            + "  or (:usage = 'NEVER_SERVED' and q.timesServed = 0) "
+            + "  or (:usage = 'SERVED' and q.timesServed > 0) "
+            + "  or (:usage = 'SUSPICIOUS' and q.timesServed >= :minServed "
+            + "      and (cast(q.timesCorrect as double) / q.timesServed) >= :minRate))")
     Page<Question> filter(@Param("status") QuestionStatus status, @Param("categoryId") Long categoryId,
-            @Param("source") QuestionSource source, Pageable pageable);
+            @Param("source") QuestionSource source, @Param("difficulty") Difficulty difficulty,
+            @Param("type") QuestionType type, @Param("term") String term, @Param("usage") String usage,
+            @Param("minServed") int minServed, @Param("minRate") double minRate, Pageable pageable);
 
     /** Enonces les plus recents d'une categorie, tous statuts : a ne pas reproduire. */
     @Query("select q.text from Question q where q.category.id = :categoryId order by q.id desc")

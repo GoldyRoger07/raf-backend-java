@@ -2,6 +2,8 @@ package com.raikiservice.raf.wallet.service;
 
 import java.util.Optional;
 
+import com.raikiservice.raf.common.web.SortableFields;
+import com.raikiservice.raf.common.web.SearchTerms;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.common.settings.SettingKeys;
@@ -15,6 +17,7 @@ import com.raikiservice.raf.wallet.repository.WalletTransactionRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -59,6 +62,30 @@ public class WalletService {
     public Page<WalletTransaction> history(Long userId, Pageable pageable) {
         Wallet wallet = requireWallet(userId);
         return walletTransactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getId(), pageable);
+    }
+
+    private static final java.time.ZoneId HAITI = java.time.ZoneId.of("America/Port-au-Prince");
+
+    /** Tris de l'historique du back-office ; par defaut le plus recent d'abord. */
+    private static final SortableFields HISTORY_SORTS = SortableFields
+            .of("id", Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
+            .field("createdAt", "createdAt")
+            .field("type", "type")
+            .field("balanceType", "balanceType")
+            .field("amount", "amount");
+
+    /**
+     * Historique d'un joueur pour le back-office : type de mouvement, solde, periode (jours
+     * d'Haiti, bornes incluses) et recherche dans le libelle ou la reference, tous facultatifs.
+     */
+    @Transactional(readOnly = true)
+    public Page<WalletTransaction> adminHistory(Long userId, WalletTransactionType type, BalanceType balanceType,
+            java.time.LocalDate from, java.time.LocalDate to, String query, Pageable pageable) {
+        Wallet wallet = requireWallet(userId);
+        return walletTransactionRepository.adminHistory(wallet.getId(), type, balanceType,
+                from == null ? null : from.atStartOfDay(HAITI).toInstant(),
+                to == null ? null : to.plusDays(1).atStartOfDay(HAITI).toInstant(),
+                SearchTerms.contains(query), HISTORY_SORTS.apply(pageable));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

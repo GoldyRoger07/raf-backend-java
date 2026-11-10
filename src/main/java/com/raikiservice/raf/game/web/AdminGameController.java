@@ -1,6 +1,8 @@
 package com.raikiservice.raf.game.web;
 
+import com.raikiservice.raf.game.web.dto.LeaderboardResponse;
 import com.raikiservice.raf.auth.security.UserPrincipal;
+import com.raikiservice.raf.game.domain.GameSessionStatus;
 import com.raikiservice.raf.game.service.AdminGameService;
 import com.raikiservice.raf.game.service.GameService;
 import com.raikiservice.raf.game.service.RankingService;
@@ -42,14 +44,28 @@ public class AdminGameController {
     @Operation(summary = "Parties d'un quiz (flagged=true : seulement les signalees)")
     public Page<AdminGameSessionResponse> sessions(@PathVariable Long quizId,
             @RequestParam(defaultValue = "false") boolean flagged,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) GameSessionStatus status,
             @PageableDefault(size = 50) Pageable pageable) {
-        return adminGameService.sessions(quizId, flagged, pageable);
+        return adminGameService.sessions(quizId, flagged, q, status, pageable);
     }
 
     @GetMapping("/game/sessions/flagged")
     @Operation(summary = "Parties signalees a revoir, tous quiz confondus (avant versement des gains)")
-    public Page<AdminGameSessionResponse> flagged(@PageableDefault(size = 50) Pageable pageable) {
-        return adminGameService.actionableFlagged(pageable);
+    public Page<AdminGameSessionResponse> flagged(@RequestParam(required = false) String q,
+            @PageableDefault(size = 50) Pageable pageable) {
+        return adminGameService.actionableFlagged(q, pageable);
+    }
+
+    @GetMapping("/quizzes/{quizId}/leaderboard")
+    @Operation(summary = "Classement final d'un quiz, avec recherche, filtre et tri",
+            description = "q : nom, email ou telephone. rewarded : avec (true) ou sans (false) gain. "
+                    + "Tris : rank (par defaut), player, score, reward.")
+    public LeaderboardResponse leaderboard(@PathVariable Long quizId,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) Boolean rewarded,
+            @PageableDefault(size = 50) Pageable pageable) {
+        return rankingService.adminLeaderboard(quizId, q, rewarded, pageable);
     }
 
     @GetMapping("/game/sessions/{sessionId}/review")

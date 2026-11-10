@@ -1,6 +1,7 @@
 package com.raikiservice.raf.wallet.service;
 
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 
 import com.raikiservice.raf.auth.domain.OtpPurpose;
@@ -12,6 +13,8 @@ import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.common.settings.SettingKeys;
 import com.raikiservice.raf.common.settings.SettingsService;
+import com.raikiservice.raf.common.web.SearchTerms;
+import com.raikiservice.raf.common.web.SortableFields;
 import com.raikiservice.raf.notification.service.NotificationMessages;
 import com.raikiservice.raf.notification.service.NotificationService;
 import com.raikiservice.raf.wallet.domain.BalanceType;
@@ -26,6 +29,7 @@ import com.raikiservice.raf.wallet.web.dto.AdminWithdrawalResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -304,10 +308,46 @@ public class WithdrawalService {
     @Transactional(readOnly = true)
     public Page<AdminWithdrawalResponse> adminView(WithdrawalStatus status, Long userId,
             Pageable pageable) {
-        Page<WithdrawalRequest> page = userId != null
-                ? withdrawalRequestRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
-                : withdrawalRequestRepository.findByStatusOrderByCreatedAtAsc(status, pageable);
-        return page.map(AdminWithdrawalResponse::from);
+        return adminView(status, userId, AdminWithdrawalFilter.NONE, pageable);
+    }
+
+    private static final ZoneId HAITI = ZoneId.of("America/Port-au-Prince");
+
+    /** Tris de la file des retraits ; par defaut la plus ancienne demande d'abord (premier arrive, premier servi). */
+    private static final SortableFields ADMIN_SORTS = SortableFields
+            .of("id", Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("id")))
+            .field("createdAt", "createdAt")
+            .field("player", SortableFields.Key.of("u.firstName"), SortableFields.Key.of("u.lastName"))
+            .field("netHtg", "netHtg")
+            .field("provider", "provider");
+
+    /** Tris de l'historique d'un joueur : memes colonnes, le plus recent d'abord par defaut. */
+    private static final SortableFields PLAYER_SORTS = SortableFields
+            .of("id", Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
+            .field("createdAt", "createdAt")
+            .field("netHtg", "netHtg")
+            .field("provider", "provider")
+            .field("status", "status");
+
+    /**
+     * File du back-office (un statut, PENDING par defaut) ; ou, avec {@code userId}, l'historique
+     * d'un joueur, tous statuts sauf si un statut est demande. Recherche, filtres et tri dans
+     * les deux cas.
+     */
+    @Transactional(readOnly = true)
+    public Page<AdminWithdrawalResponse> adminView(WithdrawalStatus status, Long userId,
+            AdminWithdrawalFilter filter, Pageable pageable) {
+        WithdrawalStatus effective = userId == null && status == null ? WithdrawalStatus.PENDING : status;
+        SortableFields sorts = userId == null ? ADMIN_SORTS : PLAYER_SORTS;
+        String query = filter.query() == null ? "" : filter.query().trim();
+        String digits = query.replaceAll("[^0-9]", "");
+        Long id = query.matches("#?\\d{1,18}") ? Long.valueOf(digits) : null;
+        String phone = digits.length() >= 4 ? "%" + digits + "%" : null;
+        Instant from = filter.from() == null ? null : filter.from().atStartOfDay(HAITI).toInstant();
+        Instant to = filter.to() == null ? null : filter.to().plusDays(1).atStartOfDay(HAITI).toInstant();
+        return withdrawalRequestRepository.adminList(effective, userId, SearchTerms.contains(query), phone, id,
+                        filter.provider(), filter.counter(), from, to, sorts.apply(pageable))
+                .map(AdminWithdrawalResponse::from);
     }
 
     @Transactional(readOnly = true)

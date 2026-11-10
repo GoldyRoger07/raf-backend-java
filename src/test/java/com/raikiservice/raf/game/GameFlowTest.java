@@ -454,6 +454,21 @@ class GameFlowTest extends IntegrationTest {
         assertThat(board.me().rank()).isEqualTo(2);
         assertThat(board.entries().get(0).displayName()).endsWith(" T.");
 
+        // Vue du back-office : recherche, filtre « avec gain » et tris.
+        assertThat(rankingService.adminLeaderboard(quizId, third.getEmail(), null, PageRequest.of(0, 10)).entries())
+                .extracting(LeaderboardResponse.Entry::rank).containsExactly(3);
+        assertThat(rankingService.adminLeaderboard(quizId, null, true, PageRequest.of(0, 10)).entries())
+                .extracting(LeaderboardResponse.Entry::rank).containsExactly(1, 2);
+        assertThat(rankingService.adminLeaderboard(quizId, null, false, PageRequest.of(0, 10)).totalRanked()).isEqualTo(1);
+        assertThat(rankingService.adminLeaderboard(quizId, null, null,
+                PageRequest.of(0, 10, org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Direction.DESC, "rank"))).entries())
+                .extracting(LeaderboardResponse.Entry::rank).containsExactly(3, 2, 1);
+        for (String field : List.of("player", "score", "reward")) {
+            assertThat(rankingService.adminLeaderboard(quizId, null, null,
+                    PageRequest.of(0, 10, org.springframework.data.domain.Sort.by(field))).entries()).as(field).hasSize(3);
+        }
+
         assertThat(data.balance(first.getId(), BalanceType.WINNINGS)).isEqualTo(TestData.FIRST_PRIZE);
         assertThat(data.balance(second.getId(), BalanceType.WINNINGS)).isEqualTo(TestData.SECOND_PRIZE);
         assertThat(walletTransactionRepository.findAll()).filteredOn(t ->
