@@ -27,6 +27,8 @@ public class FakeTranzakPayoutGateway implements TranzakPayoutGateway {
     private volatile TranzakException nextAuthorizeFailure;
     /** L'envoi suivant cree le versement puis ne repond pas (coupure), {@code times} fois. */
     private volatile int sendTimeouts;
+    /** Prefixe des identifiants de versement (Tranzak n'en documente pas le format). */
+    private volatile String payoutIdPrefix = "PAY_";
 
     @Override
     public boolean isConfigured() {
@@ -39,6 +41,10 @@ public class FakeTranzakPayoutGateway implements TranzakPayoutGateway {
 
     public void failNextAuthorize(TranzakException failure) {
         this.nextAuthorizeFailure = failure;
+    }
+
+    public void setPayoutIdPrefix(String prefix) {
+        this.payoutIdPrefix = prefix;
     }
 
     public void timeOutNextSends(int times) {
@@ -69,7 +75,7 @@ public class FakeTranzakPayoutGateway implements TranzakPayoutGateway {
         if (request == null) {
             throw new TranzakException("jeton inconnu", "invalid_authorization", 404, null);
         }
-        String payoutId = "PAY_" + authorizationToken;
+        String payoutId = payoutIdPrefix + authorizationToken;
         Payout payout = payouts.computeIfAbsent(payoutId, id -> {
             created.incrementAndGet();
             sentRequests.put(id, request);

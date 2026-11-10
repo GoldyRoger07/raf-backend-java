@@ -104,6 +104,26 @@ class AutoPayoutTest extends IntegrationTest {
         assertThat(payouts.createdCount()).isPositive();
     }
 
+    /** Format des identifiants Tranzak inconnu : un identifiant long est garde jusqu'au paiement. */
+    @Test
+    void aLongPayoutIdIsStoredUntilPaid() throws Exception {
+        payouts.setPayoutIdPrefix("po_" + "x".repeat(150) + "_");
+        try {
+            WithdrawalRequest request = requestWithdrawal(data.player(), 1000, PaymentProvider.MONCASH);
+
+            WithdrawalRequest sending = autoPayoutService.approve(data.admin().getId(), request.getId());
+            assertThat(sending.getStatus()).isEqualTo(WithdrawalStatus.SENDING);
+            assertThat(sending.getPayoutId()).hasSizeGreaterThan(150);
+
+            sendWebhook(webhook("payout.completed", sending, "completed", null)).andExpect(status().isOk());
+            WithdrawalRequest paid = reload(request);
+            assertThat(paid.getStatus()).isEqualTo(WithdrawalStatus.PAID);
+            assertThat(paid.getPayoutReference()).isEqualTo(sending.getPayoutId());
+        } finally {
+            payouts.setPayoutIdPrefix("PAY_");
+        }
+    }
+
     @Test
     void aFailedPayoutGoesBackToTheAdminWhoCanRetryOrReject() throws Exception {
         User player = data.player();

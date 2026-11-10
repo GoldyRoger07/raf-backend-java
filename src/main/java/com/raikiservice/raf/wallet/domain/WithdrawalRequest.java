@@ -78,7 +78,7 @@ public class WithdrawalRequest extends AuditableEntity {
     @Column(name = "rejection_reason", length = 255)
     private String rejectionReason;
 
-    @Column(name = "payout_reference", length = 120)
+    @Column(name = "payout_reference", length = 191)
     private String payoutReference;
 
     @Column(name = "paid_at")
@@ -100,7 +100,7 @@ public class WithdrawalRequest extends AuditableEntity {
     private int payoutAttempts;
 
     /** Identifiant du versement chez Tranzak (PAY_...), pour l'essai en cours. */
-    @Column(name = "payout_id", length = 60)
+    @Column(name = "payout_id", length = 191)
     private String payoutId;
 
     /** Raison du dernier echec d'envoi automatique, effacee au prochain essai. */
