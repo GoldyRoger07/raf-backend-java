@@ -69,13 +69,22 @@ public class AuthController {
         return new MessageResponse("Adresse email verifiee.");
     }
 
+    @PostMapping("/email/verify-code")
+    @Operation(summary = "Valider son adresse email avec le code recu dans l'email de verification",
+            description = "Joueur connecte. Meme email que le lien : l'un ou l'autre suffit.")
+    public MessageResponse verifyEmailCode(@AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody VerifyOtpRequest request) {
+        authService.verifyEmailCode(principal.getId(), request.code());
+        return new MessageResponse("Adresse email verifiee.");
+    }
+
     @PostMapping("/email/resend")
-    @Operation(summary = "Renvoyer le lien de verification")
+    @Operation(summary = "Renvoyer le lien et le code de verification")
     public MessageResponse resendVerification(@Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest httpRequest) {
         authService.resendEmailVerification(request.email(), httpRequest);
         return new MessageResponse(
-                "Si un compte non verifie correspond a cette adresse, un lien vient d'etre envoye.");
+                "Si un compte non verifie correspond a cette adresse, un nouvel email vient d'etre envoye.");
     }
 
     @PostMapping("/password/forgot")

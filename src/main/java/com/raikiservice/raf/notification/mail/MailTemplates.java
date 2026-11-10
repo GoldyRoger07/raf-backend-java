@@ -11,14 +11,19 @@ public final class MailTemplates {
     private MailTemplates() {
     }
 
-    public static String verifyEmail(String firstName, String link) {
+    public static String verifyEmail(String firstName, String link, String code) {
         return wrap("Bienvenue sur RAF, " + escape(firstName) + " !",
                 """
                 <p>Il ne reste qu'une etape : confirmez votre adresse email pour activer
                 votre compte et pouvoir participer aux quiz.</p>
-                """,
+                <p>Saisissez ce code dans l'application RAF :</p>
+                <p style="font-size:32px;font-weight:700;letter-spacing:8px;margin:16px 0;
+                          font-family:ui-monospace,Menlo,Consolas,monospace;">%s</p>
+                <p>Ou touchez le bouton ci-dessous : l'un ou l'autre suffit.</p>
+                """.formatted(escape(code)),
                 "Confirmer mon adresse", link,
-                "Ce lien expire dans 24 heures. Si vous n'avez pas cree de compte sur RAF, "
+                "Le code et le lien expirent dans 24 heures. Ne communiquez ce code a personne : "
+                        + "RAF ne vous le demandera jamais. Si vous n'avez pas cree de compte sur RAF, "
                         + "ignorez simplement ce message.");
     }
 

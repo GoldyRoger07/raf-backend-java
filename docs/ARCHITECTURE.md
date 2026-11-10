@@ -87,6 +87,13 @@ com.raikiservice.raf
 
 `id, user_id, type (EMAIL_VERIFY | PASSWORD_RESET), token_hash, expires_at, consumed_at`
 
+→ l'email de vérification porte **un lien et un code à 6 chiffres** (`otp_codes`,
+purpose `EMAIL_VERIFY`, même durée de vie que le lien, 24 h). Le lien marche sans
+connexion (`POST /api/auth/email/verify`) ; le code se saisit dans l'app par le joueur
+connecté (`POST /api/auth/email/verify-code`, 5 essais par code). Le premier utilisé
+annule l'autre ; un lien ouvert après coup répond `EMAIL_ALREADY_VERIFIED`, que l'app
+affiche comme un succès. Chaque renvoi ou correction d'adresse remplace les deux.
+
 ### 3.2 Portefeuille
 
 **wallets**

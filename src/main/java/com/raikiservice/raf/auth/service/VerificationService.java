@@ -2,8 +2,10 @@ package com.raikiservice.raf.auth.service;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 
+import com.raikiservice.raf.auth.domain.OtpPurpose;
 import com.raikiservice.raf.auth.domain.User;
 import com.raikiservice.raf.auth.domain.VerificationToken;
 import com.raikiservice.raf.auth.domain.VerificationTokenType;
@@ -19,7 +21,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Jetons a usage unique : verification d'email et reinitialisation de mot de passe. */
+/**
+ * Jetons a usage unique : verification d'email et reinitialisation de mot de passe.
+ *
+ * <p>L'email de verification porte deux moyens au choix : le lien, et un code a
+ * saisir dans l'app (meme duree de vie). Le premier utilise annule l'autre.
+ */
 @Service
 @RequiredArgsConstructor
 public class VerificationService {
@@ -27,6 +34,7 @@ public class VerificationService {
     private final VerificationTokenRepository verificationTokenRepository;
     private final TransactionalMail transactionalMail;
     private final AppProperties appProperties;
+    private final OtpService otpService;
 
     @Transactional
     public void sendEmailVerification(User user) {
@@ -34,14 +42,22 @@ public class VerificationService {
             throw new ApiException(ErrorCode.EMAIL_ALREADY_VERIFIED);
         }
 
-        String rawToken = issue(user, VerificationTokenType.EMAIL_VERIFY,
-                appProperties.verification().emailTokenTtl().getSeconds());
+        Duration ttl = appProperties.verification().emailTokenTtl();
+        String rawToken = issue(user, VerificationTokenType.EMAIL_VERIFY, ttl.getSeconds());
+        String code = otpService.issue(user, OtpPurpose.EMAIL_VERIFY, user.getEmail(), ttl);
 
         String link = appProperties.frontendUrl() + "/verification-email?token="
                 + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
 
         transactionalMail.sendAfterCommit(user.getEmail(), "Confirmez votre adresse email - RAF",
-                MailTemplates.verifyEmail(user.getFirstName(), link));
+                MailTemplates.verifyEmail(user.getFirstName(), link, code));
+    }
+
+    /** L'email vient d'etre confirme : ni le lien ni le code encore en attente ne servent plus. */
+    @Transactional
+    public void cancelEmailVerification(User user) {
+        verificationTokenRepository.consumePending(user.getId(), VerificationTokenType.EMAIL_VERIFY, Instant.now());
+        otpService.cancelPending(user, OtpPurpose.EMAIL_VERIFY);
     }
 
     @Transactional
@@ -63,6 +79,11 @@ public class VerificationService {
                 .findByTokenHashAndType(Hashes.sha256Hex(rawToken), type)
                 .orElseThrow(() -> new ApiException(ErrorCode.INVALID_TOKEN));
 
+        // Email deja confirme (par le code de l'app, ou un premier clic) : le lien
+        // n'a plus d'objet, mais ce n'est pas une erreur pour le joueur.
+        if (type == VerificationTokenType.EMAIL_VERIFY && token.getUser().isEmailVerified()) {
+            throw new ApiException(ErrorCode.EMAIL_ALREADY_VERIFIED);
+        }
         if (token.getConsumedAt() != null) {
             throw new ApiException(ErrorCode.INVALID_TOKEN);
         }

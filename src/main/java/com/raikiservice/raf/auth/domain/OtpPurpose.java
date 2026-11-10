@@ -14,5 +14,10 @@ public enum OtpPurpose {
      * presente au guichet. Distinct de COUNTER_WITHDRAWAL : le code d'une remise ne
      * doit pas pouvoir confirmer un retrait saisi par l'agent pour un autre montant.
      */
-    CASH_PICKUP
+    CASH_PICKUP,
+    /**
+     * Confirmation de l'adresse email : code envoye dans le meme email que le lien,
+     * a saisir dans l'app. L'un ou l'autre suffit ; le premier utilise annule l'autre.
+     */
+    EMAIL_VERIFY
 }

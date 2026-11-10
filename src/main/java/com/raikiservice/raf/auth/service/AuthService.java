@@ -162,7 +162,26 @@ public class AuthService {
         if (user.isEmailVerified()) {
             throw new ApiException(ErrorCode.EMAIL_ALREADY_VERIFIED);
         }
+        markEmailVerified(user);
+    }
 
+    /**
+     * Confirmation par le code a 6 chiffres recu dans le meme email que le lien, saisi
+     * dans l'app par le joueur connecte. Essais plafonnes par code, comme les SMS.
+     */
+    @Transactional
+    public void verifyEmailCode(Long userId, String code) {
+        User user = loadUser(userId);
+
+        if (user.isEmailVerified()) {
+            throw new ApiException(ErrorCode.EMAIL_ALREADY_VERIFIED);
+        }
+        otpService.verify(user, OtpPurpose.EMAIL_VERIFY, code);
+        markEmailVerified(user);
+    }
+
+    private void markEmailVerified(User user) {
+        verificationService.cancelEmailVerification(user);
         user.setEmailVerifiedAt(Instant.now());
         auditService.record(user.getId(), AuditAction.EMAIL_VERIFIED, "User",
                 String.valueOf(user.getId()));

@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Codes a usage unique envoyes par SMS.
+ * Codes a usage unique, envoyes par SMS (ou par email, voir {@link #issue}).
  *
  * <p>Trois garde-fous, car 6 chiffres se devinent vite : duree de vie courte,
  * plafond d'essais par code, et delai minimum entre deux envois.
@@ -51,6 +51,21 @@ public class OtpService {
             Function<String, String> messageForCode) {
         assertNoCooldown(user.getId(), purpose);
 
+        String code = issue(user, purpose, destination, appProperties.otp().ttl());
+
+        smsSender.send(destination, messageForCode.apply(code)
+                + " Il expire dans " + appProperties.otp().ttl().toMinutes() + " minutes.");
+    }
+
+    /**
+     * Cree un code sans l'envoyer : l'appelant le transmet lui-meme (par exemple dans
+     * un email). Ni delai entre deux envois, ni SMS : c'est a l'appelant de limiter
+     * les demandes. Le plafond d'essais de {@link #verify} s'applique comme aux SMS.
+     *
+     * @return le code en clair, a ne jamais enregistrer ni journaliser
+     */
+    @Transactional
+    public String issue(User user, OtpPurpose purpose, String destination, Duration ttl) {
         // Un nouveau code annule le precedent, sinon deux codes resteraient valables.
         otpCodeRepository.consumePending(user.getId(), purpose, Instant.now());
 
@@ -61,11 +76,15 @@ public class OtpService {
         entity.setPurpose(purpose);
         entity.setCodeHash(passwordEncoder.encode(code));
         entity.setDestination(destination);
-        entity.setExpiresAt(Instant.now().plusSeconds(appProperties.otp().ttl().getSeconds()));
+        entity.setExpiresAt(Instant.now().plusSeconds(ttl.getSeconds()));
         otpCodeRepository.save(entity);
+        return code;
+    }
 
-        smsSender.send(destination, messageForCode.apply(code)
-                + " Il expire dans " + appProperties.otp().ttl().toMinutes() + " minutes.");
+    /** Annule le code en attente, par exemple quand l'action a ete faite par une autre voie. */
+    @Transactional
+    public void cancelPending(User user, OtpPurpose purpose) {
+        otpCodeRepository.consumePending(user.getId(), purpose, Instant.now());
     }
 
     /**
