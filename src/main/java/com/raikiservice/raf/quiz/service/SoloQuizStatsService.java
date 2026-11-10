@@ -82,7 +82,9 @@ public class SoloQuizStatsService {
             long revenueHtg,
             long prizesPaidHtg,
             long resultHtg,
-            Instant lastPlayedAt) {
+            Instant lastPlayedAt,
+            /** Masque aux joueurs (voir Quiz#hidden). */
+            boolean hidden) {
     }
 
     public record Summary(long quizzes, long games, long perfectGames,
@@ -139,7 +141,7 @@ public class SoloQuizStatsService {
         List<Row> rows = jdbc.query("SELECT q.id, q.title, q.is_test, q.status, q.selected_category_id, c.name, "
                 + "q.ticket_price_credits, COALESCE(q.solo_prize_htg, 0), q.questions_per_game, "
                 + "q.question_duration_seconds, COALESCE(s.games, 0), COALESCE(s.players, 0), "
-                + "COALESCE(s.perfect, 0), s.avg_correct, " + revenue + ", COALESCE(s.prizes, 0), s.last_played"
+                + "COALESCE(s.perfect, 0), s.avg_correct, " + revenue + ", COALESCE(s.prizes, 0), s.last_played, q.hidden"
                 + from + " ORDER BY " + order(filters.sort(), result) + " LIMIT ? OFFSET ?",
                 (rs, row) -> {
                     long categoryId = rs.getLong(5);
@@ -157,7 +159,8 @@ public class SoloQuizStatsService {
                             entryCredits, entryCredits * rate, rs.getLong(8), rs.getInt(9), rs.getInt(10),
                             games, rs.getLong(12), perfect,
                             games == 0 ? 0 : Math.round(perfect * 1000.0 / games) / 10.0, average,
-                            revenueHtg, prizes, revenueHtg - prizes, last == null ? null : last.toInstant());
+                            revenueHtg, prizes, revenueHtg - prizes, last == null ? null : last.toInstant(),
+                            rs.getBoolean(18));
                 }, pageArgs.toArray());
 
         return new StatsPage(summary, new PageImpl<>(rows, pageable, summary.quizzes()));

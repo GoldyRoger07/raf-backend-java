@@ -54,6 +54,21 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
             Collection<QuizStatus> statuses, Pageable pageable);
 
     /**
+     * Quiz de l'app joueur. {@code privileged} (staff, comptes de test) : quiz de test et
+     * quiz masques compris. Sinon, un quiz masque n'apparait qu'a ceux qui y ont un ticket.
+     */
+    @Query("select z from Quiz z where z.gameMode = :mode and z.status in :statuses "
+            + "and (:privileged = true or z.test = false) "
+            + "and (:privileged = true or z.hidden = false or (:userId is not null and exists ("
+            + "  select t.id from Ticket t where t.quiz = z and t.user.id = :userId "
+            + "  and t.status <> com.raikiservice.raf.quiz.domain.TicketStatus.REFUNDED))) "
+            + "and z.id not in :excluded "
+            + "order by z.createdAt desc")
+    Page<Quiz> visibleToPlayers(@Param("mode") GameMode mode, @Param("statuses") Collection<QuizStatus> statuses,
+            @Param("privileged") boolean privileged, @Param("userId") Long userId,
+            @Param("excluded") Collection<Long> excluded, Pageable pageable);
+
+    /**
      * Verrouille le quiz avant toute operation qui touche a ses compteurs
      * (achat de ticket, franchissement du seuil).
      *

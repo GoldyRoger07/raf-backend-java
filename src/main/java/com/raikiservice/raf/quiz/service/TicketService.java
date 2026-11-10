@@ -90,6 +90,9 @@ public class TicketService {
             }
         }
 
+        if (quiz.isHidden()) {
+            throw new ApiException(ErrorCode.QUIZ_HIDDEN);
+        }
         if (!quiz.acceptsTickets()) {
             throw new ApiException(ErrorCode.QUIZ_TICKETS_CLOSED);
         }

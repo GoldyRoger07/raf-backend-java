@@ -46,6 +46,24 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
 
     boolean existsByUserIdAndCategoryIdAndSoloDay(Long userId, Long categoryId, LocalDate soloDay);
 
+    boolean existsByQuizIdAndUserId(Long quizId, Long userId);
+
+    /** Dernier sans-faute d'un joueur sur un quiz dont la regle de delai est active. */
+    interface PerfectCooldown {
+        Long getQuizId();
+
+        java.time.Instant getLastPerfectAt();
+
+        Integer getCooldownMinutes();
+    }
+
+    @Query("select z.id as quizId, max(s.submittedAt) as lastPerfectAt, z.perfectCooldownMinutes as cooldownMinutes "
+            + "from GameSession s join s.quiz z where s.user.id = :userId and s.perfect = true "
+            + "and z.perfectCooldownMinutes is not null "
+            + "and (:quizId is null or z.id = :quizId) "
+            + "group by z.id, z.perfectCooldownMinutes")
+    List<PerfectCooldown> perfectCooldowns(@Param("userId") Long userId, @Param("quizId") Long quizId);
+
     Optional<GameSession> findByEntryTransactionId(Long entryTransactionId);
 
     @Query("select s.categoryId from GameSession s where s.user.id = :userId "

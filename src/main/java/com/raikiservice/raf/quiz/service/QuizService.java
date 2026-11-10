@@ -42,6 +42,7 @@ import com.raikiservice.raf.wallet.service.WalletService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -78,6 +79,7 @@ public class QuizService {
     private final MediaService mediaService;
     private final AuditService auditService;
     private final NotificationService notificationService;
+    private final QuizAccess quizAccess;
 
     @Transactional(readOnly = true)
     public Quiz require(Long id) {
@@ -99,19 +101,61 @@ public class QuizService {
      * (classement, corrige) ; un quiz solo, seulement tant qu'il est ouvert.
      */
     public Page<Quiz> visibleToPlayers(GameMode mode, Pageable pageable) {
-        return visibleToPlayers(mode, false, pageable);
+        return visibleToPlayers(mode, false, null, pageable);
     }
 
-    /** @param includeTests vrai pour le staff et les comptes de test (voir QuizAccess) */
-    public Page<Quiz> visibleToPlayers(GameMode mode, boolean includeTests, Pageable pageable) {
+    /**
+     * @param includeTests vrai pour le staff et les comptes de test (voir QuizAccess) : quiz de
+     *        test et quiz masques compris
+     * @param viewerId joueur qui consulte : un quiz masque reste dans sa liste s'il y a un ticket
+     */
+    public Page<Quiz> visibleToPlayers(GameMode mode, boolean includeTests, Long viewerId, Pageable pageable) {
         List<QuizStatus> statuses = mode == GameMode.SOLO
                 ? List.of(QuizStatus.RUNNING)
                 : List.of(QuizStatus.REGISTRATION, QuizStatus.SCHEDULED, QuizStatus.RUNNING,
                         QuizStatus.CLOSING, QuizStatus.COMPUTING, QuizStatus.FINISHED);
-        return includeTests
-                ? quizRepository.findByGameModeAndStatusInOrderByCreatedAtDesc(mode, statuses, pageable)
-                : quizRepository.findByGameModeAndStatusInAndTestFalseOrderByCreatedAtDesc(mode, statuses,
-                        pageable);
+        // Quiz solo caches a ce joueur apres un sans-faute (liste jamais vide pour le NOT IN).
+        Set<Long> excluded = new HashSet<>(quizAccess.cooldownHiddenQuizIds(viewerId, null));
+        excluded.add(-1L);
+        return quizRepository.visibleToPlayers(mode, statuses, includeTests, viewerId, excluded,
+                PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()));
+    }
+
+    /**
+     * Regle « cache apres un sans-faute » d'un quiz solo, modifiable a tout moment (meme
+     * ouvert) : elle ne touche ni aux prix ni aux gains. Les sans-fautes passes comptent.
+     *
+     * @param minutes delai, ou null pour desactiver
+     */
+    @Transactional
+    public Quiz setPerfectCooldown(Long actorId, Long quizId, Integer minutes) {
+        Quiz quiz = quizRepository.findByIdForUpdate(quizId)
+                .orElseThrow(() -> ApiException.notFound("Quiz"));
+        assertMode(quiz, GameMode.SOLO);
+        Integer previous = quiz.getPerfectCooldownMinutes();
+        if (!java.util.Objects.equals(previous, minutes)) {
+            quiz.setPerfectCooldownMinutes(minutes);
+            auditService.record(actorId, "QUIZ_PERFECT_COOLDOWN_CHANGED", "Quiz", String.valueOf(quizId),
+                    String.valueOf(previous), String.valueOf(minutes));
+        }
+        return quiz;
+    }
+
+    /**
+     * Masque ou demasque un quiz aux joueurs, quel que soit son statut. Rien d'autre ne
+     * change : les tickets et parties en cours sont conserves.
+     */
+    @Transactional
+    public Quiz setHidden(Long actorId, Long quizId, boolean hidden) {
+        Quiz quiz = quizRepository.findByIdForUpdate(quizId)
+                .orElseThrow(() -> ApiException.notFound("Quiz"));
+        boolean previous = quiz.isHidden();
+        if (previous != hidden) {
+            quiz.setHidden(hidden);
+            auditService.record(actorId, "QUIZ_HIDDEN_CHANGED", "Quiz", String.valueOf(quizId),
+                    String.valueOf(previous), String.valueOf(hidden));
+        }
+        return quiz;
     }
 
     /**
@@ -248,7 +292,9 @@ public class QuizService {
                 QuizStatus.DRAFT.name(), QuizStatus.REGISTRATION.name());
 
         // Envoye apres le commit seulement, comme a l'ouverture d'un quiz solo.
-        notificationService.notifyAllPlayers(quiz.isTest(), NotificationMessages.groupQuizOpened(quiz));
+        // Quiz masque : seuls les comptes de test, qui le voient, sont prevenus.
+        notificationService.notifyAllPlayers(quiz.isTest() || quiz.isHidden(),
+                NotificationMessages.groupQuizOpened(quiz));
         return quiz;
     }
 
@@ -287,6 +333,7 @@ public class QuizService {
         copy.setPointsPerCorrect(source.getPointsPerCorrect());
         copy.setSoloPrizeHtg(source.getSoloPrizeHtg());
         copy.setCloseOnPerfect(source.isCloseOnPerfect());
+        copy.setPerfectCooldownMinutes(source.getPerfectCooldownMinutes());
         copy.setMinScoreThreshold(source.getMinScoreThreshold());
         copy.setClosingCountdownMinutes(source.getClosingCountdownMinutes());
         Quiz saved = quizRepository.save(copy);
@@ -365,7 +412,8 @@ public class QuizService {
         log.info("Quiz solo {} ouvert avec un vivier de {} questions", quiz.getId(), frozen);
 
         // Envoye apres le commit seulement : une ouverture qui echoue n'annonce rien.
-        notificationService.notifyAllPlayers(quiz.isTest(), NotificationMessages.soloQuizOpened(quiz));
+        notificationService.notifyAllPlayers(quiz.isTest() || quiz.isHidden(),
+                NotificationMessages.soloQuizOpened(quiz));
         return quiz;
     }
 
@@ -477,6 +525,7 @@ public class QuizService {
         quiz.setTicketPriceCredits(request.entryPriceCredits());
         quiz.setSoloPrizeHtg(request.prizeHtg());
         quiz.setCloseOnPerfect(request.closesOnPerfect());
+        quiz.setPerfectCooldownMinutes(request.perfectCooldownMinutes());
         // Chaque partie engage de l'argent et un sans-faute en rapporte : le joueur
         // ne doit jamais voir une question avant son tour.
         quiz.setPlayMode(PlayMode.SEQUENTIAL);
@@ -634,7 +683,12 @@ public class QuizService {
 
     @Transactional(readOnly = true)
     public Page<QuizResponse> viewVisible(GameMode mode, boolean includeTests, Pageable pageable) {
-        return visibleToPlayers(mode, includeTests, pageable).map(this::toResponse);
+        return viewVisible(mode, includeTests, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<QuizResponse> viewVisible(GameMode mode, boolean includeTests, Long viewerId, Pageable pageable) {
+        return visibleToPlayers(mode, includeTests, viewerId, pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)

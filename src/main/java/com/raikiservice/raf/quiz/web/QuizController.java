@@ -47,7 +47,7 @@ public class QuizController {
     public Page<QuizResponse> list(@AuthenticationPrincipal UserPrincipal player,
             @RequestParam(defaultValue = "GROUP") GameMode mode,
             @PageableDefault(size = 20) Pageable pageable) {
-        return quizService.viewVisible(mode, quizAccess.seesTestQuizzes(idOf(player)), pageable);
+        return quizService.viewVisible(mode, quizAccess.seesTestQuizzes(idOf(player)), idOf(player), pageable);
     }
 
     @GetMapping("/{id}")

@@ -44,7 +44,18 @@ public record SoloQuizDto(
          * Fermer le quiz des le premier sans-faute. Absent (anciens clients) : non.
          * Les parties deja lancees vont a leur terme et peuvent aussi gagner.
          */
-        Boolean closeOnPerfect) {
+        Boolean closeOnPerfect,
+
+        /**
+         * Apres un sans-faute, cacher le quiz a ce joueur pendant ce nombre de minutes.
+         * Absent ou vide : regle desactivee.
+         */
+        @Min(value = 1, message = "Le delai doit etre d'au moins une minute.")
+        @Max(value = MAX_COOLDOWN_MINUTES, message = "Le delai ne peut pas depasser un an.")
+        Integer perfectCooldownMinutes) {
+
+    /** Un an. */
+    public static final int MAX_COOLDOWN_MINUTES = 525_600;
 
     public boolean closesOnPerfect() {
         return Boolean.TRUE.equals(closeOnPerfect);

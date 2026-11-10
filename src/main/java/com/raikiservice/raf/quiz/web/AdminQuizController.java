@@ -1,5 +1,7 @@
 package com.raikiservice.raf.quiz.web;
 
+import com.raikiservice.raf.quiz.web.dto.PerfectCooldownDto;
+import com.raikiservice.raf.quiz.web.dto.HiddenFlagDto;
 import com.raikiservice.raf.common.web.TestFlagDto;
 import java.util.List;
 
@@ -165,6 +167,26 @@ public class AdminQuizController {
     public QuizResponse setTest(@AuthenticationPrincipal UserPrincipal admin, @PathVariable Long id,
             @RequestBody TestFlagDto request) {
         quizService.setTest(admin.getId(), id, request.test());
+        return quizService.view(id);
+    }
+
+    @PostMapping("/{id}/perfect-cooldown")
+    @Operation(summary = "Solo : cacher le quiz a un joueur pendant un delai apres son sans-faute",
+            description = "minutes : delai compte depuis le dernier sans-faute du joueur ; null pour desactiver. "
+                    + "Modifiable a tout moment, sans-fautes passes compris. Le staff n'est pas concerne.")
+    public QuizResponse setPerfectCooldown(@AuthenticationPrincipal UserPrincipal admin, @PathVariable Long id,
+            @Valid @RequestBody PerfectCooldownDto request) {
+        quizService.setPerfectCooldown(admin.getId(), id, request.minutes());
+        return quizService.view(id);
+    }
+
+    @PostMapping("/{id}/hidden")
+    @Operation(summary = "Masquer ou demasquer un quiz aux joueurs, sans changer son statut",
+            description = "Masque : hors des listes de l'app, plus de nouveau ticket ni de nouvelle partie "
+                    + "solo. Ceux qui ont deja un ticket le voient et jouent normalement.")
+    public QuizResponse setHidden(@AuthenticationPrincipal UserPrincipal admin, @PathVariable Long id,
+            @RequestBody HiddenFlagDto request) {
+        quizService.setHidden(admin.getId(), id, request.hidden());
         return quizService.view(id);
     }
 

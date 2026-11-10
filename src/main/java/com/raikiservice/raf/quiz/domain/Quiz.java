@@ -48,6 +48,14 @@ public class Quiz extends AuditableEntity {
     @Column(name = "is_test", nullable = false)
     private boolean test;
 
+    /**
+     * Masque aux joueurs : absent des listes de l'app et ferme aux nouvelles entrees
+     * (ticket, partie solo). Ceux qui ont deja un ticket le voient et jouent normalement.
+     * Le statut et l'argent ne changent pas.
+     */
+    @Column(nullable = false)
+    private boolean hidden;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "game_mode", nullable = false, length = 10)
     private GameMode gameMode = GameMode.GROUP;
@@ -109,6 +117,13 @@ public class Quiz extends AuditableEntity {
     /** SOLO : le quiz se ferme de lui-meme au premier sans-faute. Toujours false en GROUP. */
     @Column(name = "close_on_perfect", nullable = false)
     private boolean closeOnPerfect;
+
+    /**
+     * SOLO : apres un sans-faute, le quiz est cache a ce joueur pendant ce delai, compte
+     * depuis son dernier sans-faute. Vide : regle desactivee. Reglable a tout moment.
+     */
+    @Column(name = "perfect_cooldown_minutes")
+    private Integer perfectCooldownMinutes;
 
     /** Premier joueur a le depasser : declenche le compte a rebours de cloture. */
     @Column(name = "min_score_threshold", nullable = false)

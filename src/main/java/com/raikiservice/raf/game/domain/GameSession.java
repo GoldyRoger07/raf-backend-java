@@ -85,6 +85,10 @@ public class GameSession {
     @Column(nullable = false)
     private boolean won;
 
+    /** Partie solo validee sans aucune erreur (compte de test compris, prix verse ou non). */
+    @Column(nullable = false)
+    private boolean perfect;
+
     @Column(name = "prize_transaction_id")
     private Long prizeTransactionId;
 

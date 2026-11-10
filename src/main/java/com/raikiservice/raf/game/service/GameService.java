@@ -174,6 +174,10 @@ public class GameService {
         }
 
         if (quiz.isSolo()) {
+            // Masque : la partie en cours (rendue ci-dessus) va a son terme, aucune nouvelle.
+            if (quiz.isHidden()) {
+                throw new ApiException(ErrorCode.QUIZ_HIDDEN);
+            }
             return startSolo(quiz, userId, now, ip, userAgent);
         }
 
@@ -811,6 +815,7 @@ public class GameService {
                         session.getId(), correctQuestionIds, now);
             }
             boolean perfect = correctQuestionIds.size() == totalQuestions;
+            session.setPerfect(perfect);
             // Fermeture au premier sans-faute, si le quiz la prevoit. Avant le prix :
             // le verrou du quiz est pris avant celui du portefeuille, dans le meme
             // ordre qu'au lancement d'une partie. Un compte de test ne ferme qu'un

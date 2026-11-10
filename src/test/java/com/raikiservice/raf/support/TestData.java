@@ -222,7 +222,7 @@ public class TestData {
         long n = SEQUENCE.incrementAndGet();
         Quiz quiz = quizService.createSolo(null, new SoloQuizDto(
                 "Solo " + RUN + " " + n, null, categoryId, null, entryCredits, SOLO_PRIZE,
-                questionsPerGame, QUESTION_SECONDS, closeOnPerfect));
+                questionsPerGame, QUESTION_SECONDS, closeOnPerfect, null));
         quizService.publish(null, quiz.getId(), null);
         return quiz.getId();
     }

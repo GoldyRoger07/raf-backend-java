@@ -38,6 +38,8 @@ public record QuizResponse(
         boolean free,
         /** Quiz de test : visible du staff et des comptes de test seulement. */
         boolean test,
+        /** Masque aux joueurs : hors des listes, ferme aux nouvelles entrees. */
+        boolean hidden,
         int minPlayers,
         Integer maxTicketsTotal,
         Integer maxTicketsPerPlayer,
@@ -48,6 +50,8 @@ public record QuizResponse(
         Long soloPrizeHtg,
         /** Solo : fermeture automatique au premier sans-faute. */
         boolean closeOnPerfect,
+        /** Solo : minutes pendant lesquelles le quiz est cache a un joueur apres son sans-faute ; null = desactive. */
+        Integer perfectCooldownMinutes,
         int minScoreThreshold,
         int closingCountdownMinutes,
         int startDelayMinutes,
@@ -95,6 +99,7 @@ public record QuizResponse(
                 quiz.getTicketPriceCredits() * htgRate,
                 quiz.isFree(),
                 quiz.isTest(),
+                quiz.isHidden(),
                 quiz.getMinPlayers(),
                 quiz.getMaxTicketsTotal(),
                 quiz.getMaxTicketsPerPlayer(),
@@ -104,6 +109,7 @@ public record QuizResponse(
                 quiz.getPointsPerCorrect(),
                 quiz.getSoloPrizeHtg(),
                 quiz.isCloseOnPerfect(),
+                quiz.getPerfectCooldownMinutes(),
                 quiz.getMinScoreThreshold(),
                 quiz.getClosingCountdownMinutes(),
                 quiz.getStartDelayMinutes(),
