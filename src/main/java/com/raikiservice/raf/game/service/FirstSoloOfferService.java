@@ -9,6 +9,7 @@ import com.raikiservice.raf.auth.repository.UserRepository;
 import com.raikiservice.raf.auth.service.DeviceLinkService;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.settings.PlayerAppService;
+import com.raikiservice.raf.fraud.service.FraudProfileService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -24,7 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Y a droit un compte qui n'a jamais paye de partie solo (les quiz deja gratuits ne
  * comptent pas) et n'a pas deja recu l'offre, et dont aucun compte lie par appareil
  * (DeviceLinkService) ne l'a recue ni n'a paye de partie solo. Les comptes de test jouent
- * deja gratuitement et n'en ont pas. Le sans-faute rapporte le prix complet.
+ * deja gratuitement et n'en ont pas, ni les joueurs suspectes de fraude (FraudProfileService,
+ * comptes lies compris). Le sans-faute rapporte le prix complet.
  */
 @Service
 @RequiredArgsConstructor
@@ -34,6 +36,7 @@ public class FirstSoloOfferService {
     private final DeviceLinkService deviceLinkService;
     private final UserRepository userRepository;
     private final NamedParameterJdbcTemplate named;
+    private final FraudProfileService fraudProfileService;
 
     /** Pour l'ecran de jeu de l'app : la prochaine partie solo payante serait-elle offerte ? */
     @Transactional(readOnly = true)
@@ -44,6 +47,9 @@ public class FirstSoloOfferService {
     @Transactional(readOnly = true)
     public boolean eligible(User user) {
         if (!playerAppService.firstSoloFreeEnabled() || user.isTest()) {
+            return false;
+        }
+        if (fraudProfileService.adjustmentFor(user.getId()).isPresent()) {
             return false;
         }
         List<Long> group = deviceLinkService.linkedGroup(user.getId());

@@ -3,6 +3,7 @@ package com.raikiservice.raf.quiz.web.dto;
 import java.time.Instant;
 import java.util.List;
 
+import com.raikiservice.raf.fraud.service.SoloAdjustment;
 import com.raikiservice.raf.quiz.domain.GameMode;
 import com.raikiservice.raf.quiz.domain.PlayMode;
 import com.raikiservice.raf.quiz.domain.Quiz;
@@ -139,5 +140,63 @@ public record QuizResponse(
                                 topic.getMedia() == null ? null : topic.getMedia().getUrl(),
                                 topic.getVoteCount()))
                         .toList());
+    }
+
+    /**
+     * Le quiz tel qu'un joueur suspecte de fraude le joue en solo : prix, secondes par
+     * question et nombre de questions de son profil (FraudProfileService). Ce sont les
+     * valeurs encaissees et jouees ; le gain du sans-faute ne change pas.
+     */
+    public QuizResponse adjustedFor(SoloAdjustment adjustment) {
+        if (gameMode != GameMode.SOLO) {
+            return this;
+        }
+        int price = adjustment.price(ticketPriceCredits);
+        return new QuizResponse(
+                id,
+                title,
+                slug,
+                description,
+                themeLabel,
+                bannerUrl,
+                bannerMediaId,
+                status,
+                gameMode,
+                topicMode,
+                selectedCategoryId,
+                selectedCategoryName,
+                price,
+                ticketPriceCredits == 0 ? 0 : ticketPriceHtg / ticketPriceCredits * price,
+                free,
+                test,
+                hidden,
+                minPlayers,
+                maxTicketsTotal,
+                maxTicketsPerPlayer,
+                playMode,
+                adjustment.questionSeconds(questionDurationSeconds),
+                adjustment.questions(questionsPerGame),
+                pointsPerCorrect,
+                soloPrizeHtg,
+                closeOnPerfect,
+                perfectCooldownMinutes,
+                difficultyMix,
+                minScoreThreshold,
+                closingCountdownMinutes,
+                startDelayMinutes,
+                voteOpensAt,
+                voteClosesAt,
+                voteOpen,
+                thresholdReachedAt,
+                scheduledStartAt,
+                startedAt,
+                endsAt,
+                finishedAt,
+                cancellationReason,
+                playersRegistered,
+                ticketsSold,
+                poolSize,
+                rewards,
+                topics);
     }
 }

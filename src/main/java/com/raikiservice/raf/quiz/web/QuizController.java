@@ -1,5 +1,6 @@
 package com.raikiservice.raf.quiz.web;
 
+import com.raikiservice.raf.fraud.service.FraudProfileService;
 import com.raikiservice.raf.quiz.service.QuizAccess;
 import java.util.List;
 
@@ -41,20 +42,30 @@ public class QuizController {
     private final TicketService ticketService;
     private final VoteService voteService;
     private final QuizAccess quizAccess;
+    private final FraudProfileService fraudProfileService;
 
     @GetMapping
     @Operation(summary = "Lister les quiz visibles d'un mode de jeu (En groupe par defaut)")
     public Page<QuizResponse> list(@AuthenticationPrincipal UserPrincipal player,
             @RequestParam(defaultValue = "GROUP") GameMode mode,
             @PageableDefault(size = 20) Pageable pageable) {
-        return quizService.viewVisible(mode, quizAccess.seesTestQuizzes(idOf(player)), idOf(player), pageable);
+        Page<QuizResponse> page = quizService.viewVisible(mode, quizAccess.seesTestQuizzes(idOf(player)),
+                idOf(player), pageable);
+        return fraudProfileService.adjustmentFor(idOf(player))
+                .map(adjustment -> page.map(quiz -> quiz.adjustedFor(adjustment)))
+                .orElse(page);
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Consulter un quiz")
     public QuizResponse get(@AuthenticationPrincipal UserPrincipal player, @PathVariable Long id) {
         quizAccess.assertVisible(quizService.require(id), idOf(player));
-        return quizService.view(id);
+        return adjusted(quizService.view(id), player);
+    }
+
+    /** Solo : un joueur suspecte de fraude voit les valeurs qu'il jouera et paiera. */
+    private QuizResponse adjusted(QuizResponse quiz, UserPrincipal player) {
+        return fraudProfileService.adjustmentFor(idOf(player)).map(quiz::adjustedFor).orElse(quiz);
     }
 
     private static Long idOf(UserPrincipal player) {
@@ -84,6 +95,6 @@ public class QuizController {
     public QuizResponse vote(@AuthenticationPrincipal UserPrincipal player,
             @PathVariable Long id, @PathVariable Long topicId) {
         voteService.vote(player.getId(), id, topicId);
-        return quizService.view(id);
+        return adjusted(quizService.view(id), player);
     }
 }

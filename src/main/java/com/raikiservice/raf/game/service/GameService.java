@@ -30,6 +30,8 @@ import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.common.settings.SettingKeys;
 import com.raikiservice.raf.common.settings.SettingsService;
 import com.raikiservice.raf.leader.service.CommissionService;
+import com.raikiservice.raf.fraud.service.FraudProfileService;
+import com.raikiservice.raf.fraud.service.SoloAdjustment;
 import com.raikiservice.raf.game.domain.GameAnswer;
 import com.raikiservice.raf.game.domain.GameSession;
 import com.raikiservice.raf.game.domain.GameSessionQuestion;
@@ -143,6 +145,7 @@ public class GameService {
     private final DeviceLinkService deviceLinkService;
     private final PayoutTermsService payoutTermsService;
     private final FirstSoloOfferService firstSoloOfferService;
+    private final FraudProfileService fraudProfileService;
 
     // --- Demarrage ------------------------------------------------------------
 
@@ -303,13 +306,17 @@ public class GameService {
         // (joueur, sujet, jour) refuse alors la seconde partie (409).
         // Premiere partie solo offerte (interrupteur App joueur) : pas de debit, prix complet.
         // Reservee en dernier, apres tous les refus : une partie refusee ne la consomme pas.
+        // Joueur suspecte de fraude (lui ou un compte lie) : valeurs durcies de son profil,
+        // affichees telles quelles dans l'app, et pas de partie offerte (FirstSoloOfferService).
+        Optional<SoloAdjustment> adjustment = fraudProfileService.adjustmentFor(userId);
+        int price = adjustment.map(a -> a.price(quiz.getTicketPriceCredits())).orElse(quiz.getTicketPriceCredits());
         boolean offered = !quiz.isFree() && firstSoloOfferService.claim(user);
         WalletTransaction entry = null;
         if (!quiz.isFree() && !offered) {
             entry = walletService.debit(
                     userId,
                     BalanceType.CREDIT,
-                    quiz.getTicketPriceCredits(),
+                    price,
                     WalletTransactionType.SOLO_ENTRY,
                     "GameSession",
                     null,
@@ -331,11 +338,19 @@ public class GameService {
         GameSession session = newSession(quiz, user, GameMode.SOLO, now, ip, userAgent, deviceId);
         session.setSoloDay(day);
         // Offerte : prix d'entree a 0, donc ni debit attendu ni commission de leader.
-        session.setEntryPriceCredits(offered ? 0 : quiz.getTicketPriceCredits());
+        session.setEntryPriceCredits(offered ? 0 : price);
         session.setEntryTransactionId(entry == null ? null : entry.getId());
+        // Le gain du sans-faute ne change pas, meme pour un joueur suspecte.
         session.setPrizeHtg(quiz.getSoloPrizeHtg());
+        int questionCount = quiz.getQuestionsPerGame();
+        if (adjustment.isPresent()) {
+            session.setQuestionDurationSeconds(adjustment.get().questionSeconds(quiz.getQuestionDurationSeconds()));
+            questionCount = adjustment.get().questions(questionCount);
+            log.info("Partie solo du joueur {} durcie (profil fraudeur) : {} credit(s), {} s, {} question(s)",
+                    userId, price, session.getQuestionDurationSeconds(), questionCount);
+        }
 
-        GameStartResponse response = deal(quiz, session, now);
+        GameStartResponse response = deal(quiz, session, now, questionCount);
         if (entry != null) {
             entry.setReferenceId(String.valueOf(session.getId()));
         }
@@ -381,6 +396,11 @@ public class GameService {
 
     /** Tire les questions de la partie, l'enregistre et renvoie la vue du joueur. */
     private GameStartResponse deal(Quiz quiz, GameSession session, Instant now) {
+        return deal(quiz, session, now, quiz.getQuestionsPerGame());
+    }
+
+    /** @param questionCount questions de la partie : celles du quiz, ou plus pour un joueur suspecte */
+    private GameStartResponse deal(Quiz quiz, GameSession session, Instant now, int questionCount) {
         List<Long> pool = new ArrayList<>(quizQuestionPoolRepository.findQuestionIds(quiz.getId()));
         if (pool.isEmpty()) {
             log.error("Quiz {} en cours sans vivier de questions", quiz.getId());
@@ -401,17 +421,17 @@ public class GameService {
                 byLevel.computeIfAbsent(level, l -> new ArrayList<>()).add(entry.getQuestionId());
             }
             picked = soloMasteryService.drawMixed(session.getUser().getId(), session.getCategoryId(),
-                    byLevel, mix.split(quiz.getQuestionsPerGame()), random);
+                    byLevel, mix.split(questionCount), random);
         } else if (session.isSolo() && session.getCategoryId() != null) {
             picked = soloMasteryService.draw(session.getUser().getId(), session.getCategoryId(),
-                    pool, quiz.getQuestionsPerGame(), random);
+                    pool, questionCount, random);
         } else {
             Collections.shuffle(pool, random);
-            picked = pool.subList(0, Math.min(quiz.getQuestionsPerGame(), pool.size()));
+            picked = pool.subList(0, Math.min(questionCount, pool.size()));
         }
-        if (picked.size() < quiz.getQuestionsPerGame()) {
+        if (picked.size() < questionCount) {
             log.warn("Quiz {} : vivier de {} question(s), {} prevue(s) par partie",
-                    quiz.getId(), pool.size(), quiz.getQuestionsPerGame());
+                    quiz.getId(), pool.size(), questionCount);
         }
 
         Map<Long, Question> questions = questionRepository.findWithChoicesByIdIn(picked).stream()
