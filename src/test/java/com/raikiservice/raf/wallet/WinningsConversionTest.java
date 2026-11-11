@@ -62,7 +62,7 @@ class WinningsConversionTest extends IntegrationTest {
     @AfterEach
     void restore() {
         settingsService.update(null, SettingKeys.CREDIT_HTG_RATE, previousRate);
-        playerAppService.update(null, new PlayerAppConfig(null, null, true, null, null, null));
+        playerAppService.update(null, new PlayerAppConfig(null, null, true, null, null, null, null));
     }
 
     @Test
@@ -151,7 +151,7 @@ class WinningsConversionTest extends IntegrationTest {
         User player = data.player();
         data.credit(player.getId(), BalanceType.WINNINGS, 50);
 
-        playerAppService.update(null, new PlayerAppConfig(null, null, false, null, null, null));
+        playerAppService.update(null, new PlayerAppConfig(null, null, false, null, null, null, null));
 
         assertThat(playerAppService.get().winningsConversionEnabled()).isFalse();
         assertApiError(ErrorCode.WINNINGS_CONVERSION_DISABLED,

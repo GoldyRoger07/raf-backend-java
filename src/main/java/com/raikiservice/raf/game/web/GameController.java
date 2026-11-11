@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.common.util.RequestContext;
+import com.raikiservice.raf.game.service.FirstSoloOfferService;
 import com.raikiservice.raf.game.service.GameService;
 import com.raikiservice.raf.game.service.PayoutTermsService;
 import com.raikiservice.raf.game.web.dto.AnswerQuestionDto;
@@ -39,6 +40,7 @@ public class GameController {
 
     private final GameService gameService;
     private final PayoutTermsService payoutTermsService;
+    private final FirstSoloOfferService firstSoloOfferService;
 
     /**
      * 201 pour une nouvelle partie (un ticket vient d'etre consomme), 200 pour la
@@ -75,6 +77,17 @@ public class GameController {
     @Operation(summary = "Sujets deja joues en solo aujourd'hui (une partie par sujet et par jour)")
     public List<Long> soloSubjectsPlayedToday(@AuthenticationPrincipal UserPrincipal player) {
         return gameService.soloSubjectsPlayedToday(player.getId());
+    }
+
+    @GetMapping("/solo/first-game-offer")
+    @Operation(summary = "Premiere partie solo offerte : la prochaine partie solo payante du joueur l'est-elle ?",
+            description = "Interrupteur de l'ecran App joueur ; une fois par compte et par groupe de comptes "
+                    + "lies par appareil. Le sans-faute rapporte le prix complet.")
+    public FirstGameOffer firstGameOffer(@AuthenticationPrincipal UserPrincipal player) {
+        return new FirstGameOffer(firstSoloOfferService.offeredTo(player.getId()));
+    }
+
+    public record FirstGameOffer(boolean offered) {
     }
 
     @GetMapping("/solo/payout-terms")

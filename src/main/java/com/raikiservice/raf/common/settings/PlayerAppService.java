@@ -33,6 +33,10 @@ import org.springframework.transaction.annotation.Transactional;
  * liste des joueurs, aucune nouvelle partie ne demarre et l'ouverture d'un quiz
  * solo n'est annoncee qu'aux comptes de test. Une partie en cours va a son terme ;
  * le staff et les comptes de test voient toujours les quiz.
+ *
+ * <p>Premiere partie solo offerte : coupee par defaut. Activee, la premiere partie solo
+ * payante d'un compte ne coute rien et rapporte le prix complet au sans-faute, une fois
+ * par compte et par groupe de comptes lies par appareil (FirstSoloOfferService).
  */
 @Service
 @RequiredArgsConstructor
@@ -43,7 +47,7 @@ public class PlayerAppService {
     /** En modification, un champ absent (null) garde sa valeur actuelle. */
     public record PlayerAppConfig(Boolean emailReminderEnabled, Boolean leaderTransferEnabled,
             Boolean winningsConversionEnabled, Boolean onlineTopUpEnabled, Boolean autoPayoutEnabled,
-            Boolean soloQuizzesVisible) {
+            Boolean soloQuizzesVisible, Boolean firstSoloFreeEnabled) {
     }
 
     @Transactional(readOnly = true)
@@ -51,7 +55,7 @@ public class PlayerAppService {
         return new PlayerAppConfig(flag(SettingKeys.APP_EMAIL_REMINDER_ENABLED),
                 flag(SettingKeys.APP_LEADER_TRANSFER_ENABLED), flag(SettingKeys.APP_WINNINGS_CONVERSION_ENABLED),
                 flag(SettingKeys.APP_ONLINE_TOPUP_ENABLED), flag(SettingKeys.APP_AUTO_PAYOUT_ENABLED),
-                flag(SettingKeys.APP_SOLO_QUIZZES_VISIBLE));
+                flag(SettingKeys.APP_SOLO_QUIZZES_VISIBLE), flag(SettingKeys.APP_FIRST_SOLO_FREE_ENABLED, false));
     }
 
     @Transactional(readOnly = true)
@@ -67,6 +71,11 @@ public class PlayerAppService {
     @Transactional(readOnly = true)
     public boolean autoPayoutEnabled() {
         return flag(SettingKeys.APP_AUTO_PAYOUT_ENABLED);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean firstSoloFreeEnabled() {
+        return flag(SettingKeys.APP_FIRST_SOLO_FREE_ENABLED, false);
     }
 
     @Transactional(readOnly = true)
@@ -95,6 +104,8 @@ public class PlayerAppService {
                 request.autoPayoutEnabled());
         change(actorId, SettingKeys.APP_SOLO_QUIZZES_VISIBLE, current.soloQuizzesVisible(),
                 request.soloQuizzesVisible());
+        change(actorId, SettingKeys.APP_FIRST_SOLO_FREE_ENABLED, current.firstSoloFreeEnabled(),
+                request.firstSoloFreeEnabled());
         return get();
     }
 
@@ -105,6 +116,10 @@ public class PlayerAppService {
     }
 
     private boolean flag(String key) {
-        return Boolean.parseBoolean(settingsService.getString(key, "true"));
+        return flag(key, true);
+    }
+
+    private boolean flag(String key, boolean byDefault) {
+        return Boolean.parseBoolean(settingsService.getString(key, String.valueOf(byDefault)));
     }
 }

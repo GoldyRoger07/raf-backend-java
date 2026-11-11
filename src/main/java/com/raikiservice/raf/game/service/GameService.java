@@ -142,6 +142,7 @@ public class GameService {
     private final SoloMasteryService soloMasteryService;
     private final DeviceLinkService deviceLinkService;
     private final PayoutTermsService payoutTermsService;
+    private final FirstSoloOfferService firstSoloOfferService;
 
     // --- Demarrage ------------------------------------------------------------
 
@@ -300,8 +301,11 @@ public class GameService {
         // Quiz gratuit : pas de debit. Sans le verrou du portefeuille, deux clics
         // simultanes passent tous deux le controle ci-dessus ; la contrainte unique
         // (joueur, sujet, jour) refuse alors la seconde partie (409).
+        // Premiere partie solo offerte (interrupteur App joueur) : pas de debit, prix complet.
+        // Reservee en dernier, apres tous les refus : une partie refusee ne la consomme pas.
+        boolean offered = !quiz.isFree() && firstSoloOfferService.claim(user);
         WalletTransaction entry = null;
-        if (!quiz.isFree()) {
+        if (!quiz.isFree() && !offered) {
             entry = walletService.debit(
                     userId,
                     BalanceType.CREDIT,
@@ -326,13 +330,18 @@ public class GameService {
 
         GameSession session = newSession(quiz, user, GameMode.SOLO, now, ip, userAgent, deviceId);
         session.setSoloDay(day);
-        session.setEntryPriceCredits(quiz.getTicketPriceCredits());
+        // Offerte : prix d'entree a 0, donc ni debit attendu ni commission de leader.
+        session.setEntryPriceCredits(offered ? 0 : quiz.getTicketPriceCredits());
         session.setEntryTransactionId(entry == null ? null : entry.getId());
         session.setPrizeHtg(quiz.getSoloPrizeHtg());
 
         GameStartResponse response = deal(quiz, session, now);
         if (entry != null) {
             entry.setReferenceId(String.valueOf(session.getId()));
+        }
+        if (offered) {
+            firstSoloOfferService.attach(userId, session.getId());
+            log.info("Partie solo {} offerte au joueur {} (premiere partie)", session.getId(), userId);
         }
         return response;
     }

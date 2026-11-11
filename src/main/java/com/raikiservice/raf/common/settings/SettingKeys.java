@@ -51,6 +51,8 @@ public final class SettingKeys {
     public static final String APP_AUTO_PAYOUT_ENABLED = "app.auto_payout.enabled";
     /** Interrupteur global des quiz solo ouverts : coupe, ils sont tous masques, voir QuizAccess. */
     public static final String APP_SOLO_QUIZZES_VISIBLE = "app.solo_quizzes.visible";
+    /** Premiere partie solo offerte, une fois par compte ; coupee par defaut, voir FirstSoloOfferService. */
+    public static final String APP_FIRST_SOLO_FREE_ENABLED = "app.first_solo_free.enabled";
     private static final String APP_PREFIX = "app.";
 
     /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */

@@ -115,6 +115,24 @@ public class DeviceLinkService {
         return Boolean.TRUE.equals(found);
     }
 
+    /**
+     * Le joueur et les comptes de son groupe (lies par appareil, jusqu'a
+     * {@link #SOLO_LINK_DEPTH} niveaux), le joueur toujours compris.
+     */
+    @Transactional(readOnly = true)
+    public List<Long> linkedGroup(Long userId) {
+        return jdbc.queryForList(
+                "WITH RECURSIVE linked (user_id, depth) AS ("
+                        + " SELECT CAST(? AS SIGNED), 0"
+                        + " UNION"
+                        + " SELECT other.user_id, l.depth + 1 FROM linked l"
+                        + " JOIN user_devices mine ON mine.user_id = l.user_id"
+                        + " JOIN user_devices other ON other.device_id = mine.device_id"
+                        + " WHERE l.depth < ?"
+                        + ") SELECT DISTINCT user_id FROM linked",
+                Long.class, userId, SOLO_LINK_DEPTH);
+    }
+
     /** Comptes vus sur au moins un appareil du joueur, le plus recemment vu d'abord. */
     @Transactional(readOnly = true)
     public List<LinkedAccount> linkedAccounts(Long userId) {
