@@ -49,6 +49,8 @@ public final class SettingKeys {
     public static final String APP_ONLINE_TOPUP_ENABLED = "app.online_topup.enabled";
     /** Envoi automatique des retraits MonCash / NatCash a l'approbation, voir AutoPayoutService. */
     public static final String APP_AUTO_PAYOUT_ENABLED = "app.auto_payout.enabled";
+    /** Interrupteur global des quiz solo ouverts : coupe, ils sont tous masques, voir QuizAccess. */
+    public static final String APP_SOLO_QUIZZES_VISIBLE = "app.solo_quizzes.visible";
     private static final String APP_PREFIX = "app.";
 
     /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */

@@ -190,8 +190,9 @@ public class GameService {
         }
 
         if (quiz.isSolo()) {
-            // Masque : la partie en cours (rendue ci-dessus) va a son terme, aucune nouvelle.
-            if (quiz.isHidden()) {
+            // Masque, lui seul ou tous les quiz solo : la partie en cours (rendue
+            // ci-dessus) va a son terme, aucune nouvelle.
+            if (quizAccess.hiddenFromPlayers(quiz)) {
                 throw new ApiException(ErrorCode.QUIZ_HIDDEN);
             }
             return startSolo(quiz, userId, now, ip, userAgent, deviceId);

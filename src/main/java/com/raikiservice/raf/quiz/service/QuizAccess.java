@@ -10,6 +10,7 @@ import com.raikiservice.raf.game.repository.GameSessionRepository;
 import com.raikiservice.raf.auth.domain.RoleName;
 import com.raikiservice.raf.auth.repository.UserRepository;
 import com.raikiservice.raf.common.error.ApiException;
+import com.raikiservice.raf.common.settings.PlayerAppService;
 import com.raikiservice.raf.quiz.domain.Quiz;
 
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class QuizAccess {
     private final UserRepository userRepository;
     private final TicketRepository ticketRepository;
     private final GameSessionRepository gameSessionRepository;
+    private final PlayerAppService playerAppService;
 
     @Transactional(readOnly = true)
     public boolean seesTestQuizzes(Long userId) {
@@ -43,9 +45,18 @@ public class QuizAccess {
                 .orElse(false);
     }
 
+    /**
+     * Masque aux joueurs : par son propre reglage, ou parce que c'est un quiz solo et
+     * que l'interrupteur global des quiz solo est coupe (PlayerAppService).
+     */
+    public boolean hiddenFromPlayers(Quiz quiz) {
+        return quiz.isHidden() || (quiz.isSolo() && !playerAppService.soloQuizzesVisible());
+    }
+
     public void assertVisible(Quiz quiz, Long userId) {
-        if ((quiz.isTest() || quiz.isHidden()) && !seesTestQuizzes(userId)
-                && !(quiz.isHidden() && !quiz.isTest() && isParticipant(quiz, userId))) {
+        boolean hidden = hiddenFromPlayers(quiz);
+        if ((quiz.isTest() || hidden) && !seesTestQuizzes(userId)
+                && !(hidden && !quiz.isTest() && isParticipant(quiz, userId))) {
             throw ApiException.notFound("Quiz");
         }
         if (quiz.getPerfectCooldownMinutes() != null && !cooldownHiddenQuizIds(userId, quiz.getId()).isEmpty()) {

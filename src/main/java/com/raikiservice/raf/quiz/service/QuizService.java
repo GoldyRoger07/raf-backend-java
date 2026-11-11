@@ -11,6 +11,7 @@ import java.util.Set;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
+import com.raikiservice.raf.common.settings.PlayerAppService;
 import com.raikiservice.raf.common.web.SearchTerms;
 import com.raikiservice.raf.common.web.SortableFields;
 import com.raikiservice.raf.media.service.MediaService;
@@ -81,6 +82,7 @@ public class QuizService {
     private final AuditService auditService;
     private final NotificationService notificationService;
     private final QuizAccess quizAccess;
+    private final PlayerAppService playerAppService;
 
     @Transactional(readOnly = true)
     public Quiz require(Long id) {
@@ -115,6 +117,10 @@ public class QuizService {
                 ? List.of(QuizStatus.RUNNING)
                 : List.of(QuizStatus.REGISTRATION, QuizStatus.SCHEDULED, QuizStatus.RUNNING,
                         QuizStatus.CLOSING, QuizStatus.COMPUTING, QuizStatus.FINISHED);
+        // Interrupteur global coupe : plus aucun quiz solo pour les joueurs.
+        if (mode == GameMode.SOLO && !includeTests && !playerAppService.soloQuizzesVisible()) {
+            return Page.empty(PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()));
+        }
         // Quiz solo caches a ce joueur apres un sans-faute (liste jamais vide pour le NOT IN).
         Set<Long> excluded = new HashSet<>(quizAccess.cooldownHiddenQuizIds(viewerId, null));
         excluded.add(-1L);
@@ -440,7 +446,8 @@ public class QuizService {
         log.info("Quiz solo {} ouvert avec un vivier de {} questions", quiz.getId(), frozen);
 
         // Envoye apres le commit seulement : une ouverture qui echoue n'annonce rien.
-        notificationService.notifyAllPlayers(quiz.isTest() || quiz.isHidden(),
+        // Masque, ou quiz solo coupes globalement : seuls les comptes de test sont prevenus.
+        notificationService.notifyAllPlayers(quiz.isTest() || quizAccess.hiddenFromPlayers(quiz),
                 NotificationMessages.soloQuizOpened(quiz));
         return quiz;
     }

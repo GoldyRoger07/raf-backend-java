@@ -27,6 +27,12 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Retraits automatiques : actives par defaut, effectifs seulement avec une cle
  * Tranzak reelle autorisee aux payouts (AutoPayoutService). Les couper fait revenir
  * au versement manuel (l'agent envoie l'argent puis saisit la reference).
+ *
+ * <p>Quiz solo : visibles par defaut. Couper l'interrupteur masque d'un coup tous les
+ * quiz solo ouverts, comme le masquage d'un quiz (QuizAccess) : ils sortent de la
+ * liste des joueurs, aucune nouvelle partie ne demarre et l'ouverture d'un quiz
+ * solo n'est annoncee qu'aux comptes de test. Une partie en cours va a son terme ;
+ * le staff et les comptes de test voient toujours les quiz.
  */
 @Service
 @RequiredArgsConstructor
@@ -36,14 +42,16 @@ public class PlayerAppService {
 
     /** En modification, un champ absent (null) garde sa valeur actuelle. */
     public record PlayerAppConfig(Boolean emailReminderEnabled, Boolean leaderTransferEnabled,
-            Boolean winningsConversionEnabled, Boolean onlineTopUpEnabled, Boolean autoPayoutEnabled) {
+            Boolean winningsConversionEnabled, Boolean onlineTopUpEnabled, Boolean autoPayoutEnabled,
+            Boolean soloQuizzesVisible) {
     }
 
     @Transactional(readOnly = true)
     public PlayerAppConfig get() {
         return new PlayerAppConfig(flag(SettingKeys.APP_EMAIL_REMINDER_ENABLED),
                 flag(SettingKeys.APP_LEADER_TRANSFER_ENABLED), flag(SettingKeys.APP_WINNINGS_CONVERSION_ENABLED),
-                flag(SettingKeys.APP_ONLINE_TOPUP_ENABLED), flag(SettingKeys.APP_AUTO_PAYOUT_ENABLED));
+                flag(SettingKeys.APP_ONLINE_TOPUP_ENABLED), flag(SettingKeys.APP_AUTO_PAYOUT_ENABLED),
+                flag(SettingKeys.APP_SOLO_QUIZZES_VISIBLE));
     }
 
     @Transactional(readOnly = true)
@@ -59,6 +67,11 @@ public class PlayerAppService {
     @Transactional(readOnly = true)
     public boolean autoPayoutEnabled() {
         return flag(SettingKeys.APP_AUTO_PAYOUT_ENABLED);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean soloQuizzesVisible() {
+        return flag(SettingKeys.APP_SOLO_QUIZZES_VISIBLE);
     }
 
     @Transactional(readOnly = true)
@@ -80,6 +93,8 @@ public class PlayerAppService {
                 request.onlineTopUpEnabled());
         change(actorId, SettingKeys.APP_AUTO_PAYOUT_ENABLED, current.autoPayoutEnabled(),
                 request.autoPayoutEnabled());
+        change(actorId, SettingKeys.APP_SOLO_QUIZZES_VISIBLE, current.soloQuizzesVisible(),
+                request.soloQuizzesVisible());
         return get();
     }
 

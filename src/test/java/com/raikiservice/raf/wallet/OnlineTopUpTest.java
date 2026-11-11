@@ -67,7 +67,7 @@ class OnlineTopUpTest extends IntegrationTest {
     @AfterEach
     void restore() {
         settingsService.update(null, SettingKeys.CREDIT_HTG_RATE, previousRate);
-        playerAppService.update(null, new PlayerAppConfig(null, null, null, true, null));
+        playerAppService.update(null, new PlayerAppConfig(null, null, null, true, null, null));
         gateway.setConfigured(true);
         gateway.setLive(true);
     }
@@ -273,12 +273,12 @@ class OnlineTopUpTest extends IntegrationTest {
                 () -> onlineTopUpService.start(player.getId(), 100, PaymentProvider.MONCASH));
 
         User other = data.player();
-        playerAppService.update(null, new PlayerAppConfig(null, null, null, false, null));
+        playerAppService.update(null, new PlayerAppConfig(null, null, null, false, null, null));
         assertThat(onlineTopUpService.config().enabled()).isFalse();
         assertApiError(ErrorCode.ONLINE_TOPUP_DISABLED,
                 () -> onlineTopUpService.start(other.getId(), 100, PaymentProvider.MONCASH));
 
-        playerAppService.update(null, new PlayerAppConfig(null, null, null, true, null));
+        playerAppService.update(null, new PlayerAppConfig(null, null, null, true, null, null));
         gateway.setConfigured(false);
         assertThat(onlineTopUpService.config().enabled()).isFalse();
     }
