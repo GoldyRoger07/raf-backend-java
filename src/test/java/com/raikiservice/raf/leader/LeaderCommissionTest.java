@@ -6,6 +6,8 @@ import java.util.List;
 
 import com.raikiservice.raf.auth.domain.User;
 import com.raikiservice.raf.common.error.ErrorCode;
+import com.raikiservice.raf.fraud.service.FraudProfileService;
+import com.raikiservice.raf.fraud.service.FraudProfileService.ProfileRequest;
 import com.raikiservice.raf.game.service.GameService;
 import com.raikiservice.raf.game.service.RankingService;
 import com.raikiservice.raf.game.web.dto.AnswerQuestionDto;
@@ -53,6 +55,7 @@ class LeaderCommissionTest extends IntegrationTest {
     @Autowired private WalletTransactionRepository walletTransactionRepository;
     @Autowired private ReconciliationService reconciliationService;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private FraudProfileService fraudProfileService;
 
     private static Long categoryId;
 
@@ -135,6 +138,26 @@ class LeaderCommissionTest extends IntegrationTest {
                     assertThat(line.source()).isEqualTo("SOLO");
                     assertThat(line.commissionPercent()).isEqualByComparingTo("10");
                 });
+    }
+
+    @Test
+    void aSuspectPayingMoreDoesNotRaiseTheLeaderCommission() {
+        User leader = leader("10");
+        User player = data.player();
+        leaderService.addPlayer(null, leader.getId(), player.getId());
+        String name = "Commission " + java.util.UUID.randomUUID();
+        fraudProfileService.createProfile(null, new ProfileRequest(name, 100, 0, 0));
+        Long profileId = fraudProfileService.profiles().stream().filter(p -> p.name().equals(name))
+                .findFirst().orElseThrow().id();
+        fraudProfileService.addSuspect(null, player.getId(), profileId, "Test commission");
+        data.credit(player.getId(), BalanceType.CREDIT, 2L * TestData.SOLO_ENTRY);
+
+        assertThat(playSolo(player, data.soloQuiz(data.categoryWithQuestions(30), 3), 2).won()).isFalse();
+
+        // Il a paye le double ; la commission reste celle du prix normal.
+        assertThat(data.balance(player.getId(), BalanceType.CREDIT)).isZero();
+        assertThat(data.balance(leader.getId(), BalanceType.WINNINGS))
+                .isEqualTo(TestData.SOLO_ENTRY * walletService.htgRate() / 10);
     }
 
     @Test

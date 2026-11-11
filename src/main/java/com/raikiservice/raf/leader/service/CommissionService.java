@@ -126,9 +126,15 @@ public class CommissionService {
     /** Partie solo perdue (pas de sans-faute), dans la transaction qui la clot. */
     @Transactional(propagation = Propagation.MANDATORY)
     public void paySoloCommission(GameSession session) {
-        Integer entry = session.getEntryPriceCredits();
-        if (session.isTest() || session.isWon() || entry == null || entry <= 0
+        Integer paid = session.getEntryPriceCredits();
+        if (session.isTest() || session.isWon() || paid == null || paid <= 0
                 || session.getQuiz().isTest()) {
+            return;
+        }
+        // Base : le prix normal du quiz, jamais plus que ce qui a ete paye. Un joueur
+        // suspecte de fraude paie plus (FraudProfileService) sans grossir la commission.
+        int entry = Math.min(paid, session.getQuiz().getTicketPriceCredits());
+        if (entry <= 0) {
             return;
         }
         Long playerId = session.getUser().getId();
