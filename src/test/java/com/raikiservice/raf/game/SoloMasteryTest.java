@@ -22,7 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Questions deja reussies en solo : plus servies au joueur sur le sujet, sauf quand
+ * Questions deja jouees en solo : plus servies au joueur sur le sujet, sauf quand
  * le vivier n'en compte plus assez d'autres ; on ressert alors les plus anciennes.
  */
 class SoloMasteryTest extends IntegrationTest {
@@ -39,17 +39,18 @@ class SoloMasteryTest extends IntegrationTest {
     @Autowired private JdbcTemplate jdbc;
 
     @Test
-    void correctlyAnsweredQuestionsAreNotServedAgain() {
+    void playedQuestionsAreNotServedAgainEvenWhenMissed() {
         Long categoryId = data.categoryWithQuestions(POOL);
         Long quizId = data.soloQuiz(categoryId, PER_GAME, 0);
         User player = data.player();
 
         Set<Long> mastered = new HashSet<>();
-        // 9 parties a 2 bonnes reponses sur 3 : 18 questions reussies, jamais resservies.
+        // 9 parties a 2 bonnes reponses sur 3 : les 27 questions jouees, ratees
+        // comprises, ne sont jamais resservies.
         for (int game = 0; game < 9; game++) {
             List<Long> drawn = playOnce(player, quizId, 2);
             assertThat(drawn).hasSize(PER_GAME).noneMatch(mastered::contains);
-            mastered.addAll(drawn.subList(0, 2));
+            mastered.addAll(drawn);
         }
 
         assertThat(masteredIds(player.getId(), categoryId)).containsExactlyInAnyOrderElementsOf(mastered);
@@ -57,7 +58,7 @@ class SoloMasteryTest extends IntegrationTest {
                 .singleElement()
                 .satisfies(count -> {
                     assertThat(count.categoryId()).isEqualTo(categoryId);
-                    assertThat(count.masteredCount()).isEqualTo(18);
+                    assertThat(count.masteredCount()).isEqualTo(27);
                 });
     }
 
@@ -67,7 +68,7 @@ class SoloMasteryTest extends IntegrationTest {
         Long quizId = data.soloQuiz(categoryId, PER_GAME, 0);
         User player = data.player();
 
-        // 29 questions sur 30 deja reussies, de la plus ancienne a la plus recente.
+        // 29 questions sur 30 deja jouees, de la plus ancienne a la plus recente.
         List<Long> pool = jdbc.queryForList(
                 "SELECT question_id FROM quiz_question_pool WHERE quiz_id = ? ORDER BY question_id",
                 Long.class, quizId);
@@ -80,16 +81,16 @@ class SoloMasteryTest extends IntegrationTest {
 
         List<Long> drawn = playOnce(player, quizId, 0);
 
-        // La seule jamais reussie, completee par les deux plus anciennes.
+        // La seule jamais jouee, completee par les deux plus anciennes.
         assertThat(drawn).containsExactlyInAnyOrder(pool.get(POOL - 1), pool.get(0), pool.get(1));
-        // Purgees et ratees : elles sortent de la liste ; les autres restent.
+        // Purgees puis rejouees, meme ratees : elles reviennent dans la liste, en fin de file.
         assertThat(masteredIds(player.getId(), categoryId))
-                .hasSize(POOL - 3)
-                .doesNotContain(pool.get(0), pool.get(1), pool.get(POOL - 1));
+                .hasSize(POOL)
+                .contains(pool.get(0), pool.get(1), pool.get(POOL - 1));
     }
 
     @Test
-    void aNewSuccessMovesTheQuestionToTheEndOfTheQueue() {
+    void playingAQuestionAgainMovesItToTheEndOfTheQueue() {
         Long categoryId = data.categoryWithQuestions(POOL);
         Long quizId = data.soloQuiz(categoryId, PER_GAME, 0);
         User player = data.player();
@@ -104,8 +105,8 @@ class SoloMasteryTest extends IntegrationTest {
                     player.getId(), categoryId, pool.get(i), Timestamp.from(base.plusSeconds(i)));
         }
 
-        // Tout est reussi : les 3 plus anciennes reviennent, et sont reussies a nouveau.
-        List<Long> first = playOnce(player, quizId, PER_GAME);
+        // Tout est joue : les 3 plus anciennes reviennent, et sont ratees cette fois.
+        List<Long> first = playOnce(player, quizId, 0);
         assertThat(first).containsExactlyInAnyOrder(pool.get(0), pool.get(1), pool.get(2));
         assertThat(masteredIds(player.getId(), categoryId)).hasSize(POOL);
 
@@ -144,7 +145,7 @@ class SoloMasteryTest extends IntegrationTest {
         playOnce(other, quizId, 2);
         Long sessionId = jdbc.queryForObject(
                 "SELECT id FROM game_sessions WHERE user_id = ?", Long.class, other.getId());
-        assertThat(masteredIds(other.getId(), categoryId)).hasSize(2);
+        assertThat(masteredIds(other.getId(), categoryId)).hasSize(PER_GAME);
         gameService.invalidateByAdmin(data.admin().getId(), sessionId, "test");
         assertThat(masteredIds(other.getId(), categoryId)).isEmpty();
     }

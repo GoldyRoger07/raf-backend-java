@@ -46,6 +46,8 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
 
     boolean existsByUserIdAndCategoryIdAndSoloDay(Long userId, Long categoryId, LocalDate soloDay);
 
+    boolean existsByDeviceIdAndCategoryIdAndSoloDay(String deviceId, Long categoryId, LocalDate soloDay);
+
     boolean existsByQuizIdAndUserId(Long quizId, Long userId);
 
     /** Dernier sans-faute d'un joueur sur un quiz dont la regle de delai est active. */

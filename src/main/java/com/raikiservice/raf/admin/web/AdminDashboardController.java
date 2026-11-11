@@ -87,7 +87,7 @@ public class AdminDashboardController {
     }
 
     @GetMapping("/players/{id}/solo-mastery")
-    @Operation(summary = "Questions deja reussies en solo par le joueur, sujet par sujet",
+    @Operation(summary = "Questions deja jouees en solo par le joueur, sujet par sujet",
             description = "Ces questions ne lui sont plus servies sur le sujet tant que le vivier "
                     + "en compte assez d'autres.")
     public List<SoloMasteryService.SubjectCount> soloMastery(@PathVariable Long id) {

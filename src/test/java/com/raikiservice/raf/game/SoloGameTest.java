@@ -216,6 +216,32 @@ class SoloGameTest extends IntegrationTest {
     }
 
     @Test
+    void aSecondAccountOnTheSameDeviceCannotReplayTheSubject() {
+        Long otherCategory = data.categoryWithQuestions(30);
+        User first = funded(1);
+        User second = funded(3);
+        Long quizId = data.soloQuiz(categoryId, 3);
+        Long sameSubject = data.soloQuiz(categoryId, 3);
+        Long otherSubject = data.soloQuiz(otherCategory, 3);
+        String device = "android-0123456789abcdef";
+
+        play(first, gameService.start(first.getId(), quizId, IP, UA, device), 1);
+
+        assertApiError(ErrorCode.SOLO_DEVICE_ALREADY_PLAYED_TODAY,
+                () -> gameService.start(second.getId(), quizId, IP, UA, device));
+        assertApiError(ErrorCode.SOLO_DEVICE_ALREADY_PLAYED_TODAY,
+                () -> gameService.start(second.getId(), sameSubject, IP, UA, device));
+        // Refus avant le debit : le second compte n'a rien paye.
+        assertThat(data.balance(second.getId(), BalanceType.CREDIT)).isEqualTo(3L * TestData.SOLO_ENTRY);
+
+        // Autre sujet sur le meme appareil, ou meme sujet depuis un autre appareil : permis.
+        gameService.start(second.getId(), otherSubject, IP, UA, device);
+        Long thirdQuiz = data.soloQuiz(categoryId, 3);
+        User third = funded(1);
+        gameService.start(third.getId(), thirdQuiz, IP, UA, "android-fedcba9876543210");
+    }
+
+    @Test
     void reloadingResumesTheGameWithoutPayingTwice() {
         User player = funded(2);
         Long quizId = data.soloQuiz(categoryId, 3);

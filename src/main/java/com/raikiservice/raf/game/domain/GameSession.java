@@ -154,6 +154,10 @@ public class GameSession {
     @Column(name = "user_agent", length = 255)
     private String userAgent;
 
+    /** Identifiant d'appareil annonce par l'app ; null si le client ne l'envoie pas. */
+    @Column(name = "device_id", length = 64)
+    private String deviceId;
+
     /**
      * Fin de partie vue par le joueur, sans la marge reseau. En SEQUENTIAL, une
      * question servie plus tard qu'au plus tot (reprise apres coupure) decale la

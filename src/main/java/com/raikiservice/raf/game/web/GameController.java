@@ -48,7 +48,8 @@ public class GameController {
             @Valid @RequestBody StartGameDto request, HttpServletRequest http) {
 
         GameStartResponse response = gameService.start(player.getId(), request.quizId(),
-                RequestContext.clientIp(http), RequestContext.userAgent(http));
+                RequestContext.clientIp(http), RequestContext.userAgent(http),
+                RequestContext.deviceId(http));
 
         return ResponseEntity.status(response.resumed() ? HttpStatus.OK : HttpStatus.CREATED)
                 .body(response);

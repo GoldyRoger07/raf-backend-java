@@ -79,7 +79,7 @@ class SoloDifficultyMixTest extends IntegrationTest {
         quizService.setDifficultyMix(null, quizId, new DifficultyMix(0, 0, 100));
         User player = data.player();
 
-        // 23 difficiles sur 25 deja reussies, de la plus ancienne a la plus recente.
+        // 23 difficiles sur 25 deja jouees, de la plus ancienne a la plus recente.
         List<Long> hard = jdbc.queryForList("SELECT p.question_id FROM quiz_question_pool p "
                 + "JOIN questions q ON q.id = p.question_id "
                 + "WHERE p.quiz_id = ? AND q.difficulty = 'HARD' ORDER BY p.question_id",
@@ -93,7 +93,7 @@ class SoloDifficultyMixTest extends IntegrationTest {
 
         List<Long> drawn = playOnce(player, quizId, 0);
 
-        // Les 2 jamais reussies, puis les 3 plus anciennes : aucune facile.
+        // Les 2 jamais jouees, puis les 3 plus anciennes : aucune facile.
         assertThat(drawn).containsExactlyInAnyOrder(
                 hard.get(23), hard.get(24), hard.get(0), hard.get(1), hard.get(2));
     }

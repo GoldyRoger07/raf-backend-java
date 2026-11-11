@@ -160,6 +160,17 @@ public class GameService {
      */
     @Transactional
     public GameStartResponse start(Long userId, Long quizId, String ip, String userAgent) {
+        return start(userId, quizId, ip, userAgent, null);
+    }
+
+    /**
+     * @param deviceId identifiant d'appareil annonce par l'app (null si absent) : en
+     *        solo, un appareil ne joue qu'une fois par sujet et par jour, tous comptes
+     *        confondus
+     */
+    @Transactional
+    public GameStartResponse start(Long userId, Long quizId, String ip, String userAgent,
+            String deviceId) {
         Quiz quiz = quizRepository.findByIdForShare(quizId)
                 .orElseThrow(() -> ApiException.notFound("Quiz"));
         quizAccess.assertVisible(quiz, userId);
@@ -181,7 +192,7 @@ public class GameService {
             if (quiz.isHidden()) {
                 throw new ApiException(ErrorCode.QUIZ_HIDDEN);
             }
-            return startSolo(quiz, userId, now, ip, userAgent);
+            return startSolo(quiz, userId, now, ip, userAgent, deviceId);
         }
 
         List<Long> candidates = ticketRepository.findActiveTicketIds(
@@ -205,16 +216,17 @@ public class GameService {
                             "Ce ticket vient d'etre utilise. Reessayez."));
         }
 
-        return open(quiz, ticket, now, ip, userAgent);
+        return open(quiz, ticket, now, ip, userAgent, deviceId);
     }
 
     private GameStartResponse open(Quiz quiz, Ticket ticket, Instant now, String ip,
-            String userAgent) {
+            String userAgent, String deviceId) {
 
         ticket.setStatus(TicketStatus.USED);
         ticket.setUsedAt(now);
 
-        GameSession session = newSession(quiz, ticket.getUser(), GameMode.GROUP, now, ip, userAgent);
+        GameSession session = newSession(quiz, ticket.getUser(), GameMode.GROUP, now, ip, userAgent,
+                deviceId);
         session.setTicket(ticket);
         return deal(quiz, session, now);
     }
@@ -228,11 +240,16 @@ public class GameService {
      * retrouve le debit du premier au lieu de payer une seconde fois. La
      * contrainte unique sur la partie double ce garde-fou en base.
      *
+     * <p>La meme regle vaut par appareil, tous comptes confondus : un joueur qui
+     * ouvre plusieurs comptes sur un meme telephone ne rejoue pas un sujet dont il
+     * vient de voir les questions. La contrainte unique (appareil, sujet, jour)
+     * couvre les lancements simultanes depuis deux comptes.
+     *
      * <p>Ordre des verrous : quiz (partage) puis portefeuille, comme a l'achat
      * d'un ticket.
      */
     private GameStartResponse startSolo(Quiz quiz, Long userId, Instant now, String ip,
-            String userAgent) {
+            String userAgent, String deviceId) {
 
         Category subject = quiz.getSelectedCategory();
         if (!subject.isAvailableFor(GameMode.SOLO)) {
@@ -250,10 +267,16 @@ public class GameService {
 
         LocalDate day = LocalDate.ofInstant(now, PLAY_DAY_ZONE);
         if (user.isTest()) {
-            return startTestSolo(quiz, user, now, ip, userAgent);
+            return startTestSolo(quiz, user, now, ip, userAgent, deviceId);
         }
         if (gameSessionRepository.existsByUserIdAndCategoryIdAndSoloDay(userId, subject.getId(), day)) {
             throw new ApiException(ErrorCode.SOLO_ALREADY_PLAYED_TODAY);
+        }
+        if (deviceId != null
+                && gameSessionRepository.existsByDeviceIdAndCategoryIdAndSoloDay(deviceId, subject.getId(), day)) {
+            log.info("Solo refuse : appareil {} deja joue sur le sujet {} le {} (joueur {})",
+                    deviceId, subject.getId(), day, userId);
+            throw new ApiException(ErrorCode.SOLO_DEVICE_ALREADY_PLAYED_TODAY);
         }
 
         // Quiz gratuit : pas de debit. Sans le verrou du portefeuille, deux clics
@@ -283,7 +306,7 @@ public class GameService {
             }
         }
 
-        GameSession session = newSession(quiz, user, GameMode.SOLO, now, ip, userAgent);
+        GameSession session = newSession(quiz, user, GameMode.SOLO, now, ip, userAgent, deviceId);
         session.setSoloDay(day);
         session.setEntryPriceCredits(quiz.getTicketPriceCredits());
         session.setEntryTransactionId(entry == null ? null : entry.getId());
@@ -301,15 +324,15 @@ public class GameService {
      * soloDay, donc hors contrainte unique), sans prix au sans-faute.
      */
     private GameStartResponse startTestSolo(Quiz quiz, User user, Instant now, String ip,
-            String userAgent) {
-        GameSession session = newSession(quiz, user, GameMode.SOLO, now, ip, userAgent);
+            String userAgent, String deviceId) {
+        GameSession session = newSession(quiz, user, GameMode.SOLO, now, ip, userAgent, deviceId);
         session.setEntryPriceCredits(0);
         session.setPrizeHtg(0L);
         return deal(quiz, session, now);
     }
 
     private GameSession newSession(Quiz quiz, User user, GameMode mode, Instant now, String ip,
-            String userAgent) {
+            String userAgent, String deviceId) {
 
         GameSession session = new GameSession();
         session.setQuiz(quiz);
@@ -325,6 +348,7 @@ public class GameService {
         session.setStartedAt(now);
         session.setIp(ip);
         session.setUserAgent(userAgent);
+        session.setDeviceId(deviceId);
         return session;
     }
 
@@ -822,11 +846,16 @@ public class GameService {
         }
 
         if (session.isSolo()) {
-            // Les questions reussies ne lui seront plus servies sur ce sujet. Comptes
-            // de test compris : ils servent a verifier ce comportement.
+            // Toutes les questions de la partie, reussies, ratees ou sans reponse, ne
+            // lui seront plus servies sur ce sujet : il les a vues. Comptes de test
+            // compris : ils servent a verifier ce comportement.
             if (session.getCategoryId() != null) {
+                List<Long> playedQuestionIds = gameSessionQuestionRepository
+                        .findBySessionIdOrderByPositionAsc(session.getId()).stream()
+                        .map(draw -> draw.getQuestion().getId())
+                        .toList();
                 soloMasteryService.record(session.getUser().getId(), session.getCategoryId(),
-                        session.getId(), correctQuestionIds, now);
+                        session.getId(), playedQuestionIds, now);
             }
             boolean perfect = correctQuestionIds.size() == totalQuestions;
             session.setPerfect(perfect);

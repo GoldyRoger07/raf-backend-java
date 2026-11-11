@@ -26,15 +26,17 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Questions deja reussies en solo, par joueur et par sujet (table
- * {@code solo_mastered_questions}).
+ * Questions deja jouees en solo, par joueur et par sujet (table
+ * {@code solo_mastered_questions}, nom historique : on n'y inscrivait d'abord que
+ * les bonnes reponses).
  *
  * <p>Le tirage solo ecarte ces questions. Quand le vivier ne compte plus assez de
- * questions jamais reussies pour une partie complete, la liste est pleine : on en
+ * questions jamais jouees pour une partie complete, la liste est pleine : on en
  * retire les plus anciennes, juste ce qu'il faut, et elles sont resservies.
  *
- * <p>Ne sont inscrites que les bonnes reponses des parties terminees (SUBMITTED),
- * comptes de test compris : ni parties invalidees, ni mode GROUP.
+ * <p>Sont inscrites toutes les questions des parties terminees (SUBMITTED), bien
+ * repondues, ratees ou sans reponse, comptes de test compris : ni parties
+ * invalidees, ni mode GROUP.
  */
 @Service
 @RequiredArgsConstructor
@@ -42,14 +44,14 @@ public class SoloMasteryService {
 
     private final JdbcTemplate jdbc;
 
-    /** Questions reussies par sujet, pour la fiche d'un joueur au back-office. */
+    /** Questions jouees par sujet, pour la fiche d'un joueur au back-office. */
     public record SubjectCount(Long categoryId, String categoryName, long masteredCount) {
     }
 
     /**
      * Tire {@code count} questions du vivier pour le joueur : d'abord celles qu'il
-     * n'a jamais reussies sur ce sujet, au hasard ; s'il n'y en a pas assez, les
-     * plus anciennement reussies sont retirees de sa liste et completent la partie.
+     * n'a jamais jouees sur ce sujet, au hasard ; s'il n'y en a pas assez, les
+     * plus anciennement jouees sont retirees de sa liste et completent la partie.
      * L'ordre renvoye est aleatoire.
      */
     @Transactional(propagation = Propagation.MANDATORY)
@@ -75,7 +77,7 @@ public class SoloMasteryService {
         int missing = count - picked.size();
         if (missing > 0) {
             // Liste pleine pour ce vivier : on libere les plus anciennes du vivier.
-            // Les reussites hors de ce vivier (autre quiz du sujet, question
+            // Les questions jouees hors de ce vivier (autre quiz du sujet, question
             // archivee) ne genent pas ce tirage et restent en place.
             List<Long> evicted = mastered.stream()
                     .filter(poolSet::contains)
@@ -92,11 +94,11 @@ public class SoloMasteryService {
      * Tirage solo reparti par difficulte : {@code targets} donne le nombre de questions
      * voulu par niveau, {@code pool} le vivier par niveau. Pour chaque niveau :
      * <ol>
-     *   <li>les questions jamais reussies par le joueur, au hasard ;</li>
-     *   <li>s'il en manque, ses reussites les plus anciennes du meme niveau, retirees de
+     *   <li>les questions jamais jouees par le joueur, au hasard ;</li>
+     *   <li>s'il en manque, ses questions jouees les plus anciennes du meme niveau, retirees de
      *       sa liste et resservies ;</li>
      *   <li>s'il en manque encore (niveau trop petit dans le vivier), un niveau de repli
-     *       ({@link DifficultyMix#fallbacks}) complete, jamais reussies d'abord.</li>
+     *       ({@link DifficultyMix#fallbacks}) complete, jamais jouees d'abord.</li>
      * </ol>
      * La partie n'est plus courte que si le vivier entier l'est. L'ordre renvoye est
      * aleatoire : les niveaux sont melanges.
@@ -172,7 +174,7 @@ public class SoloMasteryService {
     }
 
     /**
-     * Inscrit les bonnes reponses d'une partie terminee. Une question deja dans la
+     * Inscrit les questions d'une partie terminee. Une question deja dans la
      * liste voit sa date remise a jour : elle repasse en fin de file.
      */
     @Transactional(propagation = Propagation.MANDATORY)
