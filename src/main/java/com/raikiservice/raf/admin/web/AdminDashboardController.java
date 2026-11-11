@@ -12,6 +12,7 @@ import com.raikiservice.raf.admin.web.dto.DailyStatsResponse;
 import com.raikiservice.raf.admin.web.dto.DashboardResponse;
 import com.raikiservice.raf.admin.web.dto.GameProfitResponse;
 import com.raikiservice.raf.admin.web.dto.PlayerSummary;
+import com.raikiservice.raf.auth.service.DeviceLinkService;
 import com.raikiservice.raf.game.service.SoloMasteryService;
 import java.util.List;
 
@@ -39,6 +40,7 @@ public class AdminDashboardController {
     private final GameProfitService gameProfitService;
     private final PlayerSearchService playerSearchService;
     private final SoloMasteryService soloMasteryService;
+    private final DeviceLinkService deviceLinkService;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Chiffres cles et travail en attente")
@@ -93,5 +95,14 @@ public class AdminDashboardController {
     public List<SoloMasteryService.SubjectCount> soloMastery(@PathVariable Long id) {
         playerSearchService.get(id);
         return soloMasteryService.countBySubject(id);
+    }
+
+    @GetMapping("/players/{id}/linked-accounts")
+    @Operation(summary = "Comptes vus sur au moins un appareil du joueur",
+            description = "Identifiant d'appareil envoye par l'app (X-Device-Id). La limite d'une partie "
+                    + "solo par sujet et par jour s'applique a ces comptes ensemble.")
+    public List<DeviceLinkService.LinkedAccount> linkedAccounts(@PathVariable Long id) {
+        playerSearchService.get(id);
+        return deviceLinkService.linkedAccounts(id);
     }
 }

@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 
 import com.raikiservice.raf.auth.domain.User;
 import com.raikiservice.raf.auth.repository.UserRepository;
+import com.raikiservice.raf.auth.service.DeviceLinkService;
 import com.raikiservice.raf.common.async.AfterTransactionExecutor;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
@@ -139,6 +140,7 @@ public class GameService {
     private final NotificationService notificationService;
     private final CommissionService commissionService;
     private final SoloMasteryService soloMasteryService;
+    private final DeviceLinkService deviceLinkService;
 
     // --- Demarrage ------------------------------------------------------------
 
@@ -243,7 +245,9 @@ public class GameService {
      * <p>La meme regle vaut par appareil, tous comptes confondus : un joueur qui
      * ouvre plusieurs comptes sur un meme telephone ne rejoue pas un sujet dont il
      * vient de voir les questions. La contrainte unique (appareil, sujet, jour)
-     * couvre les lancements simultanes depuis deux comptes.
+     * couvre les lancements simultanes depuis deux comptes. Elle s'etend aux comptes
+     * lies par un appareil commun ({@link DeviceLinkService}) : vider le navigateur
+     * entre deux comptes ne suffit pas.
      *
      * <p>Ordre des verrous : quiz (partage) puis portefeuille, comme a l'achat
      * d'un ticket.
@@ -277,6 +281,14 @@ public class GameService {
             log.info("Solo refuse : appareil {} deja joue sur le sujet {} le {} (joueur {})",
                     deviceId, subject.getId(), day, userId);
             throw new ApiException(ErrorCode.SOLO_DEVICE_ALREADY_PLAYED_TODAY);
+        }
+        // L'appareil du lancement entre dans le groupe avant le controle : le filtre
+        // d'authentification l'a peut-etre deja note, mais pas forcement dans cette base.
+        deviceLinkService.record(userId, deviceId, now);
+        if (deviceLinkService.linkedAccountPlayedSolo(userId, subject.getId(), day)) {
+            log.info("Solo refuse : un compte lie au joueur {} a deja joue le sujet {} le {}",
+                    userId, subject.getId(), day);
+            throw new ApiException(ErrorCode.SOLO_LINKED_ACCOUNT_ALREADY_PLAYED_TODAY);
         }
 
         // Quiz gratuit : pas de debit. Sans le verrou du portefeuille, deux clics

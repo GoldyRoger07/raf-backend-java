@@ -56,6 +56,7 @@ public class WithdrawalService {
     private final AuditService auditService;
     private final NotificationService notificationService;
     private final PayoutPolicy payoutPolicy;
+    private final WithdrawalFraudSignals withdrawalFraudSignals;
 
     /** Envoie le code de confirmation sur le telephone verifie du joueur. */
     @Transactional
@@ -345,9 +346,9 @@ public class WithdrawalService {
         String phone = digits.length() >= 4 ? "%" + digits + "%" : null;
         Instant from = filter.from() == null ? null : filter.from().atStartOfDay(HAITI).toInstant();
         Instant to = filter.to() == null ? null : filter.to().plusDays(1).atStartOfDay(HAITI).toInstant();
-        return withdrawalRequestRepository.adminList(effective, userId, SearchTerms.contains(query), phone, id,
-                        filter.provider(), filter.counter(), from, to, sorts.apply(pageable))
-                .map(AdminWithdrawalResponse::from);
+        return withdrawalFraudSignals.annotate(withdrawalRequestRepository.adminList(effective, userId,
+                SearchTerms.contains(query), phone, id, filter.provider(), filter.counter(), from, to,
+                sorts.apply(pageable)));
     }
 
     @Transactional(readOnly = true)

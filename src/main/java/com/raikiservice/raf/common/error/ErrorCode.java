@@ -128,6 +128,9 @@ public enum ErrorCode {
             "Vous avez deja joue ce sujet aujourd'hui. Revenez demain ou choisissez un autre sujet."),
     SOLO_DEVICE_ALREADY_PLAYED_TODAY(HttpStatus.CONFLICT,
             "Ce sujet a deja ete joue aujourd'hui sur cet appareil. Revenez demain ou choisissez un autre sujet."),
+    SOLO_LINKED_ACCOUNT_ALREADY_PLAYED_TODAY(HttpStatus.CONFLICT,
+            "Ce sujet a deja ete joue aujourd'hui depuis un autre compte utilise sur cet appareil. "
+                    + "Revenez demain ou choisissez un autre sujet."),
     GAME_REVIEW_LOCKED(HttpStatus.FORBIDDEN,
             "Le corrige sera disponible a la cloture du quiz."),
     GAME_RESULTS_NOT_READY(HttpStatus.CONFLICT,

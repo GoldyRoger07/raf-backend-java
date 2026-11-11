@@ -2,8 +2,10 @@ package com.raikiservice.raf.auth.security;
 
 import java.io.IOException;
 
+import com.raikiservice.raf.auth.service.DeviceLinkService;
 import com.raikiservice.raf.common.error.ApiError;
 import com.raikiservice.raf.common.error.ApiException;
+import com.raikiservice.raf.common.util.RequestContext;
 
 import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
@@ -27,6 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final ObjectMapper objectMapper;
+    private final DeviceLinkService deviceLinkService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -44,6 +47,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     principal, null, principal.getAuthorities());
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
+            // Comptes lies par appareil : chaque compte garde les appareils ou il a ete vu.
+            deviceLinkService.seen(principal.getId(), RequestContext.deviceId(request));
         } catch (ApiException e) {
             // Un jeton present mais invalide doit etre signale explicitement,
             // sinon le frontend ne sait pas qu'il doit rafraichir.
