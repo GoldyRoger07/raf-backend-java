@@ -38,10 +38,13 @@ public class PlayerSearchService {
     private static final String SELECT = """
             SELECT u.id, u.email, u.phone, u.first_name, u.last_name, u.status,
                    u.email_verified_at, u.phone_verified_at, u.created_at, u.is_test,
+                   u.payout_terms_accepted_at,
+                   (sc.user_id IS NOT NULL) AS payout_special_case, sc.note AS payout_special_case_note,
                    COALESCE(w.credit_balance, 0) AS credit_balance,
                    COALESCE(w.winnings_balance, 0) AS winnings_balance
             FROM users u
             LEFT JOIN wallets w ON w.user_id = u.id
+            LEFT JOIN payout_special_cases sc ON sc.user_id = u.id
             """;
 
     private final JdbcTemplate jdbc;
@@ -195,6 +198,10 @@ public class PlayerSearchService {
                 rs.getBoolean("is_test"),
                 rs.getLong("credit_balance"),
                 winnings,
-                rs.getTimestamp("created_at").toInstant());
+                rs.getTimestamp("created_at").toInstant(),
+                rs.getTimestamp("payout_terms_accepted_at") == null ? null
+                        : rs.getTimestamp("payout_terms_accepted_at").toInstant(),
+                rs.getBoolean("payout_special_case"),
+                rs.getString("payout_special_case_note"));
     }
 }

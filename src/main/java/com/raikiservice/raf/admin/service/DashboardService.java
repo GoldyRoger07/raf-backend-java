@@ -70,13 +70,13 @@ public class DashboardService {
                         + "AND tk.purchased_at >= ? AND tk.status <> 'REFUNDED'", since30),
                 prizes,
                 topUps, topUps * rate,
-                count("SELECT COALESCE(SUM(wr.net_htg), 0) " + RealActivity.WITHDRAWALS
+                count("SELECT COALESCE(SUM(wr.paid_htg), 0) " + RealActivity.WITHDRAWALS
                         + "AND wr.status = 'PAID' AND wr.paid_at >= ?", since30));
 
         DashboardResponse.Pending pending = new DashboardResponse.Pending(
                 count("SELECT COUNT(*) FROM withdrawal_requests WHERE status = 'PENDING'"),
                 count("SELECT COALESCE(SUM(net_htg), 0) FROM withdrawal_requests WHERE status = 'PENDING'"),
-                count("SELECT COUNT(*) FROM withdrawal_requests WHERE status IN ('APPROVED', 'SENDING')"),
+                count("SELECT COUNT(*) FROM withdrawal_requests WHERE status IN ('APPROVED', 'PARTIALLY_PAID', 'SENDING')"),
                 // Seuls comptent les signalements encore actionnables : une fois le
                 // quiz termine, les gains sont verses.
                 count("SELECT COUNT(*) FROM game_sessions s JOIN quizzes q ON q.id = s.quiz_id "

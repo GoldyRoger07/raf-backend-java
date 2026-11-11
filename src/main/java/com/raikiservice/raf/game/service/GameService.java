@@ -141,6 +141,7 @@ public class GameService {
     private final CommissionService commissionService;
     private final SoloMasteryService soloMasteryService;
     private final DeviceLinkService deviceLinkService;
+    private final PayoutTermsService payoutTermsService;
 
     // --- Demarrage ------------------------------------------------------------
 
@@ -269,9 +270,10 @@ public class GameService {
             throw new ApiException(ErrorCode.EMAIL_NOT_VERIFIED,
                     "Verifiez votre adresse email avant de jouer en solo.");
         }
-
         LocalDate day = LocalDate.ofInstant(now, PLAY_DAY_ZONE);
         if (user.isTest()) {
+            // Accord du paiement par tranches : les comptes de test aussi, pour verifier le parcours.
+            payoutTermsService.assertAccepted(user);
             return startTestSolo(quiz, user, now, ip, userAgent, deviceId);
         }
         if (gameSessionRepository.existsByUserIdAndCategoryIdAndSoloDay(userId, subject.getId(), day)) {
@@ -291,6 +293,9 @@ public class GameService {
                     userId, subject.getId(), day);
             throw new ApiException(ErrorCode.SOLO_LINKED_ACCOUNT_ALREADY_PLAYED_TODAY);
         }
+        // Deja un sans-faute : accord du paiement par tranches avant toute nouvelle partie.
+        // Apres les refus du jour : un sujet deja joue se dit d'abord.
+        payoutTermsService.assertAccepted(user);
 
         // Quiz gratuit : pas de debit. Sans le verrou du portefeuille, deux clics
         // simultanes passent tous deux le controle ci-dessus ; la contrainte unique

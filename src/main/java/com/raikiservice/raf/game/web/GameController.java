@@ -5,6 +5,7 @@ import java.util.List;
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.common.util.RequestContext;
 import com.raikiservice.raf.game.service.GameService;
+import com.raikiservice.raf.game.service.PayoutTermsService;
 import com.raikiservice.raf.game.web.dto.AnswerQuestionDto;
 import com.raikiservice.raf.game.web.dto.GameOutcomeResponse;
 import com.raikiservice.raf.game.web.dto.GameResultResponse;
@@ -37,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class GameController {
 
     private final GameService gameService;
+    private final PayoutTermsService payoutTermsService;
 
     /**
      * 201 pour une nouvelle partie (un ticket vient d'etre consomme), 200 pour la
@@ -73,6 +75,26 @@ public class GameController {
     @Operation(summary = "Sujets deja joues en solo aujourd'hui (une partie par sujet et par jour)")
     public List<Long> soloSubjectsPlayedToday(@AuthenticationPrincipal UserPrincipal player) {
         return gameService.soloSubjectsPlayedToday(player.getId());
+    }
+
+    @GetMapping("/solo/payout-terms")
+    @Operation(summary = "Accord du paiement des retraits par tranches : a accepter avant le solo ?",
+            description = "required : le joueur a deja fait un sans-faute en solo et n'a pas accepte la "
+                    + "version en cours du texte. Sans accord, une partie solo est refusee "
+                    + "(SOLO_PAYOUT_TERMS_REQUIRED).")
+    public PayoutTermsService.Status payoutTerms(@AuthenticationPrincipal UserPrincipal player) {
+        return payoutTermsService.status(player.getId());
+    }
+
+    @PostMapping("/solo/payout-terms")
+    @Operation(summary = "Accepter que RAF puisse verser les retraits en plusieurs fois",
+            description = "version : celle du texte lu, renvoyee par GET. Une version perimee est refusee.")
+    public PayoutTermsService.Status acceptPayoutTerms(@AuthenticationPrincipal UserPrincipal player,
+            @RequestBody PayoutTermsAcceptance request) {
+        return payoutTermsService.accept(player.getId(), request.version());
+    }
+
+    public record PayoutTermsAcceptance(int version) {
     }
 
     @GetMapping("/sessions")

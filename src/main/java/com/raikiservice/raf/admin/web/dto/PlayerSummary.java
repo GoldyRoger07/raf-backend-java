@@ -16,5 +16,10 @@ public record PlayerSummary(
         boolean test,
         long creditBalance,
         long winningsBalanceHtg,
-        Instant createdAt) {
+        Instant createdAt,
+        /** Accord du paiement des retraits par tranches (PayoutTermsService), null s'il n'a pas accepte. */
+        Instant payoutTermsAcceptedAt,
+        /** Cas de retrait particulier, avec la note saisie a l'ajout. */
+        boolean payoutSpecialCase,
+        String payoutSpecialCaseNote) {
 }

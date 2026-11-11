@@ -22,14 +22,16 @@ public record AdminWithdrawalResponse(
         String playerEmail,
         String playerPhone,
         int linkedAccounts,
-        List<OtherAccount> destinationUsedBy) {
+        List<OtherAccount> destinationUsedBy,
+        /** Cas de retrait particulier : retrait fractionnable par tranches. */
+        boolean specialCase) {
 
     /** Autre compte, pour un lien vers sa fiche. */
     public record OtherAccount(Long playerId, String playerName) {
     }
 
     public static AdminWithdrawalResponse from(WithdrawalRequest request, int linkedAccounts,
-            List<OtherAccount> destinationUsedBy) {
+            List<OtherAccount> destinationUsedBy, boolean specialCase) {
         User user = request.getUser();
         return new AdminWithdrawalResponse(
                 WithdrawalResponse.from(request),
@@ -38,6 +40,7 @@ public record AdminWithdrawalResponse(
                 user.getEmail(),
                 user.getPhone(),
                 linkedAccounts,
-                destinationUsedBy);
+                destinationUsedBy,
+                specialCase);
     }
 }

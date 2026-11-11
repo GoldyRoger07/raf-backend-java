@@ -1,5 +1,6 @@
 package com.raikiservice.raf.wallet.web;
 
+import java.util.List;
 import java.time.LocalDate;
 
 import com.raikiservice.raf.wallet.domain.WalletTransactionType;
@@ -16,6 +17,7 @@ import com.raikiservice.raf.wallet.service.CounterWithdrawalService;
 import com.raikiservice.raf.wallet.service.TopUpRetentionService;
 import com.raikiservice.raf.wallet.service.TopUpService;
 import com.raikiservice.raf.wallet.service.WalletService;
+import com.raikiservice.raf.wallet.service.PayoutSpecialCaseService;
 import com.raikiservice.raf.wallet.service.WithdrawalService;
 import com.raikiservice.raf.wallet.web.dto.AdjustmentDto;
 import com.raikiservice.raf.wallet.web.dto.AdminWithdrawalResponse;
@@ -23,6 +25,8 @@ import com.raikiservice.raf.wallet.web.dto.CounterWithdrawalConfirmDto;
 import com.raikiservice.raf.wallet.web.dto.CounterWithdrawalDto;
 import com.raikiservice.raf.wallet.web.dto.ManualTopUpDto;
 import com.raikiservice.raf.wallet.web.dto.PayoutDto;
+import com.raikiservice.raf.wallet.web.dto.InstallmentDto;
+import com.raikiservice.raf.wallet.web.dto.InstallmentResponse;
 import com.raikiservice.raf.wallet.web.dto.RejectionDto;
 import com.raikiservice.raf.wallet.web.dto.TopUpResponse;
 import com.raikiservice.raf.wallet.web.dto.TransactionResponse;
@@ -40,6 +44,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -67,6 +72,7 @@ public class AdminWalletController {
     private final AdjustmentService adjustmentService;
     private final CounterWithdrawalService counterWithdrawalService;
     private final TopUpRetentionService retentionService;
+    private final PayoutSpecialCaseService payoutSpecialCaseService;
 
     @PostMapping("/topups/manual")
     @Operation(summary = "Crediter un joueur apres un encaissement hors ligne")
@@ -134,6 +140,55 @@ public class AdminWalletController {
     public WithdrawalResponse reject(@AuthenticationPrincipal UserPrincipal admin,
             @PathVariable Long id, @Valid @RequestBody RejectionDto request) {
         return WithdrawalResponse.from(withdrawalService.reject(admin.getId(), id, request.reason()));
+    }
+
+    @PostMapping("/withdrawals/{id}/installments")
+    @Operation(summary = "Verser une tranche d'un retrait MonCash / NatCash approuve (versement manuel)",
+            description = "Montant net de la tranche et reference de l'operateur. Le retrait passe en "
+                    + "PARTIALLY_PAID, puis en PAID quand tout le net est verse.")
+    public WithdrawalResponse payInstallment(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long id, @Valid @RequestBody InstallmentDto request) {
+        return WithdrawalResponse.from(withdrawalService.payInstallment(
+                admin.getId(), id, request.amountHtg(), request.payoutReference()));
+    }
+
+    @GetMapping("/withdrawals/{id}/installments")
+    @Operation(summary = "Tranches deja versees d'un retrait, la plus ancienne d'abord")
+    public List<InstallmentResponse> installments(@PathVariable Long id) {
+        return withdrawalService.installments(id).stream().map(InstallmentResponse::from).toList();
+    }
+
+    @PostMapping("/withdrawals/{id}/close")
+    @Operation(summary = "Clore un retrait verse en partie et rendre le reste aux gains du joueur")
+    public WithdrawalResponse closeWithRefund(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long id, @Valid @RequestBody RejectionDto request) {
+        return WithdrawalResponse.from(withdrawalService.closeWithRefund(admin.getId(), id, request.reason()));
+    }
+
+    @GetMapping("/payout-special-cases")
+    @Operation(summary = "Cas de retrait particuliers : joueurs payables par tranches, qui doivent accepter avant le solo")
+    public List<PayoutSpecialCaseService.SpecialCase> specialCases() {
+        return payoutSpecialCaseService.list();
+    }
+
+    @PostMapping("/payout-special-cases")
+    @Operation(summary = "Ajouter un joueur aux cas de retrait particuliers (deja present : note mise a jour)")
+    public List<PayoutSpecialCaseService.SpecialCase> addSpecialCase(@AuthenticationPrincipal UserPrincipal admin,
+            @Valid @RequestBody SpecialCaseDto request) {
+        payoutSpecialCaseService.add(admin.getId(), request.userId(), request.note());
+        return payoutSpecialCaseService.list();
+    }
+
+    @DeleteMapping("/payout-special-cases/{userId}")
+    @Operation(summary = "Retirer un joueur des cas de retrait particuliers (son accord est garde)")
+    public List<PayoutSpecialCaseService.SpecialCase> removeSpecialCase(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long userId) {
+        payoutSpecialCaseService.remove(admin.getId(), userId);
+        return payoutSpecialCaseService.list();
+    }
+
+    public record SpecialCaseDto(@jakarta.validation.constraints.NotNull Long userId,
+            @jakarta.validation.constraints.Size(max = 255) String note) {
     }
 
     @PostMapping("/withdrawals/{id}/pickup-code")

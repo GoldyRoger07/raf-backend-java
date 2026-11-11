@@ -223,6 +223,7 @@ public class AutoPayoutService {
 
             if (payout.completed()) {
                 request.setStatus(WithdrawalStatus.PAID);
+                request.setPaidHtg(request.getNetHtg());
                 request.setPayoutReference(request.getPayoutId());
                 request.setPaidAt(Instant.now());
                 notificationService.notifyUser(request.getUser().getId(), NotificationMessages.withdrawalPaid(request));

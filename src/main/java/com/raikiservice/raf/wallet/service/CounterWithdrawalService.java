@@ -169,6 +169,7 @@ public class CounterWithdrawalService {
         request.setDebitTransactionId(debit.getId());
         request.setOtpVerifiedAt(now);
         request.setStatus(WithdrawalStatus.PAID);
+        request.setPaidHtg(request.getNetHtg());
         request.setReviewedByAdminId(adminId);
         request.setReviewedAt(now);
         request.setPaidAt(now);

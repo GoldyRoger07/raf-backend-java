@@ -51,7 +51,7 @@ public class AccountPhoneService {
 
     /** Statuts ou de l'argent et des codes sont en route vers le numero actuel. */
     private static final EnumSet<WithdrawalStatus> WITHDRAWAL_IN_PROGRESS =
-            EnumSet.of(WithdrawalStatus.AWAITING_OTP, WithdrawalStatus.PENDING, WithdrawalStatus.APPROVED,
+            EnumSet.of(WithdrawalStatus.AWAITING_OTP, WithdrawalStatus.PENDING, WithdrawalStatus.APPROVED, WithdrawalStatus.PARTIALLY_PAID,
             WithdrawalStatus.SENDING);
 
     /**

@@ -163,6 +163,20 @@ public final class NotificationMessages {
         return withdrawal(NotificationType.WITHDRAWAL_PAID, request, "Retrait verse", body);
     }
 
+    public static NotificationMessage withdrawalPartiallyPaid(WithdrawalRequest request, long amountHtg) {
+        return withdrawal(NotificationType.WITHDRAWAL_PARTIALLY_PAID, request, "Retrait verse en partie",
+                amountHtg + " HTG ont ete verses sur votre compte " + request.getProvider() + ". "
+                        + "Total verse : " + request.getPaidHtg() + " HTG sur " + request.getNetHtg()
+                        + " HTG. Le reste vous sera envoye des que possible.");
+    }
+
+    public static NotificationMessage withdrawalClosedWithRefund(WithdrawalRequest request, String reason) {
+        return withdrawal(NotificationType.WITHDRAWAL_CLOSED, request, "Retrait clos, reste rendu",
+                request.getPaidHtg() + " HTG vous ont ete verses sur " + request.getNetHtg() + " HTG. Les "
+                        + request.getRefundedHtg() + " HTG restants ont ete remis dans vos gains. Motif : "
+                        + reason);
+    }
+
     public static NotificationMessage withdrawalRejected(WithdrawalRequest request, String reason) {
         return withdrawal(NotificationType.WITHDRAWAL_REJECTED, request, "Retrait refuse",
                 "Votre retrait de " + request.getAmountHtg() + " HTG a ete refuse et vos gains "

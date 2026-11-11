@@ -44,6 +44,14 @@ public class WithdrawalRequest extends AuditableEntity {
     @Column(name = "net_htg", nullable = false)
     private long netHtg;
 
+    /** Deja verse au joueur : somme des tranches, ou net_htg une fois paye en une fois. */
+    @Column(name = "paid_htg", nullable = false)
+    private long paidHtg;
+
+    /** Reste non verse rendu aux gains a la cloture d'un retrait paye en partie. */
+    @Column(name = "refunded_htg", nullable = false)
+    private long refundedHtg;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private PaymentProvider provider;
@@ -86,6 +94,11 @@ public class WithdrawalRequest extends AuditableEntity {
 
     @Column(length = 255)
     private String note;
+
+    /** Reste a verser sur le montant net. */
+    public long remainingHtg() {
+        return netHtg - paidHtg - refundedHtg;
+    }
 
     public boolean isCounterWithdrawal() {
         return initiatedByAdminId != null;

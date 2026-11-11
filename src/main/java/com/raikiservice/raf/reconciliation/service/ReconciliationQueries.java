@@ -88,11 +88,15 @@ final class ReconciliationQueries {
                 """));
         queries.add(link(ReconciliationCheck.WITHDRAWAL_DEBIT, "withdrawal_requests",
                 "WithdrawalRequest", "debit_transaction_id",
-                "b.status IN ('PENDING', 'APPROVED', 'SENDING', 'PAID', 'REJECTED')", "WITHDRAWAL", "WINNINGS",
+                "b.status IN ('PENDING', 'APPROVED', 'PARTIALLY_PAID', 'SENDING', 'PAID', 'REJECTED')", "WITHDRAWAL", "WINNINGS",
                 "-b.amount_htg"));
         queries.add(link(ReconciliationCheck.WITHDRAWAL_REFUND, "withdrawal_requests",
                 "WithdrawalRequest", "refund_transaction_id", "b.status = 'REJECTED'", "REFUND",
                 "WINNINGS", "b.amount_htg"));
+        // Retrait verse en partie puis clos : seul le reste non verse est rendu.
+        queries.add(link(ReconciliationCheck.WITHDRAWAL_REFUND, "withdrawal_requests",
+                "WithdrawalRequest", "refund_transaction_id", "b.status = 'PAID' AND b.refunded_htg > 0", "REFUND",
+                "WINNINGS", "b.refunded_htg"));
         queries.add(link(ReconciliationCheck.PRIZE_PAYMENT, "quiz_rankings", "QuizRanking",
                 "transaction_id", "b.reward_htg > 0", "PRIZE", "WINNINGS", "b.reward_htg"));
         queries.add(link(ReconciliationCheck.SOLO_ENTRY_DEBIT, "game_sessions", "GameSession",
@@ -130,7 +134,8 @@ final class ReconciliationQueries {
                 "b.status IN ('AWAITING_OTP', 'CANCELLED')",
                 "Retrait non confirme ou annule portant un debit"));
         queries.add(unexpected("withdrawal_requests", "WithdrawalRequest", "refund_transaction_id",
-                "b.status <> 'REJECTED'", "Retrait non rejete portant une restitution"));
+                "b.status <> 'REJECTED' AND NOT (b.status = 'PAID' AND b.refunded_htg > 0)",
+                "Retrait non rejete portant une restitution"));
         queries.add(unexpected("quiz_rankings", "QuizRanking", "transaction_id",
                 "b.reward_htg = 0", "Rang non recompense portant un versement"));
         queries.add(unexpected("game_sessions", "GameSession", "prize_transaction_id",

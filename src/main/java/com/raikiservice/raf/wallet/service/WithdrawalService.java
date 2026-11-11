@@ -3,6 +3,7 @@ package com.raikiservice.raf.wallet.service;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 import com.raikiservice.raf.auth.domain.OtpPurpose;
 import com.raikiservice.raf.auth.domain.User;
@@ -21,8 +22,10 @@ import com.raikiservice.raf.wallet.domain.BalanceType;
 import com.raikiservice.raf.wallet.domain.PaymentProvider;
 import com.raikiservice.raf.wallet.domain.WalletTransaction;
 import com.raikiservice.raf.wallet.domain.WalletTransactionType;
+import com.raikiservice.raf.wallet.domain.WithdrawalPayout;
 import com.raikiservice.raf.wallet.domain.WithdrawalRequest;
 import com.raikiservice.raf.wallet.domain.WithdrawalStatus;
+import com.raikiservice.raf.wallet.repository.WithdrawalPayoutRepository;
 import com.raikiservice.raf.wallet.repository.WithdrawalRequestRepository;
 import com.raikiservice.raf.wallet.web.dto.AdminWithdrawalResponse;
 
@@ -57,6 +60,8 @@ public class WithdrawalService {
     private final NotificationService notificationService;
     private final PayoutPolicy payoutPolicy;
     private final WithdrawalFraudSignals withdrawalFraudSignals;
+    private final WithdrawalPayoutRepository withdrawalPayoutRepository;
+    private final PayoutSpecialCaseService payoutSpecialCaseService;
 
     /** Envoie le code de confirmation sur le telephone verifie du joueur. */
     @Transactional
@@ -86,8 +91,10 @@ public class WithdrawalService {
 
         // Une seule demande en attente a la fois : sinon l'administrateur traite
         // des demandes qui se chevauchent sur le meme solde.
-        if (!withdrawalRequestRepository.findByUserIdAndStatus(userId, WithdrawalStatus.PENDING)
-                .isEmpty()) {
+        // Un retrait verse en partie compte aussi : on ne cumule pas les restes a verser.
+        if (!withdrawalRequestRepository.findByUserIdAndStatus(userId, WithdrawalStatus.PENDING).isEmpty()
+                || !withdrawalRequestRepository.findByUserIdAndStatus(userId, WithdrawalStatus.PARTIALLY_PAID)
+                        .isEmpty()) {
             throw new ApiException(ErrorCode.WITHDRAWAL_PENDING_EXISTS);
         }
 
@@ -230,6 +237,10 @@ public class WithdrawalService {
         WithdrawalRequest request = withdrawalRequestRepository.findByIdForUpdate(withdrawalId)
                 .orElseThrow(() -> ApiException.notFound("Demande de retrait"));
 
+        // Deja verse en partie : « marquer paye » verse le reste comme derniere tranche.
+        if (request.getStatus() == WithdrawalStatus.PARTIALLY_PAID) {
+            return payInstallment(adminId, withdrawalId, request.remainingHtg(), payoutReference);
+        }
         if (request.getStatus() != WithdrawalStatus.APPROVED) {
             throw new ApiException(ErrorCode.WITHDRAWAL_NOT_APPROVED);
         }
@@ -244,6 +255,7 @@ public class WithdrawalService {
         }
 
         request.setStatus(WithdrawalStatus.PAID);
+        request.setPaidHtg(request.getNetHtg());
         request.setPayoutReference(payoutReference);
         request.setPaidAt(Instant.now());
 
@@ -256,6 +268,108 @@ public class WithdrawalService {
                         ? "especes remises au guichet" + (payoutReference == null ? "" : ", recu " + payoutReference)
                         : payoutReference);
 
+        return request;
+    }
+
+    /**
+     * Tranche d'un retrait MonCash / NatCash approuve, versee a la main : l'agent envoie
+     * {@code amountHtg} (net) chez l'operateur et saisit sa reference. Le retrait passe en
+     * PARTIALLY_PAID, puis en PAID quand le net est entierement verse. Les frais ont ete
+     * preleves une fois, a la demande. Jamais par l'envoi automatique : une tranche ne part
+     * pas chez Tranzak. Seulement pour les cas de retrait particuliers (PayoutSpecialCaseService).
+     */
+    @Transactional
+    public WithdrawalRequest payInstallment(Long adminId, Long withdrawalId, long amountHtg,
+            String payoutReference) {
+        WithdrawalRequest request = withdrawalRequestRepository.findByIdForUpdate(withdrawalId)
+                .orElseThrow(() -> ApiException.notFound("Demande de retrait"));
+        if (request.getStatus() != WithdrawalStatus.APPROVED
+                && request.getStatus() != WithdrawalStatus.PARTIALLY_PAID) {
+            throw new ApiException(ErrorCode.WITHDRAWAL_NOT_APPROVED);
+        }
+        if (request.getProvider() == PaymentProvider.MANUAL) {
+            throw new ApiException(ErrorCode.WITHDRAWAL_INSTALLMENT_CASH);
+        }
+        // Premiere tranche : reservee aux cas particuliers. Un retrait deja commence se
+        // termine meme si le joueur a ete retire de la liste entre-temps.
+        if (request.getStatus() == WithdrawalStatus.APPROVED
+                && !payoutSpecialCaseService.contains(request.getUser().getId())) {
+            throw new ApiException(ErrorCode.WITHDRAWAL_NOT_SPECIAL_CASE);
+        }
+        if (payoutReference == null || payoutReference.isBlank()) {
+            throw new ApiException(ErrorCode.PAYOUT_REFERENCE_REQUIRED);
+        }
+        if (amountHtg <= 0 || amountHtg > request.remainingHtg()) {
+            throw new ApiException(ErrorCode.WITHDRAWAL_INSTALLMENT_INVALID,
+                    "La tranche doit etre comprise entre 1 et " + request.remainingHtg() + " HTG.");
+        }
+        String reference = payoutReference.trim();
+
+        WithdrawalPayout payout = new WithdrawalPayout();
+        payout.setWithdrawalId(withdrawalId);
+        payout.setAmountHtg(amountHtg);
+        payout.setPayoutReference(reference);
+        payout.setAdminId(adminId);
+        withdrawalPayoutRepository.save(payout);
+
+        request.setPaidHtg(request.getPaidHtg() + amountHtg);
+        request.setPayoutReference(reference);
+        boolean complete = request.remainingHtg() == 0;
+        request.setStatus(complete ? WithdrawalStatus.PAID : WithdrawalStatus.PARTIALLY_PAID);
+        if (complete) {
+            request.setPaidAt(Instant.now());
+        }
+
+        notificationService.notifyUser(request.getUser().getId(), complete
+                ? NotificationMessages.withdrawalPaid(request)
+                : NotificationMessages.withdrawalPartiallyPaid(request, amountHtg));
+        auditService.record(adminId, "WITHDRAWAL_INSTALLMENT_PAID", "WithdrawalRequest",
+                String.valueOf(withdrawalId), null,
+                amountHtg + " HTG, ref " + reference + " (" + request.getPaidHtg() + " / "
+                        + request.getNetHtg() + " HTG verses)");
+        return request;
+    }
+
+    /** Tranches deja versees, la plus ancienne d'abord. */
+    @Transactional(readOnly = true)
+    public List<WithdrawalPayout> installments(Long withdrawalId) {
+        return withdrawalPayoutRepository.findByWithdrawalIdOrderByIdAsc(withdrawalId);
+    }
+
+    /**
+     * Cloture d'un retrait verse en partie dont le reste ne sera pas paye : le reste non
+     * verse revient dans les gains du joueur. Les frais restent acquis. Le retrait passe en
+     * PAID avec {@code refundedHtg} ; le motif est garde dans {@code rejectionReason}.
+     */
+    @Transactional
+    public WithdrawalRequest closeWithRefund(Long adminId, Long withdrawalId, String reason) {
+        WithdrawalRequest request = withdrawalRequestRepository.findByIdForUpdate(withdrawalId)
+                .orElseThrow(() -> ApiException.notFound("Demande de retrait"));
+        if (request.getStatus() != WithdrawalStatus.PARTIALLY_PAID) {
+            throw new ApiException(ErrorCode.WITHDRAWAL_NOT_PARTIALLY_PAID);
+        }
+        long rest = request.remainingHtg();
+        WalletTransaction refund = walletService.credit(
+                request.getUser().getId(),
+                BalanceType.WINNINGS,
+                rest,
+                WalletTransactionType.REFUND,
+                "WithdrawalRequest",
+                String.valueOf(withdrawalId),
+                "withdrawal-refund:" + withdrawalId,
+                "Reste du retrait rendu : " + reason);
+
+        request.setRefundedHtg(rest);
+        request.setRefundTransactionId(refund.getId());
+        request.setStatus(WithdrawalStatus.PAID);
+        request.setPaidAt(Instant.now());
+        request.setRejectionReason(reason);
+
+        notificationService.notifyUser(request.getUser().getId(),
+                NotificationMessages.withdrawalClosedWithRefund(request, reason));
+        auditService.record(adminId, "WITHDRAWAL_CLOSED_WITH_REFUND", "WithdrawalRequest",
+                String.valueOf(withdrawalId), null,
+                rest + " HTG rendus aux gains (" + request.getPaidHtg() + " HTG verses) : " + reason);
         return request;
     }
 

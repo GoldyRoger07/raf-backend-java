@@ -29,7 +29,9 @@ public interface WithdrawalRequestRepository extends JpaRepository<WithdrawalReq
      * le numero de demande quand la recherche en est un. L'alias {@code u} (joueur) sert
      * aussi au tri.
      */
-    @Query("select w from WithdrawalRequest w join w.user u where (:status is null or w.status = :status) "
+    @Query("select w from WithdrawalRequest w join w.user u where (:status is null or w.status = :status "
+            + "  or (:status = com.raikiservice.raf.wallet.domain.WithdrawalStatus.APPROVED "
+            + "      and w.status = com.raikiservice.raf.wallet.domain.WithdrawalStatus.PARTIALLY_PAID)) "
             + "and (:userId is null or u.id = :userId) "
             + "and (:term is null or lower(concat(coalesce(u.firstName, ''), ' ', coalesce(u.lastName, ''))) like :term "
             + "  or lower(u.email) like :term or w.destinationNumber like :term "

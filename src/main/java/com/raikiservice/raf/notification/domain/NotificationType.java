@@ -31,6 +31,12 @@ public enum NotificationType {
     TOPUP_CONFIRMED("Recharge confirmee", EnumSet.of(NotificationChannel.PUSH)),
     WITHDRAWAL_APPROVED("Retrait approuve", EnumSet.of(NotificationChannel.PUSH)),
     WITHDRAWAL_PAID("Retrait verse", EnumSet.of(NotificationChannel.EMAIL, NotificationChannel.PUSH)),
+    /** Une tranche d'un retrait est versee, le reste suivra. */
+    WITHDRAWAL_PARTIALLY_PAID("Retrait verse en partie",
+            EnumSet.of(NotificationChannel.EMAIL, NotificationChannel.PUSH)),
+    /** Retrait verse en partie et clos : le reste est rendu aux gains. */
+    WITHDRAWAL_CLOSED("Retrait clos, reste rendu",
+            EnumSet.of(NotificationChannel.EMAIL, NotificationChannel.PUSH)),
     WITHDRAWAL_REJECTED("Retrait refuse",
             EnumSet.of(NotificationChannel.EMAIL, NotificationChannel.PUSH)),
     /**

@@ -60,7 +60,7 @@ public class DailyStatsService {
                 RealActivity.TRANSACTIONS + "AND t.type = 'TOPUP'", "t.created_at"),
         WITHDRAWAL_FEES_HTG("COALESCE(SUM(wr.fee_htg), 0)",
                 RealActivity.WITHDRAWALS + "AND wr.status = 'PAID'", "wr.paid_at"),
-        WITHDRAWALS_PAID_HTG("COALESCE(SUM(wr.net_htg), 0)",
+        WITHDRAWALS_PAID_HTG("COALESCE(SUM(wr.paid_htg), 0)",
                 RealActivity.WITHDRAWALS + "AND wr.status = 'PAID'", "wr.paid_at"),
         TICKETS("COUNT(*)",
                 RealActivity.TICKETS + "AND tk.status <> 'REFUNDED'", "tk.purchased_at"),

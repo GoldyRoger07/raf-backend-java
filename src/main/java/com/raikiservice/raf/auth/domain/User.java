@@ -51,6 +51,13 @@ public class User extends AuditableEntity {
     @Column(name = "phone_verified_at")
     private Instant phoneVerifiedAt;
 
+    /** Version acceptee de l'accord de paiement par tranches (PayoutTermsService), null sinon. */
+    @Column(name = "payout_terms_version")
+    private Integer payoutTermsVersion;
+
+    @Column(name = "payout_terms_accepted_at")
+    private Instant payoutTermsAcceptedAt;
+
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 

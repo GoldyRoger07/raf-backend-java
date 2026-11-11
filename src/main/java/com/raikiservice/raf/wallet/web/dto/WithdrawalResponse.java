@@ -12,6 +12,10 @@ public record WithdrawalResponse(
         long amountHtg,
         long feeHtg,
         long netHtg,
+        /** Deja verse : somme des tranches, ou le net une fois paye en une fois. */
+        long paidHtg,
+        /** Reste non verse rendu aux gains a la cloture d'un retrait paye en partie. */
+        long refundedHtg,
         PaymentProvider provider,
         String destinationNumber,
         WithdrawalStatus status,
@@ -36,6 +40,8 @@ public record WithdrawalResponse(
                 request.getAmountHtg(),
                 request.getFeeHtg(),
                 request.getNetHtg(),
+                request.getPaidHtg(),
+                request.getRefundedHtg(),
                 request.getProvider(),
                 request.getDestinationNumber(),
                 request.getStatus(),

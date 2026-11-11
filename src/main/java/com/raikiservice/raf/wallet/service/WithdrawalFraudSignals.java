@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class WithdrawalFraudSignals {
 
     private final DeviceLinkService deviceLinkService;
+    private final PayoutSpecialCaseService payoutSpecialCaseService;
     private final NamedParameterJdbcTemplate named;
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -45,6 +46,7 @@ public class WithdrawalFraudSignals {
 
         Map<Long, Integer> linked = deviceLinkService.linkedCounts(userIds);
         Map<String, Map<Long, String>> owners = owners(numbers);
+        Set<Long> special = payoutSpecialCaseService.among(userIds);
 
         return page.map(request -> {
             Long owner = request.getUser().getId();
@@ -57,7 +59,8 @@ public class WithdrawalFraudSignals {
                     }
                 });
             }
-            return AdminWithdrawalResponse.from(request, linked.getOrDefault(owner, 0), others);
+            return AdminWithdrawalResponse.from(request, linked.getOrDefault(owner, 0), others,
+                    special.contains(owner));
         });
     }
 

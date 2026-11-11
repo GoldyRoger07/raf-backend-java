@@ -44,7 +44,7 @@ public class AccountDeletionService {
 
     /** Statuts ou de l'argent est en route vers le joueur. */
     private static final EnumSet<WithdrawalStatus> WITHDRAWAL_IN_PROGRESS =
-            EnumSet.of(WithdrawalStatus.AWAITING_OTP, WithdrawalStatus.PENDING, WithdrawalStatus.APPROVED,
+            EnumSet.of(WithdrawalStatus.AWAITING_OTP, WithdrawalStatus.PENDING, WithdrawalStatus.APPROVED, WithdrawalStatus.PARTIALLY_PAID,
             WithdrawalStatus.SENDING);
 
     private final UserRepository userRepository;
