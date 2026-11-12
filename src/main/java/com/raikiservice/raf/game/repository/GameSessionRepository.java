@@ -68,6 +68,8 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
 
     Optional<GameSession> findByEntryTransactionId(Long entryTransactionId);
 
+    Optional<GameSession> findByPrizeTransactionId(Long prizeTransactionId);
+
     @Query("select s.categoryId from GameSession s where s.user.id = :userId "
             + "and s.soloDay = :day")
     List<Long> findSoloCategoryIds(@Param("userId") Long userId, @Param("day") LocalDate day);

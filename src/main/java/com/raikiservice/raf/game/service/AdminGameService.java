@@ -78,4 +78,17 @@ public class AdminGameService {
                 .map(AdminGameSessionResponse::from)
                 .orElseThrow(() -> ApiException.notFound("Partie"));
     }
+
+    /**
+     * Partie d'un mouvement du portefeuille : debit d'entree en solo ou gain du sans-faute.
+     * Le debit d'entree ne porte pas le numero de la partie (cree avant elle) : la partie
+     * garde celui du mouvement.
+     */
+    @Transactional(readOnly = true)
+    public AdminGameSessionResponse sessionOfTransaction(Long transactionId) {
+        return gameSessionRepository.findByEntryTransactionId(transactionId)
+                .or(() -> gameSessionRepository.findByPrizeTransactionId(transactionId))
+                .map(AdminGameSessionResponse::from)
+                .orElseThrow(() -> ApiException.notFound("Partie"));
+    }
 }

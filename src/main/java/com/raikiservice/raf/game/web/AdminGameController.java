@@ -68,6 +68,18 @@ public class AdminGameController {
         return rankingService.adminLeaderboard(quizId, q, rewarded, pageable);
     }
 
+    @GetMapping("/game/sessions/{sessionId}")
+    @Operation(summary = "Une partie")
+    public AdminGameSessionResponse session(@PathVariable Long sessionId) {
+        return adminGameService.session(sessionId);
+    }
+
+    @GetMapping("/game/sessions/by-transaction/{transactionId}")
+    @Operation(summary = "Partie liee a un mouvement du portefeuille (entree solo ou gain du sans-faute)")
+    public AdminGameSessionResponse sessionOfTransaction(@PathVariable Long transactionId) {
+        return adminGameService.sessionOfTransaction(transactionId);
+    }
+
     @GetMapping("/game/sessions/{sessionId}/review")
     @Operation(summary = "Corrige d'une partie, a tout moment")
     public GameReviewResponse review(@AuthenticationPrincipal UserPrincipal admin,
