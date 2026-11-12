@@ -12,6 +12,11 @@ public record GameReviewResponse(
         Integer score,
         Integer correctCount,
         Integer answeredCount,
+        /** Partie touchee par l'anti-fraude au lancement (solo). */
+        boolean antiFraud,
+        /** Vraie correction, avant l'anti-fraude : egale a correctCount si rien n'a ete fausse. */
+        Integer realCorrectCount,
+        Integer realScore,
         List<ReviewItem> items) {
 
     public record ReviewItem(
@@ -23,8 +28,11 @@ public record GameReviewResponse(
             List<ReviewChoice> choices,
             Long correctChoiceId,
             Long chosenChoiceId,
+            /** Tel que compte au joueur (faux si l'anti-fraude l'a fausse). */
             boolean correct,
-            Long elapsedMs) {
+            Long elapsedMs,
+            /** Reponse juste comptee fausse par l'anti-fraude. */
+            boolean antiFraudVoided) {
     }
 
     public record ReviewChoice(Long id, String text, String imageUrl) {

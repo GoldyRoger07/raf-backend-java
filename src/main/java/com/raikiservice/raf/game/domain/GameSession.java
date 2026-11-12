@@ -141,6 +141,13 @@ public class GameSession {
     @Column(name = "is_test", nullable = false)
     private boolean test;
 
+    /**
+     * SOLO : anti-fraude actif au lancement (AntiFraudService). Un sans-faute est alors
+     * casse a la correction : 1 a 3 bonnes reponses comptees fausses.
+     */
+    @Column(name = "anti_fraud", nullable = false)
+    private boolean antiFraud;
+
     /** Signalement pour revue humaine : n'affecte pas le score. */
     @Column(nullable = false)
     private boolean flagged;

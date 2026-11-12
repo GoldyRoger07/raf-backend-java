@@ -53,6 +53,11 @@ public final class SettingKeys {
     public static final String APP_SOLO_QUIZZES_VISIBLE = "app.solo_quizzes.visible";
     /** Premiere partie solo offerte, une fois par compte ; coupee par defaut, voir FirstSoloOfferService. */
     public static final String APP_FIRST_SOLO_FREE_ENABLED = "app.first_solo_free.enabled";
+    /**
+     * Anti-fraude pour tous les joueurs (staff exclu) ; coupe par defaut, voir AntiFraudService.
+     * Prive : jamais renvoye par la config publique de l'app.
+     */
+    public static final String APP_ANTI_FRAUD_ALL_PLAYERS = "app.anti_fraud.all_players";
     private static final String APP_PREFIX = "app.";
 
     /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */

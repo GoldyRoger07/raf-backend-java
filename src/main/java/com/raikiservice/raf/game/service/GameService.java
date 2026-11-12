@@ -30,6 +30,7 @@ import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.common.settings.SettingKeys;
 import com.raikiservice.raf.common.settings.SettingsService;
 import com.raikiservice.raf.leader.service.CommissionService;
+import com.raikiservice.raf.fraud.service.AntiFraudService;
 import com.raikiservice.raf.fraud.service.FraudProfileService;
 import com.raikiservice.raf.fraud.service.SoloAdjustment;
 import com.raikiservice.raf.game.domain.GameAnswer;
@@ -146,6 +147,7 @@ public class GameService {
     private final PayoutTermsService payoutTermsService;
     private final FirstSoloOfferService firstSoloOfferService;
     private final FraudProfileService fraudProfileService;
+    private final AntiFraudService antiFraudService;
 
     // --- Demarrage ------------------------------------------------------------
 
@@ -337,6 +339,8 @@ public class GameService {
 
         GameSession session = newSession(quiz, user, GameMode.SOLO, now, ip, userAgent, deviceId);
         session.setSoloDay(day);
+        // Anti-fraude : lu au lancement, garde dans la partie (pas de sans-faute possible).
+        session.setAntiFraud(antiFraudService.appliesTo(user));
         // Offerte : prix d'entree a 0, donc ni debit attendu ni commission de leader.
         session.setEntryPriceCredits(offered ? 0 : price);
         session.setEntryTransactionId(entry == null ? null : entry.getId());
@@ -370,6 +374,8 @@ public class GameService {
         GameSession session = newSession(quiz, user, GameMode.SOLO, now, ip, userAgent, deviceId);
         session.setEntryPriceCredits(0);
         session.setPrizeHtg(0L);
+        // Les comptes de test aussi, pour verifier le comportement.
+        session.setAntiFraud(antiFraudService.appliesTo(user));
         return deal(quiz, session, now);
     }
 
@@ -876,6 +882,12 @@ public class GameService {
                 .filter(GameAnswer::isCorrect)
                 .map(GameAnswer::getQuestionId)
                 .toList();
+        // Statistiques des questions : la vraie correction, avant l'anti-fraude.
+        List<Long> reallyCorrectIds = correctQuestionIds;
+        if (session.isSolo() && session.isAntiFraud() && totalQuestions > 0
+                && correctQuestionIds.size() == totalQuestions) {
+            correctQuestionIds = voidForAntiFraud(session, answers);
+        }
         int answeredCount = (int) answers.stream()
                 .filter(answer -> answer.getChoiceId() != null)
                 .count();
@@ -889,7 +901,7 @@ public class GameService {
 
         flagFastAnswers(session, answers);
         if (!session.isTest()) {
-            recordStatsAfterCommit(List.of(), correctQuestionIds);
+            recordStatsAfterCommit(List.of(), reallyCorrectIds);
         }
 
         if (session.isSolo()) {
@@ -933,6 +945,31 @@ public class GameService {
         quizRepository.findMinScoreThreshold(quizId, QuizStatus.RUNNING)
                 .filter(threshold -> score > threshold)
                 .ifPresent(threshold -> quizService.triggerClosing(quizId, score));
+    }
+
+    /**
+     * Anti-fraude : partie solo visee et entierement juste. 1 a 3 bonnes reponses, tirees
+     * au hasard, sont comptees fausses (sans point) avant le score : pas de sans-faute,
+     * donc pas de prix, et la commission du leader suit comme pour une defaite. La vraie
+     * correction reste lisible au back-office ({@link GameAnswer#isAntiFraudVoided}).
+     *
+     * @return les questions qui restent justes
+     */
+    private List<Long> voidForAntiFraud(GameSession session, List<GameAnswer> answers) {
+        List<GameAnswer> correct = answers.stream().filter(GameAnswer::isCorrect).toList();
+        List<GameAnswer> voided = antiFraudService.pickVoided(correct);
+        for (GameAnswer answer : voided) {
+            answer.setCorrect(false);
+            answer.setPointsAwarded(0);
+            answer.setAntiFraudVoided(true);
+            gameAnswerRepository.save(answer);
+        }
+        log.info("Anti-fraude : partie solo {} du joueur {}, {} bonne(s) reponse(s) comptee(s) fausse(s)",
+                session.getId(), session.getUser().getId(), voided.size());
+        return answers.stream()
+                .filter(GameAnswer::isCorrect)
+                .map(GameAnswer::getQuestionId)
+                .toList();
     }
 
     /**
@@ -1123,9 +1160,11 @@ public class GameService {
                     draw.getCorrectChoiceId(),
                     answer == null ? null : answer.getChoiceId(),
                     answer != null && answer.isCorrect(),
-                    answer == null ? null : answer.getElapsedMs()));
+                    answer == null ? null : answer.getElapsedMs(),
+                    answer != null && answer.isAntiFraudVoided()));
         }
 
+        int voided = (int) items.stream().filter(GameReviewResponse.ReviewItem::antiFraudVoided).count();
         return new GameReviewResponse(
                 session.getId(),
                 session.getQuiz().getId(),
@@ -1133,6 +1172,9 @@ public class GameService {
                 session.getScore(),
                 session.getCorrectCount(),
                 session.getAnsweredCount(),
+                session.isAntiFraud(),
+                session.getCorrectCount() == null ? null : session.getCorrectCount() + voided,
+                session.getScore() == null ? null : session.getScore() + voided * session.getPointsPerCorrect(),
                 items);
     }
 

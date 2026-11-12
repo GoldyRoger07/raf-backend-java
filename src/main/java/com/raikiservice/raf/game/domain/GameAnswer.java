@@ -46,4 +46,11 @@ public class GameAnswer {
 
     @Column(name = "points_awarded", nullable = false)
     private int pointsAwarded;
+
+    /**
+     * Reponse juste comptee fausse par l'anti-fraude (correct et points a zero). Garde la
+     * vraie correction pour le back-office ; jamais montre au joueur.
+     */
+    @Column(name = "anti_fraud_voided", nullable = false)
+    private boolean antiFraudVoided;
 }
