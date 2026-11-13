@@ -71,7 +71,12 @@ public record QuizResponse(
         long ticketsSold,
         long poolSize,
         List<RewardView> rewards,
-        List<TopicView> topics) {
+        List<TopicView> topics,
+        /**
+         * Solo : anti-fraude actif sur ce quiz. Back-office seulement : null (donc absent
+         * du JSON) dans l'app joueur, voir {@link #forPlayers()}.
+         */
+        Boolean antiFraud) {
 
     /** Montant par joueur de la tranche, en HTG. */
     public record RewardView(int rankFrom, int rankTo, long amountHtg,
@@ -139,7 +144,26 @@ public record QuizResponse(
                                 topic.getLabel(),
                                 topic.getMedia() == null ? null : topic.getMedia().getUrl(),
                                 topic.getVoteCount()))
-                        .toList());
+                        .toList(),
+                quiz.getGameMode() == GameMode.SOLO ? quiz.isAntiFraud() : null);
+    }
+
+    /**
+     * Vue de l'app joueur : sans le reglage anti-fraude, qui ne doit pas se voir. Les
+     * nulls etant omis du JSON, le champ disparait.
+     */
+    public QuizResponse forPlayers() {
+        if (antiFraud == null) {
+            return this;
+        }
+        return new QuizResponse(id, title, slug, description, themeLabel, bannerUrl, bannerMediaId, status,
+                gameMode, topicMode, selectedCategoryId, selectedCategoryName, ticketPriceCredits, ticketPriceHtg,
+                free, test, hidden, minPlayers, maxTicketsTotal, maxTicketsPerPlayer, playMode,
+                questionDurationSeconds, questionsPerGame, pointsPerCorrect, soloPrizeHtg, closeOnPerfect,
+                perfectCooldownMinutes, difficultyMix, minScoreThreshold, closingCountdownMinutes,
+                startDelayMinutes, voteOpensAt, voteClosesAt, voteOpen, thresholdReachedAt, scheduledStartAt,
+                startedAt, endsAt, finishedAt, cancellationReason, playersRegistered, ticketsSold, poolSize,
+                rewards, topics, null);
     }
 
     /**
@@ -197,6 +221,7 @@ public record QuizResponse(
                 ticketsSold,
                 poolSize,
                 rewards,
-                topics);
+                topics,
+                antiFraud);
     }
 }

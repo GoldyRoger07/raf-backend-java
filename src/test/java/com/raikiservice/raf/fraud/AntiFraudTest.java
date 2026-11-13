@@ -11,6 +11,7 @@ import com.raikiservice.raf.game.web.dto.AnswerQuestionDto;
 import com.raikiservice.raf.game.web.dto.GameResultResponse;
 import com.raikiservice.raf.game.web.dto.GameReviewResponse;
 import com.raikiservice.raf.game.web.dto.GameStartResponse;
+import com.raikiservice.raf.quiz.service.QuizService;
 import com.raikiservice.raf.support.IntegrationTest;
 import com.raikiservice.raf.support.TestData;
 import com.raikiservice.raf.wallet.domain.BalanceType;
@@ -31,6 +32,7 @@ class AntiFraudTest extends IntegrationTest {
     @Autowired private AntiFraudService antiFraud;
     @Autowired private GameService gameService;
     @Autowired private UserRepository userRepository;
+    @Autowired private QuizService quizService;
 
     /** Joue toute la partie, juste partout sauf a la position {@code wrongAt} (0 = aucune erreur). */
     private GameResultResponse play(User player, Long quizId, int wrongAt) {
@@ -82,6 +84,34 @@ class AntiFraudTest extends IntegrationTest {
                     assertThat(item.correct()).isFalse();
                     assertThat(item.chosenChoiceId()).isEqualTo(item.correctChoiceId());
                 });
+    }
+
+    @Test
+    void switchingItOffOnAQuizLetsTargetsWinThere() {
+        User player = fundedPlayer();
+        antiFraud.addTarget(null, player.getId(), "Suspect");
+        Long quizId = paidSoloQuiz();
+        assertThat(quizService.view(quizId).antiFraud()).isTrue();
+        assertThat(quizService.view(quizId).forPlayers().antiFraud()).isNull();
+
+        quizService.setAntiFraud(null, quizId, false);
+        assertThat(quizService.view(quizId).antiFraud()).isFalse();
+        GameResultResponse result = play(player, quizId, 0);
+
+        assertThat(result.correctCount()).isEqualTo(QUESTIONS);
+        assertThat(result.won()).isTrue();
+        assertThat(gameService.review(result.sessionId()).antiFraud()).isFalse();
+    }
+
+    @Test
+    void switchingItBackOnAppliesToTheNextGames() {
+        User player = fundedPlayer();
+        antiFraud.addTarget(null, player.getId(), "Suspect");
+        Long quizId = paidSoloQuiz();
+        quizService.setAntiFraud(null, quizId, false);
+        quizService.setAntiFraud(null, quizId, true);
+
+        assertThat(play(player, quizId, 0).won()).isFalse();
     }
 
     @Test

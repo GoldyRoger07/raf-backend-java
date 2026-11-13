@@ -50,7 +50,7 @@ public class QuizController {
             @RequestParam(defaultValue = "GROUP") GameMode mode,
             @PageableDefault(size = 20) Pageable pageable) {
         Page<QuizResponse> page = quizService.viewVisible(mode, quizAccess.seesTestQuizzes(idOf(player)),
-                idOf(player), pageable);
+                idOf(player), pageable).map(QuizResponse::forPlayers);
         return fraudProfileService.adjustmentFor(idOf(player))
                 .map(adjustment -> page.map(quiz -> quiz.adjustedFor(adjustment)))
                 .orElse(page);
@@ -63,9 +63,13 @@ public class QuizController {
         return adjusted(quizService.view(id), player);
     }
 
-    /** Solo : un joueur suspecte de fraude voit les valeurs qu'il jouera et paiera. */
+    /**
+     * Solo : un joueur suspecte de fraude voit les valeurs qu'il jouera et paiera. Jamais
+     * le reglage anti-fraude du quiz.
+     */
     private QuizResponse adjusted(QuizResponse quiz, UserPrincipal player) {
-        return fraudProfileService.adjustmentFor(idOf(player)).map(quiz::adjustedFor).orElse(quiz);
+        QuizResponse shown = quiz.forPlayers();
+        return fraudProfileService.adjustmentFor(idOf(player)).map(shown::adjustedFor).orElse(shown);
     }
 
     private static Long idOf(UserPrincipal player) {

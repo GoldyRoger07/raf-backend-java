@@ -28,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
  * comptes lies par appareil), ou tout joueur quand l'interrupteur « pour tous » est
  * active (coupe par defaut). Le staff (moderateur, admin, super admin) ne l'est jamais ;
  * les leaders et les comptes de test le sont, ces derniers pour verifier le parcours.
+ * Chaque quiz solo a aussi sa case anti-fraude (active par defaut) : coupee, personne
+ * n'a l'anti-fraude sur ce quiz (GameService la combine avec {@link #appliesTo}).
  *
  * <p>L'etat est lu au lancement d'une partie solo et garde dans la partie : l'activer
  * ou le couper ne touche que les parties qui demarrent ensuite. A la correction, une

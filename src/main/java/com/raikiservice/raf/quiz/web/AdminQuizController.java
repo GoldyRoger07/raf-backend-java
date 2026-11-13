@@ -14,6 +14,7 @@ import com.raikiservice.raf.quiz.service.RewardService;
 import com.raikiservice.raf.quiz.service.SoloEconomicsService;
 import com.raikiservice.raf.quiz.service.SoloQuizStatsService;
 import com.raikiservice.raf.quiz.service.VoteService;
+import com.raikiservice.raf.quiz.web.dto.AntiFraudFlagDto;
 import com.raikiservice.raf.quiz.web.dto.CancelQuizDto;
 import com.raikiservice.raf.quiz.web.dto.DifficultyMixDto;
 import com.raikiservice.raf.quiz.web.dto.QuizDto;
@@ -182,6 +183,17 @@ public class AdminQuizController {
     public QuizResponse setPerfectCooldown(@AuthenticationPrincipal UserPrincipal admin, @PathVariable Long id,
             @Valid @RequestBody PerfectCooldownDto request) {
         quizService.setPerfectCooldown(admin.getId(), id, request.minutes());
+        return quizService.view(id);
+    }
+
+    @PostMapping("/{id}/anti-fraud")
+    @Operation(summary = "Solo : activer ou couper l'anti-fraude sur ce quiz",
+            description = "Actif par defaut : les joueurs vises (liste anti-fraude ou interrupteur pour tous) "
+                    + "ne peuvent pas y faire de sans-faute. Coupe : personne n'a l'anti-fraude sur ce quiz. "
+                    + "Modifiable a tout moment : seules les parties lancees ensuite changent.")
+    public QuizResponse setAntiFraud(@AuthenticationPrincipal UserPrincipal admin, @PathVariable Long id,
+            @RequestBody AntiFraudFlagDto request) {
+        quizService.setAntiFraud(admin.getId(), id, request.enabled());
         return quizService.view(id);
     }
 

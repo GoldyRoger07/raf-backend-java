@@ -149,6 +149,25 @@ public class QuizService {
     }
 
     /**
+     * Anti-fraude d'un quiz solo, modifiable a tout moment (meme ouvert). Coupe : aucun
+     * joueur, meme vise, n'a l'anti-fraude sur ce quiz. Lu au lancement de chaque
+     * partie : les parties deja lancees gardent leur etat. Trace au journal d'audit.
+     */
+    @Transactional
+    public Quiz setAntiFraud(Long actorId, Long quizId, boolean enabled) {
+        Quiz quiz = quizRepository.findByIdForUpdate(quizId)
+                .orElseThrow(() -> ApiException.notFound("Quiz"));
+        assertMode(quiz, GameMode.SOLO);
+        boolean previous = quiz.isAntiFraud();
+        if (previous != enabled) {
+            quiz.setAntiFraud(enabled);
+            auditService.record(actorId, "QUIZ_ANTI_FRAUD_CHANGED", "Quiz", String.valueOf(quizId),
+                    String.valueOf(previous), String.valueOf(enabled));
+        }
+        return quiz;
+    }
+
+    /**
      * Repartition par difficulte d'un quiz solo, modifiable a tout moment (meme ouvert) :
      * elle ne touche que les parties lancees ensuite. Un ajustement apres l'ouverture
      * corrige un quiz ou les sans-fautes sont trop frequents, ou trop rares.
@@ -367,6 +386,7 @@ public class QuizService {
         copy.setSoloPrizeHtg(source.getSoloPrizeHtg());
         copy.setCloseOnPerfect(source.isCloseOnPerfect());
         copy.setPerfectCooldownMinutes(source.getPerfectCooldownMinutes());
+        copy.setAntiFraud(source.isAntiFraud());
         copy.setDifficultyMix(source.getDifficultyMix());
         copy.setMinScoreThreshold(source.getMinScoreThreshold());
         copy.setClosingCountdownMinutes(source.getClosingCountdownMinutes());

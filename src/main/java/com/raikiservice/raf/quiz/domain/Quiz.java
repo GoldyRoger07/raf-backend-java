@@ -126,6 +126,13 @@ public class Quiz extends AuditableEntity {
     private Integer perfectCooldownMinutes;
 
     /**
+     * SOLO : anti-fraude actif sur ce quiz (AntiFraudService). Coupe : aucun joueur, meme
+     * vise, n'y a l'anti-fraude. Actif par defaut, reglable a tout moment.
+     */
+    @Column(name = "anti_fraud", nullable = false)
+    private boolean antiFraud = true;
+
+    /**
      * SOLO : part des questions faciles / moyennes / difficiles de chaque partie. Vides
      * ensemble : tirage libre dans le vivier. Lire et ecrire par {@link #getDifficultyMix()}.
      */
