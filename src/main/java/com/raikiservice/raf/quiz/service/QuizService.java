@@ -149,8 +149,9 @@ public class QuizService {
     }
 
     /**
-     * Anti-fraude d'un quiz solo, modifiable a tout moment (meme ouvert). Coupe : aucun
-     * joueur, meme vise, n'a l'anti-fraude sur ce quiz. Lu au lancement de chaque
+     * Anti-fraude d'un quiz solo, modifiable a tout moment (meme ouvert). Coche : tous les
+     * joueurs (hors staff) l'ont sur ce quiz ; decoche, seuls restent vises ceux de la liste
+     * ou de l'interrupteur « pour tous » (OU, voir AntiFraudService). Lu au lancement de chaque
      * partie : les parties deja lancees gardent leur etat. Trace au journal d'audit.
      */
     @Transactional

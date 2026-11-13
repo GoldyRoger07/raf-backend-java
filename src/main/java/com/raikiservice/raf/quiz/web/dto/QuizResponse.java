@@ -73,7 +73,7 @@ public record QuizResponse(
         List<RewardView> rewards,
         List<TopicView> topics,
         /**
-         * Solo : anti-fraude actif sur ce quiz. Back-office seulement : null (donc absent
+         * Solo : anti-fraude pour tous les joueurs de ce quiz. Back-office seulement : null (donc absent
          * du JSON) dans l'app joueur, voir {@link #forPlayers()}.
          */
         Boolean antiFraud) {

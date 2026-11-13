@@ -15,6 +15,7 @@ import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.common.settings.SettingKeys;
 import com.raikiservice.raf.common.settings.SettingsService;
+import com.raikiservice.raf.quiz.domain.Quiz;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,12 +25,13 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Anti-fraude : un joueur vise ne peut pas faire de sans-faute en solo.
  *
- * <p>Vise : un joueur de la liste {@code anti_fraud_targets} (ce compte seul, pas ses
- * comptes lies par appareil), ou tout joueur quand l'interrupteur « pour tous » est
- * active (coupe par defaut). Le staff (moderateur, admin, super admin) ne l'est jamais ;
- * les leaders et les comptes de test le sont, ces derniers pour verifier le parcours.
- * Chaque quiz solo a aussi sa case anti-fraude (active par defaut) : coupee, personne
- * n'a l'anti-fraude sur ce quiz (GameService la combine avec {@link #appliesTo}).
+ * <p>Vise ({@link #appliesTo(User, Quiz)}), les trois reglages combines par OU :
+ * l'interrupteur « pour tous » (coupe par defaut), OU un joueur de la liste
+ * {@code anti_fraud_targets} (ce compte seul, pas ses comptes lies par appareil), OU la
+ * case anti-fraude du quiz solo (decochee par defaut), qui vise tous les joueurs de ce
+ * quiz. Aucun reglage ne retire l'anti-fraude a un joueur vise par un autre. Le staff
+ * (moderateur, admin, super admin) n'est jamais vise ; les leaders et les comptes de test
+ * le sont, ces derniers pour verifier le parcours.
  *
  * <p>L'etat est lu au lancement d'une partie solo et garde dans la partie : l'activer
  * ou le couper ne touche que les parties qui demarrent ensuite. A la correction, une
@@ -62,7 +64,19 @@ public class AntiFraudService {
 
     // --- Effet en jeu --------------------------------------------------------------
 
-    /** L'anti-fraude vise-t-il ce joueur ? Lu au lancement d'une partie solo. */
+    /**
+     * L'anti-fraude vise-t-il ce joueur sur ce quiz ? Lu au lancement d'une partie solo.
+     * Interrupteur « pour tous » OU liste OU case du quiz, jamais le staff.
+     */
+    @Transactional(readOnly = true)
+    public boolean appliesTo(User user, Quiz quiz) {
+        if (user == null || isStaff(user)) {
+            return false;
+        }
+        return (quiz != null && quiz.isAntiFraud()) || appliesTo(user);
+    }
+
+    /** Le joueur est-il vise hors case du quiz (interrupteur « pour tous » OU liste) ? */
     @Transactional(readOnly = true)
     public boolean appliesTo(User user) {
         if (user == null || isStaff(user)) {

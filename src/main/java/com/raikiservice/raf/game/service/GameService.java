@@ -339,9 +339,9 @@ public class GameService {
 
         GameSession session = newSession(quiz, user, GameMode.SOLO, now, ip, userAgent, deviceId);
         session.setSoloDay(day);
-        // Anti-fraude : lu au lancement, garde dans la partie (pas de sans-faute possible),
-        // sauf si l'admin l'a coupe sur ce quiz.
-        session.setAntiFraud(quiz.isAntiFraud() && antiFraudService.appliesTo(user));
+        // Anti-fraude : lu au lancement, garde dans la partie (pas de sans-faute possible).
+        // Interrupteur « pour tous » OU liste OU case du quiz.
+        session.setAntiFraud(antiFraudService.appliesTo(user, quiz));
         // Offerte : prix d'entree a 0, donc ni debit attendu ni commission de leader.
         session.setEntryPriceCredits(offered ? 0 : price);
         session.setEntryTransactionId(entry == null ? null : entry.getId());
@@ -376,7 +376,7 @@ public class GameService {
         session.setEntryPriceCredits(0);
         session.setPrizeHtg(0L);
         // Les comptes de test aussi, pour verifier le comportement.
-        session.setAntiFraud(quiz.isAntiFraud() && antiFraudService.appliesTo(user));
+        session.setAntiFraud(antiFraudService.appliesTo(user, quiz));
         return deal(quiz, session, now);
     }
 

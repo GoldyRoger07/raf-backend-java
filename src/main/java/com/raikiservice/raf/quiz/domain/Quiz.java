@@ -126,11 +126,12 @@ public class Quiz extends AuditableEntity {
     private Integer perfectCooldownMinutes;
 
     /**
-     * SOLO : anti-fraude actif sur ce quiz (AntiFraudService). Coupe : aucun joueur, meme
-     * vise, n'y a l'anti-fraude. Actif par defaut, reglable a tout moment.
+     * SOLO : anti-fraude pour tous les joueurs (hors staff) de ce quiz (AntiFraudService).
+     * S'ajoute a la liste et a l'interrupteur « pour tous » (OU) : decoche, les joueurs de
+     * la liste restent vises. Decoche par defaut, reglable a tout moment.
      */
     @Column(name = "anti_fraud", nullable = false)
-    private boolean antiFraud = true;
+    private boolean antiFraud = false;
 
     /**
      * SOLO : part des questions faciles / moyennes / difficiles de chaque partie. Vides

@@ -188,8 +188,9 @@ public class AdminQuizController {
 
     @PostMapping("/{id}/anti-fraud")
     @Operation(summary = "Solo : activer ou couper l'anti-fraude sur ce quiz",
-            description = "Actif par defaut : les joueurs vises (liste anti-fraude ou interrupteur pour tous) "
-                    + "ne peuvent pas y faire de sans-faute. Coupe : personne n'a l'anti-fraude sur ce quiz. "
+            description = "Coupe par defaut. Active : aucun joueur (hors staff) ne peut faire de sans-faute "
+                    + "sur ce quiz. Coupe : les joueurs de la liste anti-fraude, ou tous si l'interrupteur "
+                    + "pour tous est active, restent vises (OU). "
                     + "Modifiable a tout moment : seules les parties lancees ensuite changent.")
     public QuizResponse setAntiFraud(@AuthenticationPrincipal UserPrincipal admin, @PathVariable Long id,
             @RequestBody AntiFraudFlagDto request) {

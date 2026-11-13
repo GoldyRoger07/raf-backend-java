@@ -11,6 +11,8 @@ import com.raikiservice.raf.game.web.dto.AnswerQuestionDto;
 import com.raikiservice.raf.game.web.dto.GameResultResponse;
 import com.raikiservice.raf.game.web.dto.GameReviewResponse;
 import com.raikiservice.raf.game.web.dto.GameStartResponse;
+import com.raikiservice.raf.quiz.domain.Quiz;
+import com.raikiservice.raf.quiz.repository.QuizRepository;
 import com.raikiservice.raf.quiz.service.QuizService;
 import com.raikiservice.raf.support.IntegrationTest;
 import com.raikiservice.raf.support.TestData;
@@ -33,6 +35,7 @@ class AntiFraudTest extends IntegrationTest {
     @Autowired private GameService gameService;
     @Autowired private UserRepository userRepository;
     @Autowired private QuizService quizService;
+    @Autowired private QuizRepository quizRepository;
 
     /** Joue toute la partie, juste partout sauf a la position {@code wrongAt} (0 = aucune erreur). */
     private GameResultResponse play(User player, Long quizId, int wrongAt) {
@@ -87,31 +90,39 @@ class AntiFraudTest extends IntegrationTest {
     }
 
     @Test
-    void switchingItOffOnAQuizLetsTargetsWinThere() {
+    void newQuizzesAreUncheckedAndAnUncheckedQuizStillTargetsListedPlayers() {
         User player = fundedPlayer();
         antiFraud.addTarget(null, player.getId(), "Suspect");
         Long quizId = paidSoloQuiz();
-        assertThat(quizService.view(quizId).antiFraud()).isTrue();
+        assertThat(quizService.view(quizId).antiFraud()).isFalse();
         assertThat(quizService.view(quizId).forPlayers().antiFraud()).isNull();
 
-        quizService.setAntiFraud(null, quizId, false);
-        assertThat(quizService.view(quizId).antiFraud()).isFalse();
+        // OU : la case decochee ne retire pas l'anti-fraude a un joueur de la liste.
         GameResultResponse result = play(player, quizId, 0);
-
-        assertThat(result.correctCount()).isEqualTo(QUESTIONS);
-        assertThat(result.won()).isTrue();
-        assertThat(gameService.review(result.sessionId()).antiFraud()).isFalse();
+        assertThat(result.won()).isFalse();
+        assertThat(gameService.review(result.sessionId()).antiFraud()).isTrue();
     }
 
     @Test
-    void switchingItBackOnAppliesToTheNextGames() {
-        User player = fundedPlayer();
-        antiFraud.addTarget(null, player.getId(), "Suspect");
+    void aCheckedQuizTargetsEveryPlayerButNotStaff() {
         Long quizId = paidSoloQuiz();
-        quizService.setAntiFraud(null, quizId, false);
         quizService.setAntiFraud(null, quizId, true);
+        assertThat(quizService.view(quizId).antiFraud()).isTrue();
 
-        assertThat(play(player, quizId, 0).won()).isFalse();
+        User other = fundedPlayer();
+        GameResultResponse result = play(other, quizId, 0);
+        assertThat(result.won()).isFalse();
+        assertThat(gameService.review(result.sessionId()).antiFraud()).isTrue();
+
+        Quiz quiz = quizRepository.findById(quizId).orElseThrow();
+        assertThat(antiFraud.appliesTo(data.player(), quiz)).isTrue();
+        assertThat(antiFraud.appliesTo(data.admin(), quiz)).isFalse();
+        assertThat(antiFraud.appliesTo(data.superAdmin(), quiz)).isFalse();
+        assertThat(antiFraud.appliesTo(data.moderator(), quiz)).isFalse();
+
+        // Decochee a nouveau : un joueur hors liste gagne normalement.
+        quizService.setAntiFraud(null, quizId, false);
+        assertThat(play(fundedPlayer(), quizId, 0).won()).isTrue();
     }
 
     @Test
