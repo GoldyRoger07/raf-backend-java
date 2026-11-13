@@ -930,6 +930,11 @@ public class GameService {
             // Compte de test : pas de gain, il joue pour essayer.
             if (perfect && !session.isTest()) {
                 payPrize(session);
+                // Ajout automatique a la liste anti-fraude : sans-faute payants seulement.
+                // Celui-ci est paye ; l'anti-fraude touchera les parties suivantes.
+                if (session.getEntryPriceCredits() != null && session.getEntryPriceCredits() > 0) {
+                    antiFraudService.afterPaidPerfect(session.getUser(), session.getId());
+                }
             } else {
                 // Partie perdue : commission au leader du joueur, s'il en a un.
                 commissionService.paySoloCommission(session);

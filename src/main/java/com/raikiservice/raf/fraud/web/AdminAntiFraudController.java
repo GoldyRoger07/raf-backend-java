@@ -7,6 +7,8 @@ import com.raikiservice.raf.fraud.service.AntiFraudService.Overview;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -48,6 +50,15 @@ public class AdminAntiFraudController {
         return antiFraudService.overview();
     }
 
+    @PutMapping("/auto")
+    @Operation(summary = "Ajout automatique a la liste apres N sans-faute solo payants",
+            description = "Active : les joueurs qui ont deja N sans-faute payants (depuis leur dernier retrait "
+                    + "de la liste) sont ajoutes tout de suite. Staff et comptes de test jamais ajoutes.")
+    public AutoResult setAuto(@AuthenticationPrincipal UserPrincipal admin, @Valid @RequestBody AutoDto request) {
+        int added = antiFraudService.setAuto(admin.getId(), request.enabled(), request.threshold());
+        return new AutoResult(added, antiFraudService.overview());
+    }
+
     @PostMapping("/targets")
     @Operation(summary = "Ajouter un joueur a la liste anti-fraude (deja liste : note mise a jour)")
     public Overview addTarget(@AuthenticationPrincipal UserPrincipal admin, @Valid @RequestBody TargetDto request) {
@@ -63,6 +74,13 @@ public class AdminAntiFraudController {
     }
 
     public record AllPlayersDto(@NotNull Boolean enabled) {
+    }
+
+    public record AutoDto(@NotNull Boolean enabled, @NotNull @Min(1) @Max(1000) Integer threshold) {
+    }
+
+    /** Reglage enregistre : nombre de joueurs ajoutes d'un coup, et l'ecran a jour. */
+    public record AutoResult(int added, Overview overview) {
     }
 
     public record TargetDto(@NotNull Long userId, @NotBlank @Size(max = 255) String note) {

@@ -211,4 +211,95 @@ class AntiFraudTest extends IntegrationTest {
         }
         assertThat(antiFraud.pickVoided(List.of())).isEmpty();
     }
+
+    // --- Ajout automatique ---------------------------------------------------------
+
+    private boolean listed(User player) {
+        return antiFraud.targets().stream().anyMatch(t -> t.playerId().equals(player.getId()));
+    }
+
+    private AntiFraudService.Target target(User player) {
+        return antiFraud.targets().stream().filter(t -> t.playerId().equals(player.getId())).findFirst().orElseThrow();
+    }
+
+    private User richPlayer() {
+        User player = data.player();
+        data.credit(player.getId(), BalanceType.CREDIT, TestData.SOLO_ENTRY * 10L);
+        return player;
+    }
+
+    @Test
+    void autoAddAfterNPaidPerfectsPaysTheNthAndTargetsTheNext() {
+        antiFraud.setAuto(null, true, 2);
+        try {
+            User player = richPlayer();
+            assertThat(play(player, paidSoloQuiz(), 0).won()).isTrue();
+            assertThat(listed(player)).isFalse();
+            assertThat(play(player, paidSoloQuiz(), 0).won()).isTrue();
+
+            AntiFraudService.Target t = target(player);
+            assertThat(t.auto()).isTrue();
+            assertThat(t.addedBy()).isNull();
+            assertThat(t.note()).contains("2 sans-faute");
+            assertThat(play(player, paidSoloQuiz(), 0).won()).isFalse();
+        } finally {
+            antiFraud.setAuto(null, false, AntiFraudService.DEFAULT_AUTO_THRESHOLD);
+        }
+    }
+
+    @Test
+    void freeGamesLossesTestAccountsAndSwitchedOffDoNotCount() {
+        antiFraud.setAuto(null, true, 2);
+        try {
+            User player = richPlayer();
+            Long category = data.categoryWithQuestions(60);
+            assertThat(play(player, data.soloQuiz(category, QUESTIONS, 0), 0).won()).isTrue();
+            assertThat(play(player, data.soloQuiz(data.categoryWithQuestions(60), QUESTIONS, 0), 0).won()).isTrue();
+            assertThat(play(player, paidSoloQuiz(), 2).won()).isFalse();
+            assertThat(listed(player)).isFalse();
+
+            User tester = richPlayer();
+            tester.setTest(true);
+            userRepository.save(tester);
+            play(tester, paidSoloQuiz(), 0);
+            play(tester, paidSoloQuiz(), 0);
+            assertThat(listed(tester)).isFalse();
+            assertThatThrownBy(() -> antiFraud.setAuto(null, true, 0)).isInstanceOf(ApiException.class);
+        } finally {
+            antiFraud.setAuto(null, false, AntiFraudService.DEFAULT_AUTO_THRESHOLD);
+        }
+
+        User off = richPlayer();
+        play(off, paidSoloQuiz(), 0);
+        play(off, paidSoloQuiz(), 0);
+        assertThat(listed(off)).isFalse();
+    }
+
+    @Test
+    void enablingAddsPlayersWhoAlreadyReachedNAndRemovalResetsTheCount() {
+        User player = richPlayer();
+        play(player, paidSoloQuiz(), 0);
+        play(player, paidSoloQuiz(), 0);
+        assertThat(listed(player)).isFalse();
+
+        try {
+            assertThat(antiFraud.setAuto(null, true, 2)).isGreaterThanOrEqualTo(1);
+            assertThat(target(player).auto()).isTrue();
+            assertThat(antiFraud.overview().autoEnabled()).isTrue();
+            assertThat(antiFraud.overview().autoThreshold()).isEqualTo(2);
+
+            // Note modifiee a la main : l'ajout devient manuel.
+            antiFraud.addTarget(null, player.getId(), "Verifie");
+            assertThat(target(player).auto()).isFalse();
+
+            // Retire : il repart de zero, il faut 2 nouveaux sans-faute.
+            antiFraud.removeTarget(null, player.getId());
+            assertThat(play(player, paidSoloQuiz(), 0).won()).isTrue();
+            assertThat(listed(player)).isFalse();
+            assertThat(play(player, paidSoloQuiz(), 0).won()).isTrue();
+            assertThat(target(player).auto()).isTrue();
+        } finally {
+            antiFraud.setAuto(null, false, AntiFraudService.DEFAULT_AUTO_THRESHOLD);
+        }
+    }
 }

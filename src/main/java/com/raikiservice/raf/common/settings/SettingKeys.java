@@ -58,6 +58,10 @@ public final class SettingKeys {
      * Prive : jamais renvoye par la config publique de l'app.
      */
     public static final String APP_ANTI_FRAUD_ALL_PLAYERS = "app.anti_fraud.all_players";
+    /** Anti-fraude : ajout automatique a la liste apres N sans-faute solo payants (coupe par defaut). */
+    public static final String APP_ANTI_FRAUD_AUTO_ENABLED = "app.anti_fraud.auto_enabled";
+    /** Anti-fraude : N, le nombre de sans-faute solo payants qui fait entrer dans la liste. */
+    public static final String APP_ANTI_FRAUD_AUTO_THRESHOLD = "app.anti_fraud.auto_threshold";
     private static final String APP_PREFIX = "app.";
 
     /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */
