@@ -3,6 +3,7 @@ package com.raikiservice.raf.game.service;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import com.raikiservice.raf.auth.domain.User;
 import com.raikiservice.raf.auth.repository.UserRepository;
@@ -59,6 +60,92 @@ public class FirstSoloOfferService {
                         + "   AND game_mode = 'SOLO' AND is_test = FALSE AND entry_price_credits > 0)",
                 new MapSqlParameterSource("group", group), Boolean.class);
         return !Boolean.TRUE.equals(used);
+    }
+
+    /** Raison du droit (ou non) a la premiere partie offerte, pour la fiche joueur du back-office. */
+    public enum OfferReason {
+        /** Y a droit : sa prochaine partie solo payante sera offerte. */
+        ELIGIBLE,
+        /** A deja recu son offre ({@code sessionId} : la partie offerte). */
+        RECEIVED,
+        /** Interrupteur de l'ecran App joueur coupe : personne n'y a droit. */
+        DISABLED,
+        /** Compte de test : joue deja gratuitement. */
+        TEST,
+        /** Lui ou un compte lie est liste comme fraudeur. */
+        FRAUD,
+        /** A deja paye une partie solo. */
+        PAID,
+        /** Un compte lie par appareil a deja recu l'offre ({@code linkedPlayer*}). */
+        LINKED_RECEIVED,
+        /** Un compte lie par appareil a deja paye une partie solo ({@code linkedPlayer*}). */
+        LINKED_PAID
+    }
+
+    public record OfferStatus(boolean eligible, OfferReason reason, Long sessionId,
+            Long linkedPlayerId, String linkedPlayerName) {
+
+        static OfferStatus of(OfferReason reason) {
+            return new OfferStatus(reason == OfferReason.ELIGIBLE, reason, null, null, null);
+        }
+    }
+
+    /**
+     * Meme regle que {@link #eligible(User)}, avec la raison. L'offre deja recue passe en
+     * premier : c'est l'information utile, meme si l'interrupteur a ete coupe depuis.
+     */
+    @Transactional(readOnly = true)
+    public OfferStatus explain(Long userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> ApiException.notFound("Utilisateur"));
+        List<Long> received = named.queryForList(
+                "SELECT COALESCE(session_id, 0) FROM solo_free_offers WHERE user_id = :user",
+                new MapSqlParameterSource("user", userId), Long.class);
+        if (!received.isEmpty()) {
+            Long session = received.get(0) == 0 ? null : received.get(0);
+            return new OfferStatus(false, OfferReason.RECEIVED, session, null, null);
+        }
+        if (!playerAppService.firstSoloFreeEnabled()) {
+            return OfferStatus.of(OfferReason.DISABLED);
+        }
+        if (user.isTest()) {
+            return OfferStatus.of(OfferReason.TEST);
+        }
+        if (fraudProfileService.adjustmentFor(userId).isPresent()) {
+            return OfferStatus.of(OfferReason.FRAUD);
+        }
+        if (paidSolo(List.of(userId)).isPresent()) {
+            return OfferStatus.of(OfferReason.PAID);
+        }
+        List<Long> others = deviceLinkService.linkedGroup(userId).stream()
+                .filter(id -> !id.equals(userId)).toList();
+        if (!others.isEmpty()) {
+            List<Long> offered = named.queryForList(
+                    "SELECT user_id FROM solo_free_offers WHERE user_id IN (:group) ORDER BY created_at LIMIT 1",
+                    new MapSqlParameterSource("group", others), Long.class);
+            if (!offered.isEmpty()) {
+                return linked(OfferReason.LINKED_RECEIVED, offered.get(0));
+            }
+            Optional<Long> payer = paidSolo(others);
+            if (payer.isPresent()) {
+                return linked(OfferReason.LINKED_PAID, payer.get());
+            }
+        }
+        return OfferStatus.of(OfferReason.ELIGIBLE);
+    }
+
+    private Optional<Long> paidSolo(List<Long> group) {
+        return named.queryForList(
+                "SELECT user_id FROM game_sessions WHERE user_id IN (:group)"
+                        + " AND game_mode = 'SOLO' AND is_test = FALSE AND entry_price_credits > 0"
+                        + " ORDER BY started_at LIMIT 1",
+                new MapSqlParameterSource("group", group), Long.class).stream().findFirst();
+    }
+
+    private OfferStatus linked(OfferReason reason, Long otherId) {
+        String name = userRepository.findById(otherId)
+                .map(User::fullName)
+                .orElse(null);
+        return new OfferStatus(false, reason, null, otherId, name);
     }
 
     /**

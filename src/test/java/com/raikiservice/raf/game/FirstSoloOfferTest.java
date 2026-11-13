@@ -8,6 +8,8 @@ import com.raikiservice.raf.auth.service.DeviceLinkService;
 import com.raikiservice.raf.common.settings.PlayerAppService;
 import com.raikiservice.raf.common.settings.PlayerAppService.PlayerAppConfig;
 import com.raikiservice.raf.game.service.FirstSoloOfferService;
+import com.raikiservice.raf.game.service.FirstSoloOfferService.OfferReason;
+import com.raikiservice.raf.game.service.FirstSoloOfferService.OfferStatus;
 import com.raikiservice.raf.game.service.GameService;
 import com.raikiservice.raf.game.web.dto.AnswerQuestionDto;
 import com.raikiservice.raf.game.web.dto.GameStartResponse;
@@ -133,5 +135,28 @@ class FirstSoloOfferTest extends IntegrationTest {
         tester.setTest(true);
         userRepository.save(tester);
         assertThat(offers.offeredTo(tester.getId())).isFalse();
+    }
+
+    @Test
+    void theBackOfficeSeesWhyAPlayerHasNoOffer() {
+        User newcomer = data.player();
+        assertThat(offers.explain(newcomer.getId()).reason()).isEqualTo(OfferReason.DISABLED);
+
+        setEnabled(true);
+        assertThat(offers.explain(newcomer.getId()).eligible()).isTrue();
+
+        String device = "web-" + UUID.randomUUID();
+        User sibling = data.player();
+        deviceLinkService.seen(sibling.getId(), device);
+        GameStartResponse game = play(newcomer, paidQuiz(), false, device);
+
+        OfferStatus received = offers.explain(newcomer.getId());
+        assertThat(received.reason()).isEqualTo(OfferReason.RECEIVED);
+        assertThat(received.sessionId()).isEqualTo(game.sessionId());
+
+        OfferStatus linked = offers.explain(sibling.getId());
+        assertThat(linked.eligible()).isFalse();
+        assertThat(linked.reason()).isEqualTo(OfferReason.LINKED_RECEIVED);
+        assertThat(linked.linkedPlayerId()).isEqualTo(newcomer.getId());
     }
 }

@@ -13,6 +13,7 @@ import com.raikiservice.raf.admin.web.dto.DashboardResponse;
 import com.raikiservice.raf.admin.web.dto.GameProfitResponse;
 import com.raikiservice.raf.admin.web.dto.PlayerSummary;
 import com.raikiservice.raf.auth.service.DeviceLinkService;
+import com.raikiservice.raf.game.service.FirstSoloOfferService;
 import com.raikiservice.raf.game.service.SoloMasteryService;
 import java.util.List;
 
@@ -41,6 +42,7 @@ public class AdminDashboardController {
     private final PlayerSearchService playerSearchService;
     private final SoloMasteryService soloMasteryService;
     private final DeviceLinkService deviceLinkService;
+    private final FirstSoloOfferService firstSoloOfferService;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Chiffres cles et travail en attente")
@@ -104,5 +106,12 @@ public class AdminDashboardController {
     public List<DeviceLinkService.LinkedAccount> linkedAccounts(@PathVariable Long id) {
         playerSearchService.get(id);
         return deviceLinkService.linkedAccounts(id);
+    }
+
+    @GetMapping("/players/{id}/first-solo-offer")
+    @Operation(summary = "Premiere partie solo offerte : le joueur y a-t-il droit, et sinon pourquoi")
+    public FirstSoloOfferService.OfferStatus firstSoloOffer(@PathVariable Long id) {
+        playerSearchService.get(id);
+        return firstSoloOfferService.explain(id);
     }
 }
