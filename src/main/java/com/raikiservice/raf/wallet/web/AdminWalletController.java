@@ -19,6 +19,7 @@ import com.raikiservice.raf.wallet.service.TopUpService;
 import com.raikiservice.raf.wallet.service.WalletService;
 import com.raikiservice.raf.wallet.service.PayoutSpecialCaseService;
 import com.raikiservice.raf.wallet.service.WithdrawalService;
+import com.raikiservice.raf.wallet.domain.CodeChannel;
 import com.raikiservice.raf.wallet.web.dto.AdjustmentDto;
 import com.raikiservice.raf.wallet.web.dto.AdminWithdrawalResponse;
 import com.raikiservice.raf.wallet.web.dto.CounterWithdrawalConfirmDto;
@@ -195,8 +196,9 @@ public class AdminWalletController {
     @Operation(summary = "Retrait en especes : envoyer au joueur present le code de remise")
     public MessageResponse sendPickupCode(@AuthenticationPrincipal UserPrincipal admin,
             @PathVariable Long id) {
-        withdrawalService.sendPickupCode(admin.getId(), id);
-        return new MessageResponse("Code de remise envoye au joueur par SMS.");
+        return new MessageResponse(withdrawalService.sendPickupCode(admin.getId(), id) == CodeChannel.EMAIL
+                ? "Code de remise envoye au joueur par email."
+                : "Code de remise envoye au joueur par SMS.");
     }
 
     @PostMapping("/withdrawals/{id}/paid")

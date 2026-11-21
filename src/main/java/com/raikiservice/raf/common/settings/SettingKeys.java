@@ -62,6 +62,12 @@ public final class SettingKeys {
     public static final String APP_ANTI_FRAUD_AUTO_ENABLED = "app.anti_fraud.auto_enabled";
     /** Anti-fraude : N, le nombre de sans-faute solo payants qui fait entrer dans la liste. */
     public static final String APP_ANTI_FRAUD_AUTO_THRESHOLD = "app.anti_fraud.auto_threshold";
+    /**
+     * Codes de retrait (confirmation, remise au guichet, retrait au guichet) envoyes par
+     * email au lieu du SMS, en secours si les SMS sont indisponibles. Coupe par defaut,
+     * reserve au SUPER_ADMIN : voir WithdrawalCodeService.
+     */
+    public static final String APP_WITHDRAWAL_CODES_BY_EMAIL = "app.withdrawal_codes_by_email";
     private static final String APP_PREFIX = "app.";
 
     /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */

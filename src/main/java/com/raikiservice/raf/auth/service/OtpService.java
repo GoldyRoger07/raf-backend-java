@@ -3,6 +3,7 @@ package com.raikiservice.raf.auth.service;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import com.raikiservice.raf.auth.domain.OtpCode;
@@ -13,6 +14,7 @@ import com.raikiservice.raf.common.config.AppProperties;
 import com.raikiservice.raf.common.error.ApiException;
 import com.raikiservice.raf.common.error.ErrorCode;
 import com.raikiservice.raf.common.util.Hashes;
+import com.raikiservice.raf.notification.mail.TransactionalMail;
 import com.raikiservice.raf.notification.sms.SmsSender;
 
 import lombok.RequiredArgsConstructor;
@@ -21,7 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Codes a usage unique, envoyes par SMS (ou par email, voir {@link #issue}).
+ * Codes a usage unique, envoyes par SMS (ou par email, voir {@link #issue} et {@link #sendByEmail}).
  *
  * <p>Trois garde-fous, car 6 chiffres se devinent vite : duree de vie courte,
  * plafond d'essais par code, et delai minimum entre deux envois.
@@ -34,6 +36,7 @@ public class OtpService {
     private final OtpAttemptRecorder attemptRecorder;
     private final PasswordEncoder passwordEncoder;
     private final SmsSender smsSender;
+    private final TransactionalMail transactionalMail;
     private final AppProperties appProperties;
 
     @Transactional
@@ -55,6 +58,24 @@ public class OtpService {
 
         smsSender.send(destination, messageForCode.apply(code)
                 + " Il expire dans " + appProperties.otp().ttl().toMinutes() + " minutes.");
+    }
+
+    /**
+     * Meme code, meme duree de vie et meme delai entre deux envois que par SMS, mais
+     * envoye a l'adresse email du compte (secours quand les SMS sont indisponibles).
+     * L'email part apres le commit : jamais de code pour une operation annulee.
+     *
+     * @param htmlForCode corps HTML de l'email, a partir du code et de sa duree en minutes
+     */
+    @Transactional
+    public void sendByEmail(User user, OtpPurpose purpose, String subject,
+            BiFunction<String, Long, String> htmlForCode) {
+        assertNoCooldown(user.getId(), purpose);
+
+        Duration ttl = appProperties.otp().ttl();
+        String code = issue(user, purpose, user.getEmail(), ttl);
+
+        transactionalMail.sendAfterCommit(user.getEmail(), subject, htmlForCode.apply(code, ttl.toMinutes()));
     }
 
     /**
@@ -90,9 +111,11 @@ public class OtpService {
     /**
      * Verifie un code. Chaque tentative est comptee, y compris les echecs, afin que
      * le plafond d'essais ne puisse pas etre contourne.
+     *
+     * @return la destination du code (telephone ou email) : par ou il est parti
      */
     @Transactional
-    public void verify(User user, OtpPurpose purpose, String code) {
+    public String verify(User user, OtpPurpose purpose, String code) {
         OtpCode entity = otpCodeRepository
                 .findFirstByUserIdAndPurposeOrderByCreatedAtDesc(user.getId(), purpose)
                 .orElseThrow(() -> new ApiException(ErrorCode.OTP_INVALID));
@@ -120,6 +143,7 @@ public class OtpService {
         if (otpCodeRepository.consume(entity.getId(), Instant.now()) == 0) {
             throw new ApiException(ErrorCode.OTP_INVALID);
         }
+        return entity.getDestination();
     }
 
     private void assertNoCooldown(Long userId, OtpPurpose purpose) {

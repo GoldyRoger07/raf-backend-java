@@ -14,6 +14,7 @@ import com.raikiservice.raf.common.settings.SettingsService;
 import com.raikiservice.raf.notification.service.NotificationMessages;
 import com.raikiservice.raf.notification.service.NotificationService;
 import com.raikiservice.raf.wallet.domain.BalanceType;
+import com.raikiservice.raf.wallet.domain.CodeChannel;
 import com.raikiservice.raf.wallet.domain.PaymentProvider;
 import com.raikiservice.raf.wallet.domain.WalletTransaction;
 import com.raikiservice.raf.wallet.domain.WalletTransactionType;
@@ -58,6 +59,7 @@ public class CounterWithdrawalService {
     private final WalletService walletService;
     private final WithdrawalService withdrawalService;
     private final OtpService otpService;
+    private final WithdrawalCodeService withdrawalCodeService;
     private final SettingsService settingsService;
     private final AuditService auditService;
     private final NotificationService notificationService;
@@ -67,11 +69,9 @@ public class CounterWithdrawalService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> ApiException.notFound("Utilisateur"));
 
-        // Le code part sur le telephone verifie : c'est lui qui authentifie le joueur.
-        if (!user.isPhoneVerified()) {
-            throw new ApiException(ErrorCode.PHONE_NOT_VERIFIED,
-                    "Le joueur doit d'abord verifier son numero de telephone.");
-        }
+        // Le code part sur le telephone verifie (ou l'email confirme, voir
+        // WithdrawalCodeService) : c'est lui qui authentifie le joueur.
+        withdrawalCodeService.assertCanReceiveCode(user, true);
 
         withdrawalService.assertWithinLimits(userId, amountHtg);
 
@@ -111,9 +111,10 @@ public class CounterWithdrawalService {
 
         // En dernier : un echec anterieur ne doit pas laisser un code en circulation.
         long netHtg = saved.getNetHtg();
-        otpService.send(user, OtpPurpose.COUNTER_WITHDRAWAL, user.getPhone(),
+        withdrawalCodeService.send(user, OtpPurpose.COUNTER_WITHDRAWAL,
                 code -> "RAF : code " + code + " pour retirer " + netHtg
-                        + " HTG en especes au guichet. Ne le donnez qu'a l'agent RAF en face de vous.");
+                        + " HTG en especes au guichet. Ne le donnez qu'a l'agent RAF en face de vous.",
+                "retirer " + netHtg + " HTG en especes au guichet");
 
         auditService.record(adminId, "COUNTER_WITHDRAWAL_INITIATED", "WithdrawalRequest",
                 String.valueOf(saved.getId()), null,
@@ -153,7 +154,8 @@ public class CounterWithdrawalService {
 
         // Verifie juste avant le debit, comme pour le retrait en ligne : un echec
         // anterieur annulerait la consommation du code.
-        otpService.verify(user, OtpPurpose.COUNTER_WITHDRAWAL, otpCode);
+        String codeDestination = otpService.verify(user, OtpPurpose.COUNTER_WITHDRAWAL, otpCode);
+        request.setOtpChannel(CodeChannel.ofDestination(codeDestination));
 
         Instant now = Instant.now();
         WalletTransaction debit = walletService.debit(

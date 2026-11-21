@@ -2,6 +2,7 @@ package com.raikiservice.raf.wallet.web.dto;
 
 import java.time.Instant;
 
+import com.raikiservice.raf.wallet.domain.CodeChannel;
 import com.raikiservice.raf.wallet.domain.PaymentProvider;
 import com.raikiservice.raf.wallet.domain.WithdrawalRequest;
 import com.raikiservice.raf.wallet.domain.WithdrawalStatus;
@@ -31,7 +32,9 @@ public record WithdrawalResponse(
         boolean automaticPayout,
         /** Raison du dernier echec d'envoi automatique, a traiter par l'admin. */
         String payoutError,
-        int payoutAttempts) {
+        int payoutAttempts,
+        /** Canal du code qui a confirme le retrait ; EMAIL quand les SMS etaient remplaces. */
+        CodeChannel otpChannel) {
 
     public static WithdrawalResponse from(WithdrawalRequest request) {
         return new WithdrawalResponse(
@@ -54,6 +57,7 @@ public record WithdrawalResponse(
                 request.getNote(),
                 request.isAutomaticPayout(),
                 request.getPayoutError(),
-                request.getPayoutAttempts());
+                request.getPayoutAttempts(),
+                request.getOtpChannel());
     }
 }

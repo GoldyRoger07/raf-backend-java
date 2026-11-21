@@ -2,6 +2,7 @@ package com.raikiservice.raf.common.i18n;
 
 import com.raikiservice.raf.auth.web.dto.MessageResponse;
 import com.raikiservice.raf.common.error.ApiError;
+import com.raikiservice.raf.wallet.web.dto.CodeSentResponse;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,9 @@ public class ApiErrorTranslationAdvice implements ResponseBodyAdvice<Object> {
         }
         if (body instanceof MessageResponse confirmation) {
             return new MessageResponse(translator.translate(confirmation.message(), httpRequest));
+        }
+        if (body instanceof CodeSentResponse sent) {
+            return new CodeSentResponse(translator.translate(sent.message(), httpRequest), sent.channel());
         }
         return body;
     }

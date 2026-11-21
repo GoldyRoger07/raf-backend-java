@@ -186,5 +186,7 @@
   "{} session(s) fermee(s).": "{0} sesyon fèmen.",
   "Si un compte correspond a cette adresse, un lien vient d'etre envoye.": "Si gen yon kont ak adrès sa a, nou fèk voye yon lyen.",
   "Si un compte non verifie correspond a cette adresse, un nouvel email vient d'etre envoye.": "Si gen yon kont ki poko verifye ak adrès sa a, nou fèk voye yon nouvo imèl.",
-  "Votre compte a ete supprime.": "Nou efase kont ou."
+  "Votre compte a ete supprime.": "Nou efase kont ou.",
+  "Code de confirmation envoye par email.": "Nou voye kòd konfimasyon an pa imèl.",
+  "Confirmez votre adresse email avant de demander un retrait.": "Konfime adrès imèl ou anvan ou mande yon retrè."
 }

@@ -19,6 +19,7 @@ import com.raikiservice.raf.common.web.SortableFields;
 import com.raikiservice.raf.notification.service.NotificationMessages;
 import com.raikiservice.raf.notification.service.NotificationService;
 import com.raikiservice.raf.wallet.domain.BalanceType;
+import com.raikiservice.raf.wallet.domain.CodeChannel;
 import com.raikiservice.raf.wallet.domain.PaymentProvider;
 import com.raikiservice.raf.wallet.domain.WalletTransaction;
 import com.raikiservice.raf.wallet.domain.WalletTransactionType;
@@ -62,13 +63,21 @@ public class WithdrawalService {
     private final WithdrawalFraudSignals withdrawalFraudSignals;
     private final WithdrawalPayoutRepository withdrawalPayoutRepository;
     private final PayoutSpecialCaseService payoutSpecialCaseService;
+    private final WithdrawalCodeService withdrawalCodeService;
 
-    /** Envoie le code de confirmation sur le telephone verifie du joueur. */
+    /**
+     * Envoie le code de confirmation sur le telephone verifie du joueur, ou a son email
+     * confirme quand les codes de retrait passent par email (WithdrawalCodeService).
+     *
+     * @return le canal utilise
+     */
     @Transactional
-    public void sendWithdrawalOtp(Long userId) {
+    public CodeChannel sendWithdrawalOtp(Long userId) {
         User user = loadUser(userId);
-        assertPhoneVerified(user);
-        otpService.send(user, OtpPurpose.WITHDRAWAL, user.getPhone());
+        withdrawalCodeService.assertCanReceiveCode(user, false);
+        return withdrawalCodeService.send(user, OtpPurpose.WITHDRAWAL,
+                code -> "RAF : votre code de verification est " + code + ".",
+                "confirmer votre demande de retrait");
     }
 
     @Transactional
@@ -81,7 +90,7 @@ public class WithdrawalService {
         }
 
         User user = loadUser(userId);
-        assertPhoneVerified(user);
+        withdrawalCodeService.assertCanReceiveCode(user, false);
 
         // Especes : pas de numero de reception, l'argent est remis au guichet.
         boolean cash = provider == PaymentProvider.MANUAL;
@@ -115,7 +124,7 @@ public class WithdrawalService {
 
         // Verifie en dernier, juste avant le debit : tout echec anterieur annulerait
         // la consommation du code et obligerait le joueur a en redemander un.
-        otpService.verify(user, OtpPurpose.WITHDRAWAL, otpCode);
+        String codeDestination = otpService.verify(user, OtpPurpose.WITHDRAWAL, otpCode);
 
         WithdrawalRequest request = new WithdrawalRequest();
         request.setUser(user);
@@ -127,6 +136,7 @@ public class WithdrawalService {
         request.setStatus(WithdrawalStatus.PENDING);
         request.setOtpVerifiedAt(Instant.now());
         request.setAutomaticPayout(automatic);
+        request.setOtpChannel(CodeChannel.ofDestination(codeDestination));
 
         WithdrawalRequest saved = withdrawalRequestRepository.save(request);
 
@@ -197,10 +207,10 @@ public class WithdrawalService {
 
     /**
      * Remise en especes : envoie au joueur, present au guichet, le code qui
-     * autorise l'agent a lui remettre l'argent. Le SMS annonce le montant net.
+     * autorise l'agent a lui remettre l'argent. Le SMS (ou l'email) annonce le montant net.
      */
     @Transactional
-    public void sendPickupCode(Long adminId, Long withdrawalId) {
+    public CodeChannel sendPickupCode(Long adminId, Long withdrawalId) {
         WithdrawalRequest request = withdrawalRequestRepository.findById(withdrawalId)
                 .orElseThrow(() -> ApiException.notFound("Demande de retrait"));
 
@@ -213,12 +223,14 @@ public class WithdrawalService {
 
         User user = request.getUser();
         long netHtg = request.getNetHtg();
-        otpService.send(user, OtpPurpose.CASH_PICKUP, user.getPhone(),
+        CodeChannel channel = withdrawalCodeService.send(user, OtpPurpose.CASH_PICKUP,
                 code -> "RAF : code " + code + " pour recevoir " + netHtg
-                        + " HTG en especes au guichet. Ne le donnez qu'a l'agent RAF en face de vous.");
+                        + " HTG en especes au guichet. Ne le donnez qu'a l'agent RAF en face de vous.",
+                "recevoir " + netHtg + " HTG en especes au guichet");
 
         auditService.record(adminId, "WITHDRAWAL_PICKUP_CODE_SENT", "WithdrawalRequest",
-                String.valueOf(withdrawalId));
+                String.valueOf(withdrawalId), null, channel.name());
+        return channel;
     }
 
     /**
@@ -485,10 +497,4 @@ public class WithdrawalService {
                 .orElseThrow(() -> ApiException.notFound("Utilisateur"));
     }
 
-    private void assertPhoneVerified(User user) {
-        if (!user.isPhoneVerified()) {
-            throw new ApiException(ErrorCode.PHONE_NOT_VERIFIED,
-                    "Verifiez votre numero de telephone avant de demander un retrait.");
-        }
-    }
 }

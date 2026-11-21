@@ -63,6 +63,25 @@ public final class MailTemplates {
                         + "connu d'un tiers : changez-le immediatement.");
     }
 
+    /**
+     * Code de retrait envoye par email (secours quand les SMS sont indisponibles).
+     *
+     * @param action ce que le code autorise, par exemple « confirmer votre retrait de 1 000 HTG »
+     */
+    public static String withdrawalCode(String firstName, String action, String code, long ttlMinutes) {
+        return wrap("Votre code de retrait RAF",
+                """
+                <p>Bonjour %s,</p>
+                <p>Voici votre code pour %s :</p>
+                <p style="font-size:32px;font-weight:700;letter-spacing:8px;margin:16px 0;
+                          font-family:ui-monospace,Menlo,Consolas,monospace;">%s</p>
+                """.formatted(escape(firstName), escape(action), escape(code)),
+                null, null,
+                "Ce code expire dans " + ttlMinutes + " minutes. Ne le communiquez a personne, sauf a "
+                        + "l'agent RAF en face de vous au guichet. Si vous n'etes pas a l'origine de "
+                        + "cette demande, changez votre mot de passe et contactez-nous.");
+    }
+
     public static String phoneChanged(String firstName, String maskedNewPhone) {
         return wrap("Votre numero de telephone a ete modifie",
                 """

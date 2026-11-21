@@ -7,6 +7,7 @@ import com.raikiservice.raf.wallet.service.TopUpRetentionService;
 import com.raikiservice.raf.wallet.service.TopUpService;
 import com.raikiservice.raf.wallet.service.WalletService;
 import com.raikiservice.raf.wallet.service.WithdrawalService;
+import com.raikiservice.raf.wallet.web.dto.CodeSentResponse;
 import com.raikiservice.raf.wallet.web.dto.OnlineTopUpDto;
 import com.raikiservice.raf.wallet.web.dto.TopUpResponse;
 import com.raikiservice.raf.wallet.web.dto.TransactionResponse;
@@ -94,10 +95,9 @@ public class WalletController {
     }
 
     @PostMapping("/withdrawals/send-otp")
-    @Operation(summary = "Recevoir le code de confirmation d'un retrait par SMS")
-    public MessageResponse sendWithdrawalOtp(@AuthenticationPrincipal UserPrincipal principal) {
-        withdrawalService.sendWithdrawalOtp(principal.getId());
-        return new MessageResponse("Code de confirmation envoye par SMS.");
+    @Operation(summary = "Recevoir le code de confirmation d'un retrait (SMS, ou email en secours)")
+    public CodeSentResponse sendWithdrawalOtp(@AuthenticationPrincipal UserPrincipal principal) {
+        return CodeSentResponse.withdrawal(withdrawalService.sendWithdrawalOtp(principal.getId()));
     }
 
     @PostMapping("/withdrawals")

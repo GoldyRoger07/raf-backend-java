@@ -54,6 +54,9 @@ public enum NotificationType {
             EnumSet.of(NotificationChannel.EMAIL)),
     /** Reserve aux administrateurs : l'envoi automatique d'un retrait a echoue. */
     ADMIN_WITHDRAWAL_PAYOUT_FAILED("Echec de l'envoi automatique d'un retrait",
+            EnumSet.of(NotificationChannel.EMAIL)),
+    /** Reserve aux administrateurs : les codes de retrait passent par email, ou reviennent au SMS. */
+    ADMIN_WITHDRAWAL_CODES_CHANNEL("Codes de retrait par email active ou coupe",
             EnumSet.of(NotificationChannel.EMAIL));
 
     private final String description;

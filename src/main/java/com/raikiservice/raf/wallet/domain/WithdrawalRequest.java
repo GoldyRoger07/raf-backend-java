@@ -67,6 +67,14 @@ public class WithdrawalRequest extends AuditableEntity {
     @Column(name = "otp_verified_at")
     private Instant otpVerifiedAt;
 
+    /**
+     * Canal du code qui a confirme le retrait (null pour les retraits anterieurs) : EMAIL
+     * quand les codes de retrait passaient par email, a verifier avec attention.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "otp_channel", length = 10)
+    private CodeChannel otpChannel;
+
     /** Renseigne pour un retrait au guichet : l'agent qui l'a saisi. */
     @Column(name = "initiated_by_admin_id")
     private Long initiatedByAdminId;

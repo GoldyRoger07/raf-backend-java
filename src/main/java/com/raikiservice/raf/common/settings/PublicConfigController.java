@@ -3,6 +3,7 @@ package com.raikiservice.raf.common.settings;
 import com.raikiservice.raf.auth.security.UserPrincipal;
 import com.raikiservice.raf.wallet.availability.TopUpAvailabilityService;
 import com.raikiservice.raf.wallet.service.AutoPayoutService;
+import com.raikiservice.raf.wallet.service.WithdrawalCodeService;
 import com.raikiservice.raf.wallet.service.OnlineTopUpService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,7 @@ public class PublicConfigController {
     private final PlayerAppService playerAppService;
     private final OnlineTopUpService onlineTopUpService;
     private final AutoPayoutService autoPayoutService;
+    private final WithdrawalCodeService withdrawalCodeService;
 
     @GetMapping("/social")
     @Operation(summary = "Liens vers les reseaux sociaux actives par l'administrateur")
@@ -58,6 +60,12 @@ public class PublicConfigController {
     @Operation(summary = "Retraits MonCash / NatCash : envoi automatique actif, frais en points de base")
     public AutoPayoutService.Config payouts() {
         return autoPayoutService.config();
+    }
+
+    @GetMapping("/withdrawal-codes")
+    @Operation(summary = "Codes de retrait envoyes par email au lieu du SMS (secours) ?")
+    public WithdrawalCodeService.Config withdrawalCodes() {
+        return withdrawalCodeService.config();
     }
 
     @GetMapping("/online-topup")

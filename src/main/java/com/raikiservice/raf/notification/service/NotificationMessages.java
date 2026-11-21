@@ -226,6 +226,23 @@ public final class NotificationMessages {
                 "/admin/retraits?statut=APPROVED");
     }
 
+    public static NotificationMessage withdrawalCodesChannelChanged(User actor, boolean byEmail) {
+        String who = actor.getFirstName() + " " + actor.getLastName() + " (" + actor.getEmail() + ")";
+        return byEmail
+                ? new NotificationMessage(NotificationType.ADMIN_WITHDRAWAL_CODES_CHANNEL,
+                        "Codes de retrait envoyes par email",
+                        who + " a active l'envoi des codes de retrait par email a la place du SMS. "
+                                + "Un email confirme suffit desormais pour retirer. Les retraits confirmes "
+                                + "par email portent le repere « code par email » : verifiez-les avec "
+                                + "attention avant de les approuver.",
+                        Map.of(), "/admin/retraits?statut=PENDING")
+                : new NotificationMessage(NotificationType.ADMIN_WITHDRAWAL_CODES_CHANNEL,
+                        "Codes de retrait de nouveau par SMS",
+                        who + " a coupe l'envoi des codes de retrait par email : ils repartent par SMS "
+                                + "et le telephone verifie est de nouveau exige pour retirer.",
+                        Map.of(), "/admin/retraits?statut=PENDING");
+    }
+
     // --- Outils -------------------------------------------------------------------
 
     private static NotificationMessage quiz(NotificationType type, Quiz quiz, String title,
