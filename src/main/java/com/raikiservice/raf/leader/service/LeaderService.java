@@ -182,10 +182,12 @@ public class LeaderService {
                        b.created_at AS bonus_paid_at,
                        (SELECT COALESCE(SUM(c.amount_htg), 0) FROM leader_commissions c
                          WHERE c.leader_id = lp.leader_id AND c.player_id = u.id) AS commissions,
-                       (SELECT MAX(g.started_at) FROM game_sessions g WHERE g.user_id = u.id) AS last_played
+                       (SELECT MAX(g.started_at) FROM game_sessions g WHERE g.user_id = u.id) AS last_played,
+                       lp.invited_by_id, CONCAT(inv.first_name, ' ', inv.last_name) AS invited_by_name
                 FROM leader_players lp
                 JOIN users u ON u.id = lp.player_id
                 LEFT JOIN leader_invite_bonuses b ON b.player_id = lp.player_id
+                LEFT JOIN users inv ON inv.id = lp.invited_by_id
                 """ + where + PLAYER_SORTS.orderBy(pageable.getSort()) + " LIMIT ? OFFSET ?", (rs, row) -> new LeaderPlayer(
                         rs.getLong("id"),
                         rs.getString("first_name"),
@@ -199,7 +201,9 @@ public class LeaderService {
                         rs.getInt("signup_bonus_credits"),
                         instant(rs, "bonus_paid_at"),
                         rs.getLong("commissions"),
-                        instant(rs, "last_played")),
+                        instant(rs, "last_played"),
+                        (Long) rs.getObject("invited_by_id", Long.class),
+                        rs.getString("invited_by_name")),
                 pageArgs.toArray());
         return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }

@@ -3,6 +3,7 @@ package com.raikiservice.raf.leader.service;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import com.raikiservice.raf.auth.domain.User;
 import com.raikiservice.raf.auth.domain.UserStatus;
@@ -28,6 +29,11 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>Le lien d'un joueur ordinaire mene a une inscription normale.</li>
  *   <li>Celui d'un leader (role LEADER, compte actif, hors test) rattache le nouvel
  *       inscrit a ce leader, sauf si un administrateur l'a deja rattache ailleurs.</li>
+ *   <li>Celui d'un filleul (joueur rattache a un leader, par invitation ou par un
+ *       administrateur ; compte actif, hors test) rattache le nouvel inscrit au leader
+ *       de ce filleul, aux memes conditions et avec le meme bonus. Le nouvel inscrit
+ *       devient filleul a son tour : toute la chaine revient au leader. Le filleul
+ *       qui a partage le lien est garde (invited_by_id).</li>
  *   <li>Le bonus fixe pour ce leader au moment de l'inscription est promis au nouvel
  *       inscrit et lui est verse, en credits offerts par la plateforme, des qu'il
  *       confirme son email. Une seule fois par joueur.</li>
@@ -58,37 +64,76 @@ public class InviteService {
     private record PendingBonus(Long leaderId, int credits) {
     }
 
-    /** Lien a partager et, pour un leader, le bonus que recevront ses filleuls. */
-    @Transactional(readOnly = true)
-    public InviteResponse inviteFor(Long userId) {
-        String url = appProperties.frontendUrl() + "/inscription?parrain=" + userId;
-        List<Integer> bonus = jdbc.query(ELIGIBLE_LEADER, (rs, row) -> rs.getInt("bonus"), userId);
+    /** Leader auquel un lien rattache, son bonus, et le filleul qui a partage le lien (sinon null). */
+    private record Target(Long leaderId, int bonus, Long invitedById) {
+    }
+
+    /** Le leader d'un filleul eligible a transmettre : compte actif, hors test. */
+    private static final String LEADER_OF_PLAYER = """
+            SELECT lp.leader_id
+            FROM leader_players lp
+            JOIN users p ON p.id = lp.player_id
+            WHERE lp.player_id = ? AND p.status = 'ACTIVE' AND p.is_test = FALSE
+            """;
+
+    /**
+     * Ou mene le lien de ce joueur : a lui-meme s'il est leader, sinon a son leader
+     * s'il est filleul. Vide si le lien ne rattache a personne.
+     */
+    private Optional<Target> targetOf(Long inviterId) {
+        List<Integer> own = jdbc.query(ELIGIBLE_LEADER, (rs, row) -> rs.getInt("bonus"), inviterId);
+        if (!own.isEmpty()) {
+            return Optional.of(new Target(inviterId, own.get(0), null));
+        }
+        List<Long> leaders = jdbc.query(LEADER_OF_PLAYER, (rs, row) -> rs.getLong("leader_id"), inviterId);
+        if (leaders.isEmpty()) {
+            return Optional.empty();
+        }
+        Long leaderId = leaders.get(0);
+        List<Integer> bonus = jdbc.query(ELIGIBLE_LEADER, (rs, row) -> rs.getInt("bonus"), leaderId);
         return bonus.isEmpty()
-                ? new InviteResponse(url, false, 0)
-                : new InviteResponse(url, true, bonus.get(0));
+                ? Optional.empty()
+                : Optional.of(new Target(leaderId, bonus.get(0), inviterId));
     }
 
     /**
-     * A l'inscription, dans sa transaction : rattache le nouvel inscrit au leader
-     * qui l'a invite. Sans effet si le parrain n'est pas un leader eligible.
+     * Lien a partager et, s'il rattache a un leader (celui du joueur ou le joueur
+     * lui-meme), le bonus que recevront les invites.
+     */
+    @Transactional(readOnly = true)
+    public InviteResponse inviteFor(Long userId) {
+        String url = appProperties.frontendUrl() + "/inscription?parrain=" + userId;
+        return targetOf(userId)
+                .map(target -> new InviteResponse(url, true, target.bonus()))
+                .orElseGet(() -> new InviteResponse(url, false, 0));
+    }
+
+    /**
+     * A l'inscription, dans sa transaction : rattache le nouvel inscrit au leader qui
+     * l'a invite, ou au leader du filleul qui l'a invite. Sans effet si le lien ne
+     * mene a aucun leader eligible.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void attachOnSignup(User player, Long inviterId) {
         if (inviterId == null || inviterId.equals(player.getId())) {
             return;
         }
-        List<Integer> bonus = jdbc.query(ELIGIBLE_LEADER, (rs, row) -> rs.getInt("bonus"), inviterId);
-        if (bonus.isEmpty()) {
+        Optional<Target> found = targetOf(inviterId);
+        if (found.isEmpty()) {
             return;
         }
-        int credits = bonus.get(0);
+        Target target = found.get();
+        int credits = target.bonus();
         jdbc.update("""
                 INSERT INTO leader_players (player_id, leader_id, added_at, added_by_id, via_invite,
-                                            signup_bonus_credits)
-                VALUES (?, ?, ?, NULL, TRUE, ?)
-                """, player.getId(), inviterId, Timestamp.from(Instant.now()), credits);
-        auditService.record(player.getId(), "LEADER_PLAYER_INVITED", "User", String.valueOf(inviterId),
-                null, "joueur " + player.getId() + (credits > 0 ? ", bonus promis " + credits + " credits" : ""));
+                                            signup_bonus_credits, invited_by_id)
+                VALUES (?, ?, ?, NULL, TRUE, ?, ?)
+                """, player.getId(), target.leaderId(), Timestamp.from(Instant.now()), credits,
+                target.invitedById());
+        auditService.record(player.getId(), "LEADER_PLAYER_INVITED", "User", String.valueOf(target.leaderId()),
+                null, "joueur " + player.getId()
+                        + (target.invitedById() != null ? ", invite par le filleul " + target.invitedById() : "")
+                        + (credits > 0 ? ", bonus promis " + credits + " credits" : ""));
     }
 
     /**

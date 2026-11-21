@@ -131,6 +131,58 @@ class LeaderInviteTest extends IntegrationTest {
                 () -> leaderService.setSignupBonus(null, leader.getId(), 100_001));
     }
 
+    @Test
+    void aPlayerInvitedByAFilleulJoinsTheLeaderWithTheBonusAndTheWholeChainFollows() {
+        User leader = leader(40);
+        User filleul = register(leader.getId());
+
+        // Le lien du filleul annonce le bonus de son leader.
+        InviteResponse invite = inviteService.inviteFor(filleul.getId());
+        assertThat(invite.leader()).isTrue();
+        assertThat(invite.signupBonusCredits()).isEqualTo(40);
+
+        User friend = register(filleul.getId());
+        LeaderPlayer line = playerOf(leader, friend);
+        assertThat(line.viaInvite()).isTrue();
+        assertThat(line.signupBonusCredits()).isEqualTo(40);
+        assertThat(line.invitedById()).isEqualTo(filleul.getId());
+        assertThat(line.invitedByName()).isEqualTo(filleul.getFirstName() + " " + filleul.getLastName());
+
+        verify(friend);
+        assertThat(creditBalance(friend)).isEqualTo(40);
+
+        // Toute la chaine : l'invite d'un invite rejoint aussi le leader.
+        User next = register(friend.getId());
+        assertThat(playerOf(leader, next).invitedById()).isEqualTo(friend.getId());
+
+        // Par le lien du leader lui-meme, pas de « invite par ».
+        assertThat(playerOf(leader, filleul).invitedById()).isNull();
+    }
+
+    @Test
+    void aPlayerAddedByAnAdminAlsoPassesOnHisLeader() {
+        User leader = leader(0);
+        User added = data.player();
+        leaderService.addPlayer(null, leader.getId(), added.getId());
+
+        User friend = register(added.getId());
+
+        assertThat(playerOf(leader, friend).invitedById()).isEqualTo(added.getId());
+    }
+
+    @Test
+    void aSuspendedFilleulDoesNotPassOnHisLeader() {
+        User leader = leader(20);
+        User filleul = register(leader.getId());
+        jdbc.update("UPDATE users SET status = 'SUSPENDED' WHERE id = ?", filleul.getId());
+
+        User friend = register(filleul.getId());
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM leader_players WHERE player_id = ?",
+                Long.class, friend.getId())).isZero();
+        assertThat(inviteService.inviteFor(filleul.getId()).leader()).isFalse();
+    }
+
     // --- Outils -------------------------------------------------------------------
 
     private User leader(int bonus) {

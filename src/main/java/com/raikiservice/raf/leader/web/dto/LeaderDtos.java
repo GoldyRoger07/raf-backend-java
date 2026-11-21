@@ -51,7 +51,10 @@ public final class LeaderDtos {
             /** Commissions que ce joueur a rapportees a ce leader. */
             long commissionsHtg,
             /** Debut de sa derniere partie, null s'il n'a jamais joue. */
-            Instant lastPlayedAt) {
+            Instant lastPlayedAt,
+            /** Filleul dont le lien a servi a l'inscription ; null par le lien du leader ou un admin. */
+            Long invitedById,
+            String invitedByName) {
     }
 
     /** Une commission versee, detaillee par joueur. */
