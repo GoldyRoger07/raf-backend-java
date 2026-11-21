@@ -5,6 +5,7 @@ import java.io.IOException;
 import com.raikiservice.raf.auth.service.DeviceLinkService;
 import com.raikiservice.raf.common.error.ApiError;
 import com.raikiservice.raf.common.error.ApiException;
+import com.raikiservice.raf.common.i18n.MessageTranslator;
 import com.raikiservice.raf.common.util.RequestContext;
 
 import tools.jackson.databind.ObjectMapper;
@@ -30,6 +31,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final ObjectMapper objectMapper;
     private final DeviceLinkService deviceLinkService;
+    private final MessageTranslator messageTranslator;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -66,6 +68,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
         objectMapper.writeValue(response.getWriter(),
-                ApiError.of(e.getErrorCode(), e.getMessage(), request.getRequestURI()));
+                ApiError.of(e.getErrorCode(), e.getMessage(), request.getRequestURI())
+                        .translated(messageTranslator, request));
     }
 }

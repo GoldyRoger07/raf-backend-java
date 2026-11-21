@@ -6,6 +6,7 @@ import java.util.List;
 import com.raikiservice.raf.common.config.AppProperties;
 import com.raikiservice.raf.common.error.ApiError;
 import com.raikiservice.raf.common.error.ErrorCode;
+import com.raikiservice.raf.common.i18n.MessageTranslator;
 
 import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,6 +35,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AppProperties appProperties;
     private final ObjectMapper objectMapper;
+    private final MessageTranslator messageTranslator;
 
     @Bean
     PasswordEncoder passwordEncoder() {
@@ -107,6 +109,7 @@ public class SecurityConfig {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
         objectMapper.writeValue(response.getWriter(),
-                ApiError.of(code, code.getDefaultMessage(), request.getRequestURI()));
+                ApiError.of(code, code.getDefaultMessage(), request.getRequestURI())
+                        .translated(messageTranslator, request));
     }
 }
