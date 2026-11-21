@@ -19,6 +19,8 @@ import com.raikiservice.raf.auth.web.dto.RegisterRequest;
 import com.raikiservice.raf.auth.web.dto.ResetPasswordRequest;
 import com.raikiservice.raf.auth.web.dto.TokenResponse;
 import com.raikiservice.raf.auth.web.dto.UserResponse;
+import com.raikiservice.raf.auth.web.dto.VerifyLoginCodeRequest;
+import com.raikiservice.raf.common.config.AppProperties;
 import com.raikiservice.raf.common.audit.AuditAction;
 import com.raikiservice.raf.common.audit.AuditService;
 import com.raikiservice.raf.common.error.ApiException;
@@ -51,6 +53,13 @@ public class AuthService {
     private static final int MAX_EMAIL_REQUESTS_PER_IP = 20;
     private static final Duration EMAIL_REQUEST_WINDOW = Duration.ofHours(1);
 
+    // Codes de connexion du personnel : chaque mot de passe correct envoie un email.
+    // Plafond plus large que les emails a la demande (plusieurs connexions par jour),
+    // mais il borne aussi le nombre de codes devinables : 5 essais par code.
+    private static final int MAX_STAFF_LOGIN_CODES_PER_ACCOUNT = 6;
+    private static final int MAX_STAFF_LOGIN_CODES_PER_IP = 20;
+    private static final Duration STAFF_LOGIN_CODE_WINDOW = Duration.ofHours(1);
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final RateLimiter rateLimiter;
@@ -62,6 +71,7 @@ public class AuthService {
     private final TransactionalMail transactionalMail;
     private final AuditService auditService;
     private final InviteService inviteService;
+    private final AppProperties appProperties;
 
     @Transactional
     public UserResponse register(RegisterRequest request) {
@@ -131,11 +141,66 @@ public class AuthService {
         assertAccountUsable(user);
         rateLimiter.reset(accountKey);
 
+        // Personnel : le mot de passe seul ne suffit pas, un code part par email. La
+        // regle vaut pour tout client (back-office comme app), sinon il suffirait de
+        // passer par l'app pour obtenir des jetons d'administrateur.
+        if (isStaff(user)) {
+            return startStaffLogin(user, httpRequest);
+        }
+
+        return completeLogin(user, httpRequest);
+    }
+
+    /**
+     * Seconde etape de la connexion du personnel. Un code faux annule la transaction :
+     * le challenge reste donc utilisable, et seul le plafond d'essais du code (compte
+     * hors transaction) limite les tentatives. Au-dela, il faut ressaisir le mot de passe.
+     */
+    @Transactional
+    public TokenResponse verifyStaffLogin(VerifyLoginCodeRequest request, HttpServletRequest httpRequest) {
+        User user = verificationService.consume(request.mfaToken(), VerificationTokenType.STAFF_LOGIN);
+
+        // Le compte a pu etre suspendu ou perdre son role entre les deux etapes.
+        assertAccountUsable(user);
+        if (!isStaff(user)) {
+            throw new ApiException(ErrorCode.INVALID_TOKEN);
+        }
+
+        otpService.verify(user, OtpPurpose.STAFF_LOGIN, request.code());
+        return completeLogin(user, httpRequest);
+    }
+
+    private TokenResponse startStaffLogin(User user, HttpServletRequest httpRequest) {
+        String accountKey = "staff-login-code:account:" + user.getId();
+        String ipKey = "staff-login-code:ip:" + RequestContext.clientIp(httpRequest);
+        rateLimiter.assertNotBlocked(accountKey, MAX_STAFF_LOGIN_CODES_PER_ACCOUNT);
+        rateLimiter.assertNotBlocked(ipKey, MAX_STAFF_LOGIN_CODES_PER_IP);
+        rateLimiter.recordAttempt(accountKey, STAFF_LOGIN_CODE_WINDOW);
+        rateLimiter.recordAttempt(ipKey, STAFF_LOGIN_CODE_WINDOW);
+
+        Duration ttl = appProperties.otp().ttl();
+        // Nouveau challenge et nouveau code : les precedents sont annules.
+        String challenge = verificationService.issueStaffLoginChallenge(user, ttl);
+        String code = otpService.issue(user, OtpPurpose.STAFF_LOGIN, user.getEmail(), ttl);
+
+        transactionalMail.sendAfterCommit(user.getEmail(), "Code de connexion au back-office - RAF",
+                MailTemplates.staffLoginCode(user.getFirstName(), code, ttl.toMinutes()));
+        auditService.record(user.getId(), AuditAction.STAFF_LOGIN_CODE_SENT, "User",
+                String.valueOf(user.getId()));
+
+        return TokenResponse.mfaChallenge(challenge, ttl.getSeconds());
+    }
+
+    private TokenResponse completeLogin(User user, HttpServletRequest httpRequest) {
         user.setLastLoginAt(Instant.now());
         auditService.record(user.getId(), AuditAction.USER_LOGGED_IN, "User",
                 String.valueOf(user.getId()));
 
         return issueTokens(user, httpRequest);
+    }
+
+    private static boolean isStaff(User user) {
+        return user.getRoles().stream().anyMatch(role -> role.getName().isStaff());
     }
 
     @Transactional

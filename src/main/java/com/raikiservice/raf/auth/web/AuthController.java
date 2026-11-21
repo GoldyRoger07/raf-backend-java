@@ -12,6 +12,7 @@ import com.raikiservice.raf.auth.web.dto.ResetPasswordRequest;
 import com.raikiservice.raf.auth.web.dto.TokenOnlyRequest;
 import com.raikiservice.raf.auth.web.dto.TokenResponse;
 import com.raikiservice.raf.auth.web.dto.UserResponse;
+import com.raikiservice.raf.auth.web.dto.VerifyLoginCodeRequest;
 import com.raikiservice.raf.auth.web.dto.VerifyOtpRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -46,6 +47,14 @@ public class AuthController {
     public TokenResponse login(@Valid @RequestBody LoginRequest request,
             HttpServletRequest httpRequest) {
         return authService.login(request, httpRequest);
+    }
+
+    @PostMapping("/login/verify")
+    @Operation(summary = "Seconde etape de la connexion du personnel : code recu par email",
+            description = "Le mfaToken vient de la reponse de /login (mfaRequired = true).")
+    public TokenResponse verifyLogin(@Valid @RequestBody VerifyLoginCodeRequest request,
+            HttpServletRequest httpRequest) {
+        return authService.verifyStaffLogin(request, httpRequest);
     }
 
     @PostMapping("/refresh")

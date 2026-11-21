@@ -49,6 +49,20 @@ public final class MailTemplates {
                 "Si vous n'etes pas a l'origine de ce changement, contactez-nous immediatement.");
     }
 
+    public static String staffLoginCode(String firstName, String code, long ttlMinutes) {
+        return wrap("Votre code de connexion au back-office",
+                """
+                <p>Bonjour %s,</p>
+                <p>Pour terminer votre connexion au back-office RAF, saisissez ce code :</p>
+                <p style="font-size:32px;font-weight:700;letter-spacing:8px;margin:16px 0;
+                          font-family:ui-monospace,Menlo,Consolas,monospace;">%s</p>
+                """.formatted(escape(firstName), escape(code)),
+                null, null,
+                "Ce code expire dans " + ttlMinutes + " minutes. Ne le communiquez a personne. "
+                        + "Si vous n'etes pas a l'origine de cette connexion, votre mot de passe est "
+                        + "connu d'un tiers : changez-le immediatement.");
+    }
+
     public static String phoneChanged(String firstName, String maskedNewPhone) {
         return wrap("Votre numero de telephone a ete modifie",
                 """

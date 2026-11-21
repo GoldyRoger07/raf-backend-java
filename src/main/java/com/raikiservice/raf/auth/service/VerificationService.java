@@ -72,6 +72,17 @@ public class VerificationService {
                 MailTemplates.resetPassword(user.getFirstName(), link));
     }
 
+    /**
+     * Challenge de connexion du personnel, renvoye au navigateur apres le mot de passe.
+     * Il identifie le compte a la seconde etape sans redemander le mot de passe.
+     *
+     * @return le jeton en clair, seule sa empreinte est enregistree
+     */
+    @Transactional
+    public String issueStaffLoginChallenge(User user, Duration ttl) {
+        return issue(user, VerificationTokenType.STAFF_LOGIN, ttl.getSeconds());
+    }
+
     /** Valide et consomme un jeton. Un jeton ne peut servir qu'une seule fois. */
     @Transactional
     public User consume(String rawToken, VerificationTokenType type) {

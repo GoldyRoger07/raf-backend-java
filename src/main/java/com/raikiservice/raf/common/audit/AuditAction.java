@@ -6,6 +6,7 @@ public final class AuditAction {
     public static final String USER_REGISTERED = "USER_REGISTERED";
     public static final String USER_LOGGED_IN = "USER_LOGGED_IN";
     public static final String USER_LOGIN_FAILED = "USER_LOGIN_FAILED";
+    public static final String STAFF_LOGIN_CODE_SENT = "STAFF_LOGIN_CODE_SENT";
     public static final String USER_LOGGED_OUT = "USER_LOGGED_OUT";
     public static final String USER_LOGGED_OUT_ALL = "USER_LOGGED_OUT_ALL";
     public static final String EMAIL_VERIFIED = "EMAIL_VERIFIED";

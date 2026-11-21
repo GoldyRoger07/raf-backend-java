@@ -19,5 +19,10 @@ public enum OtpPurpose {
      * Confirmation de l'adresse email : code envoye dans le meme email que le lien,
      * a saisir dans l'app. L'un ou l'autre suffit ; le premier utilise annule l'autre.
      */
-    EMAIL_VERIFY
+    EMAIL_VERIFY,
+    /**
+     * Seconde etape de la connexion du personnel (back-office) : code envoye par email
+     * apres un mot de passe correct, a saisir avec le jeton de challenge.
+     */
+    STAFF_LOGIN
 }
