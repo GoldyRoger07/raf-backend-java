@@ -97,6 +97,7 @@ public class AuthService {
         user.setLastName(request.lastName().trim());
         user.setStatus(UserStatus.ACTIVE);
         user.setRoles(Set.of(playerRole));
+        user.setOnboardingPending(true);
 
         User saved = userRepository.save(user);
         inviteService.attachOnSignup(saved, request.inviterId());
@@ -341,6 +342,14 @@ public class AuthService {
     @Transactional(readOnly = true)
     public UserResponse currentUser(Long userId) {
         return UserResponse.from(loadUser(userId));
+    }
+
+    /** Guide de demarrage fait ou refuse : il n'est plus propose, sur aucun appareil. */
+    @Transactional
+    public UserResponse finishOnboarding(Long userId) {
+        User user = loadUser(userId);
+        user.setOnboardingPending(false);
+        return UserResponse.from(user);
     }
 
     private TokenResponse issueTokens(User user, HttpServletRequest httpRequest) {

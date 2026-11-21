@@ -68,6 +68,13 @@ public class User extends AuditableEntity {
     @Column(name = "is_test", nullable = false)
     private boolean test;
 
+    /**
+     * Guide de demarrage a proposer dans l'app : vrai a l'inscription, faux une fois la
+     * visite faite ou refusee. Faux pour les comptes anterieurs au guide.
+     */
+    @Column(name = "onboarding_pending", nullable = false)
+    private boolean onboardingPending;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),

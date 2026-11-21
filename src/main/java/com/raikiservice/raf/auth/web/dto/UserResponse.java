@@ -17,7 +17,9 @@ public record UserResponse(
         boolean phoneVerified,
         boolean test,
         List<String> roles,
-        Instant createdAt) {
+        Instant createdAt,
+        /** Guide de demarrage a proposer une fois dans l'app joueur. */
+        boolean onboardingPending) {
 
     public static UserResponse from(User user) {
         return new UserResponse(
@@ -31,6 +33,7 @@ public record UserResponse(
                 user.isPhoneVerified(),
                 user.isTest(),
                 user.getRoles().stream().map(role -> role.getName().name()).sorted().toList(),
-                user.getCreatedAt());
+                user.getCreatedAt(),
+                user.isOnboardingPending());
     }
 }

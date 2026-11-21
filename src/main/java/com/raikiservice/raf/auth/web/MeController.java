@@ -51,6 +51,12 @@ public class MeController {
         return authService.currentUser(principal.getId());
     }
 
+    @PostMapping("/onboarding/done")
+    @Operation(summary = "Guide de demarrage fait ou refuse : ne plus le proposer")
+    public UserResponse onboardingDone(@AuthenticationPrincipal UserPrincipal principal) {
+        return authService.finishOnboarding(principal.getId());
+    }
+
     @GetMapping("/invite")
     @Operation(summary = "Lien d'invitation a partager (inscription avec ce joueur pour parrain)")
     public InviteResponse invite(@AuthenticationPrincipal UserPrincipal principal) {
