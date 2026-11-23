@@ -53,7 +53,8 @@ public class GameController {
 
         GameStartResponse response = gameService.start(player.getId(), request.quizId(),
                 RequestContext.clientIp(http), RequestContext.userAgent(http),
-                RequestContext.deviceId(http));
+                RequestContext.deviceId(http), new GameService.SeenTerms(request.expectedPriceCredits(),
+                        request.expectedPrizeHtg(), request.expectedQuestions()));
 
         return ResponseEntity.status(response.resumed() ? HttpStatus.OK : HttpStatus.CREATED)
                 .body(response);

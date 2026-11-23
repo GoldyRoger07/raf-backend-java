@@ -180,6 +180,25 @@ public class GameService {
     @Transactional
     public GameStartResponse start(Long userId, Long quizId, String ip, String userAgent,
             String deviceId) {
+        return start(userId, quizId, ip, userAgent, deviceId, null);
+    }
+
+    /**
+     * Regles d'un quiz solo telles que le joueur les avait a l'ecran au moment de lancer.
+     * Un champ null n'est pas verifie (anciens clients).
+     */
+    public record SeenTerms(Integer priceCredits, Long prizeHtg, Integer questions) {
+    }
+
+    /**
+     * @param seen solo : prix, prime et nombre de questions affiches au joueur. S'ils ne sont
+     *        plus ceux du quiz (regles changees entre-temps), la partie est refusee
+     *        ({@code SOLO_TERMS_CHANGED}) avant tout debit : on ne preleve jamais un prix que le
+     *        joueur n'a pas vu.
+     */
+    @Transactional
+    public GameStartResponse start(Long userId, Long quizId, String ip, String userAgent,
+            String deviceId, SeenTerms seen) {
         Quiz quiz = quizRepository.findByIdForShare(quizId)
                 .orElseThrow(() -> ApiException.notFound("Quiz"));
         quizAccess.assertVisible(quiz, userId);
@@ -202,7 +221,7 @@ public class GameService {
             if (quizAccess.hiddenFromPlayers(quiz)) {
                 throw new ApiException(ErrorCode.QUIZ_HIDDEN);
             }
-            return startSolo(quiz, userId, now, ip, userAgent, deviceId);
+            return startSolo(quiz, userId, now, ip, userAgent, deviceId, seen);
         }
 
         List<Long> candidates = ticketRepository.findActiveTicketIds(
@@ -261,7 +280,7 @@ public class GameService {
      * d'un ticket.
      */
     private GameStartResponse startSolo(Quiz quiz, Long userId, Instant now, String ip,
-            String userAgent, String deviceId) {
+            String userAgent, String deviceId, SeenTerms seen) {
 
         Category subject = quiz.getSelectedCategory();
         if (!subject.isAvailableFor(GameMode.SOLO)) {
@@ -312,6 +331,14 @@ public class GameService {
         // affichees telles quelles dans l'app, et pas de partie offerte (FirstSoloOfferService).
         Optional<SoloAdjustment> adjustment = fraudProfileService.adjustmentFor(userId);
         int price = adjustment.map(a -> a.price(quiz.getTicketPriceCredits())).orElse(quiz.getTicketPriceCredits());
+        int plannedQuestions = adjustment.map(a -> a.questions(quiz.getQuestionsPerGame()))
+                .orElse(quiz.getQuestionsPerGame());
+        // Regles changees depuis que le joueur a ouvert l'ecran : rien n'est debite.
+        if (seen != null && ((seen.priceCredits() != null && seen.priceCredits() != price)
+                || (seen.prizeHtg() != null && !seen.prizeHtg().equals(quiz.getSoloPrizeHtg()))
+                || (seen.questions() != null && seen.questions() != plannedQuestions))) {
+            throw new ApiException(ErrorCode.SOLO_TERMS_CHANGED);
+        }
         boolean offered = !quiz.isFree() && firstSoloOfferService.claim(user);
         WalletTransaction entry = null;
         if (!quiz.isFree() && !offered) {

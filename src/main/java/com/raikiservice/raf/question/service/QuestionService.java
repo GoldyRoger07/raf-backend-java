@@ -226,6 +226,11 @@ public class QuestionService {
      * deux joueurs recoivent presque le meme tirage et les enonces fuitent vite.
      */
     @Transactional(readOnly = true)
+    /** Questions qu'un vivier doit compter par question servie dans une partie. */
+    public long poolRatioMin() {
+        return settingsService.getLong(SettingKeys.GAME_POOL_RATIO_MIN, DEFAULT_POOL_RATIO_MIN);
+    }
+
     public PoolStatus poolStatus(Long categoryId, int questionsPerGame) {
         categoryService.require(categoryId);
 

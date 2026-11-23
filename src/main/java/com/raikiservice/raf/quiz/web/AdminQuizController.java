@@ -21,6 +21,7 @@ import com.raikiservice.raf.quiz.web.dto.QuizDto;
 import com.raikiservice.raf.quiz.web.dto.QuizResponse;
 import com.raikiservice.raf.quiz.web.dto.RewardTierDto;
 import com.raikiservice.raf.quiz.web.dto.SoloQuizDto;
+import com.raikiservice.raf.quiz.web.dto.SoloTermsDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -83,6 +84,25 @@ public class AdminQuizController {
             @PathVariable Long id, @Valid @RequestBody SoloQuizDto request) {
         quizService.updateSolo(admin.getId(), id, request);
         return quizService.view(id);
+    }
+
+    @PutMapping("/solo/{id}/terms")
+    @Operation(summary = "Changer le prix, la prime ou le nombre de questions d'un quiz solo ouvert",
+            description = "Prend effet des la prochaine partie ; les parties passees et en cours gardent leurs "
+                    + "valeurs. Estimation perdante : 409 SOLO_TERMS_UNPROFITABLE sauf confirmUnprofitable. "
+                    + "Nombre de questions change : le classement du quiz repart de zero.")
+    public QuizResponse changeSoloTerms(@AuthenticationPrincipal UserPrincipal admin,
+            @PathVariable Long id, @Valid @RequestBody SoloTermsDto request) {
+        quizService.changeSoloTerms(admin.getId(), id, request);
+        return quizService.view(id);
+    }
+
+    @GetMapping("/{id}/solo-economics/preview")
+    @Operation(summary = "Bilan estime d'un quiz solo avec d'autres prix, prime et nombre de questions")
+    public SoloEconomicsService.SoloEconomics previewSoloTerms(@PathVariable Long id,
+            @RequestParam int entryPriceCredits, @RequestParam long prizeHtg, @RequestParam int questionsPerGame) {
+        return soloEconomicsService.previewForQuiz(quizService.require(id), entryPriceCredits, prizeHtg,
+                questionsPerGame);
     }
 
     /** Activite des quiz solo d'un statut : parties, sans-fautes, recettes et prix verses. */

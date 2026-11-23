@@ -40,6 +40,7 @@ import com.raikiservice.raf.quiz.web.dto.QuizDto;
 import com.raikiservice.raf.quiz.web.dto.QuizResponse;
 import com.raikiservice.raf.quiz.web.dto.RewardTierDto;
 import com.raikiservice.raf.quiz.web.dto.SoloQuizDto;
+import com.raikiservice.raf.quiz.web.dto.SoloTermsDto;
 import com.raikiservice.raf.wallet.service.WalletService;
 
 import lombok.RequiredArgsConstructor;
@@ -83,6 +84,7 @@ public class QuizService {
     private final NotificationService notificationService;
     private final QuizAccess quizAccess;
     private final PlayerAppService playerAppService;
+    private final SoloEconomicsService soloEconomicsService;
 
     @Transactional(readOnly = true)
     public Quiz require(Long id) {
@@ -452,6 +454,81 @@ public class QuizService {
         applySoloFields(quiz, request);
         auditService.record(actorId, "QUIZ_UPDATED", "Quiz", String.valueOf(id), null,
                 "Solo : " + request.title());
+        return quiz;
+    }
+
+    /**
+     * Change le prix, la prime ou le nombre de questions d'un quiz solo ouvert.
+     *
+     * <p>Chaque partie garde ses propres valeurs (prix paye, prime, questions tirees) : les
+     * parties passees et celles en cours ne changent pas, seules les suivantes prennent les
+     * nouvelles regles. Le verrou exclusif du quiz attend les lancements en cours (verrou
+     * partage) ; un joueur qui avait l'ancien prix a l'ecran est refuse au lancement
+     * ({@code SOLO_TERMS_CHANGED}) au lieu d'etre debite d'un prix qu'il n'a pas vu.
+     *
+     * <ul>
+     *   <li>Plus de questions : le vivier fige doit en compter assez (meme regle qu'a
+     *       l'ouverture).</li>
+     *   <li>Estimation perdante (SoloEconomicsService) : refus sauf confirmation.</li>
+     *   <li>Nombre de questions change : le classement du quiz repart de zero.</li>
+     *   <li>Tout changement remet a zero la fenetre du disjoncteur de rentabilite.</li>
+     * </ul>
+     */
+    @Transactional
+    public Quiz changeSoloTerms(Long actorId, Long id, SoloTermsDto request) {
+        Quiz quiz = quizRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> ApiException.notFound("Quiz"));
+        assertMode(quiz, GameMode.SOLO);
+        if (quiz.getStatus() != QuizStatus.RUNNING) {
+            throw new ApiException(ErrorCode.QUIZ_INVALID_STATE,
+                    "Seul un quiz solo ouvert se modifie ainsi ; en brouillon, modifiez le quiz directement.");
+        }
+        int price = request.entryPriceCredits();
+        long prize = request.prizeHtg();
+        int questions = request.questionsPerGame();
+        long previousPrize = quiz.getSoloPrizeHtg() == null ? 0 : quiz.getSoloPrizeHtg();
+        boolean questionsChanged = questions != quiz.getQuestionsPerGame();
+        if (price == quiz.getTicketPriceCredits() && prize == previousPrize && !questionsChanged) {
+            return quiz;
+        }
+
+        if (questionsChanged) {
+            long pool = quizQuestionPoolRepository.findQuestionIds(quiz.getId()).size();
+            long required = questions * questionService.poolRatioMin();
+            if (pool < required) {
+                throw new ApiException(ErrorCode.QUIZ_POOL_INSUFFICIENT,
+                        "Le vivier de ce quiz compte " + pool + " question(s) ; il en faut " + required
+                                + " pour servir " + questions + " questions par partie. Ajoutez des questions "
+                                + "au sujet puis au vivier (« Ajouter les nouvelles questions »).");
+            }
+        }
+
+        SoloEconomicsService.SoloEconomics economics = soloEconomicsService.previewForQuiz(quiz, price, prize, questions);
+        if (!economics.profitable() && !Boolean.TRUE.equals(request.confirmUnprofitable())) {
+            throw new ApiException(ErrorCode.SOLO_TERMS_UNPROFITABLE,
+                    String.format(java.util.Locale.FRANCE, "Avec ces valeurs, le quiz est estime perdant : %.1f %% de "
+                            + "sans-faute attendus pour un seuil de rentabilite a %.1f %% (prime maximale sans perte : "
+                            + "%d HTG). Confirmez pour enregistrer quand meme.",
+                            economics.estimatedWinRate() * 100, economics.breakEvenWinRate() * 100,
+                            economics.breakEvenPrizeHtg()));
+        }
+
+        String before = "prix=" + quiz.getTicketPriceCredits() + " credits, prime=" + previousPrize
+                + " HTG, questions=" + quiz.getQuestionsPerGame();
+        quiz.setTicketPriceCredits(price);
+        quiz.setSoloPrizeHtg(prize);
+        quiz.setQuestionsPerGame(questions);
+        Instant now = Instant.now();
+        if (questionsChanged) {
+            quiz.setLeaderboardSince(now);
+        }
+        // Le disjoncteur juge les nouvelles regles sur leurs propres parties.
+        quiz.setBreakerCountedSince(now);
+        String after = "prix=" + price + " credits, prime=" + prize + " HTG, questions=" + questions
+                + (economics.profitable() ? "" : " (estime perdant, confirme)")
+                + (questionsChanged ? ", classement remis a zero" : "");
+        auditService.record(actorId, "QUIZ_SOLO_TERMS_CHANGED", "Quiz", String.valueOf(id), before, after);
+        log.info("Quiz solo {} : regles changees ({} -> {})", id, before, after);
         return quiz;
     }
 

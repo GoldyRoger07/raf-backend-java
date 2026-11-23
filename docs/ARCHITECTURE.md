@@ -465,6 +465,20 @@ DRAFT ──publish──▶ RUNNING (vivier figé, ouvert en continu) ──clo
   50 / 20 / 100 %) sur l'écran Anti-fraude, `GET|PUT /api/admin/solo-breaker` (le PUT
   vérifie tout de suite). Quiz gratuits jamais coupés.
 
+- **Changer les règles d'un quiz solo ouvert** (V52, `QuizService.changeSoloTerms`,
+  `PUT /api/admin/quizzes/solo/{id}/terms`) : prix, prime et nombre de questions. Chaque
+  partie garde ses propres valeurs (`entry_price_credits`, `prize_htg`, questions tirées) :
+  les parties passées et en cours ne changent pas, les suivantes prennent les nouvelles.
+  Verrou exclusif du quiz (les lancements prennent le verrou partagé). Plus de questions :
+  vivier figé ≥ questions × `game.pool_ratio_min`. Estimation perdante
+  (`SoloEconomicsService.previewForQuiz`, aperçu `GET /{id}/solo-economics/preview`) :
+  409 `SOLO_TERMS_UNPROFITABLE` sauf `confirmUnprofitable`. Nombre de questions changé :
+  `leaderboard_since` = maintenant, le classement ne compte que les parties lancées depuis.
+  Tout changement remet la fenêtre du disjoncteur à zéro. Audit `QUIZ_SOLO_TERMS_CHANGED`.
+  Au lancement, l'app envoie le prix, la prime et le nombre de questions affichés
+  (`StartGameDto.expected*`, valeurs du profil fraudeur comprises) : s'ils ne sont plus ceux
+  du quiz, 409 `SOLO_TERMS_CHANGED` avant tout débit.
+
 ### 4.2 Entraînement et progression (V51)
 
 - **Montée en difficulté** : dans toute partie (solo et groupe), les questions tirées sont

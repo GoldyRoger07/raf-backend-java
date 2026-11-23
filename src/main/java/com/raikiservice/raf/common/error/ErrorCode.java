@@ -143,6 +143,10 @@ public enum ErrorCode {
     SOLO_LINKED_ACCOUNT_ALREADY_PLAYED_TODAY(HttpStatus.CONFLICT,
             "Ce sujet a deja ete joue aujourd'hui depuis un autre compte utilise sur cet appareil. "
                     + "Revenez demain ou choisissez un autre sujet."),
+    SOLO_TERMS_CHANGED(HttpStatus.CONFLICT,
+            "Les regles de ce quiz viennent de changer : verifie le nouveau prix avant de jouer."),
+    SOLO_TERMS_UNPROFITABLE(HttpStatus.CONFLICT,
+            "Avec ces valeurs, le quiz est estime perdant. Confirmez pour enregistrer quand meme."),
     GAME_INVALID_ANSWER(HttpStatus.UNPROCESSABLE_CONTENT, "Cette reponse ne correspond pas a la partie."),
     PRACTICE_DAILY_LIMIT(HttpStatus.CONFLICT,
             "Tu as fait tous tes entrainements du jour. Reviens demain !"),

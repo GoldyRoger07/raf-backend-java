@@ -144,6 +144,26 @@ public class SoloEconomicsService {
                 gameSessionRepository.countByQuizIdAndWonTrue(quiz.getId()));
     }
 
+    /**
+     * Quiz ouvert : bilan estime avec d'autres prix, prime et nombre de questions, sur son
+     * vivier fige (avant de modifier ses regles). Le taux observe reste celui des parties
+     * deja jouees, avec les anciennes regles.
+     */
+    @Transactional(readOnly = true)
+    public SoloEconomics previewForQuiz(Quiz quiz, int entryPriceCredits, long prizeHtg, int questionsPerGame) {
+        if (!quiz.isSolo()) {
+            throw new ApiException(ErrorCode.QUIZ_INVALID_STATE, "Action reservee aux quiz solo.");
+        }
+        if (entryPriceCredits < 0 || prizeHtg < 1 || questionsPerGame < 1) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
+        List<QuestionRepository.UsageStats> stats = quiz.getStatus() == QuizStatus.DRAFT
+                ? (quiz.getSelectedCategory() == null ? List.of()
+                        : questionRepository.usageStats(quiz.getSelectedCategory().getId(), QuestionStatus.PUBLISHED))
+                : quizQuestionPoolRepository.usageStats(quiz.getId());
+        return estimate(entryPriceCredits, prizeHtg, questionsPerGame, quiz.getDifficultyMix(), stats, null, null);
+    }
+
     private SoloEconomics estimate(int entryPriceCredits, long prizeHtg, int questionsPerGame,
             DifficultyMix mix, List<QuestionRepository.UsageStats> pool, Long gamesPlayed,
             Long gamesWon) {

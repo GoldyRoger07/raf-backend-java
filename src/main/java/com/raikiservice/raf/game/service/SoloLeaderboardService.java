@@ -2,6 +2,8 @@ package com.raikiservice.raf.game.service;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 
 import com.raikiservice.raf.common.error.ApiException;
@@ -41,6 +43,7 @@ public class SoloLeaderboardService {
                 FROM game_sessions gs
                 JOIN users u ON u.id = gs.user_id
                 WHERE gs.quiz_id = ? AND gs.game_mode = 'SOLO' AND gs.status = 'SUBMITTED'
+                  AND gs.started_at >= ?
                   AND gs.is_test = FALSE AND u.is_test = FALSE
                   AND NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
                                   WHERE ur.user_id = u.id AND r.name IN ('ADMIN', 'SUPER_ADMIN', 'MODERATOR'))
@@ -50,7 +53,8 @@ public class SoloLeaderboardService {
                 SELECT p.*,
                        (SELECT MIN(g2.submitted_at) FROM game_sessions g2
                         WHERE g2.user_id = p.user_id AND g2.quiz_id = ? AND g2.game_mode = 'SOLO'
-                          AND g2.status = 'SUBMITTED' AND g2.correct_count = p.best) AS reached_at
+                          AND g2.status = 'SUBMITTED' AND g2.started_at >= ?
+                          AND g2.correct_count = p.best) AS reached_at
                 FROM per_player p
             ),
             ranked AS (
@@ -68,6 +72,8 @@ public class SoloLeaderboardService {
             throw ApiException.notFound("Classement solo");
         }
         Long quizId = quiz.getId();
+        // Nombre de questions change : seules les parties lancees depuis comptent.
+        Timestamp since = Timestamp.from(quiz.getLeaderboardSince() == null ? Instant.EPOCH : quiz.getLeaderboardSince());
 
         List<Entry> rows = jdbc.query(RANKED + """
                 SELECT ranked.rk, ranked.user_id, ranked.best, ranked.won_htg, ranked.perfects,
@@ -75,7 +81,7 @@ public class SoloLeaderboardService {
                 FROM ranked JOIN users u ON u.id = ranked.user_id
                 WHERE ranked.rk <= ? OR ranked.user_id = ?
                 ORDER BY ranked.rk
-                """, (rs, row) -> entry(rs, viewerId), quizId, quizId, TOP, viewerId);
+                """, (rs, row) -> entry(rs, viewerId), quizId, since, quizId, since, TOP, viewerId);
 
         List<Entry> top = rows.stream().filter(e -> e.rank() <= TOP).toList();
         Entry me = rows.stream().filter(Entry::me).findFirst().orElse(null);
@@ -85,7 +91,7 @@ public class SoloLeaderboardService {
                        COALESCE(SUM(won_htg), 0) AS won_htg
                 FROM ranked
                 """, (rs, row) -> new Totals(rs.getLong("players"), rs.getLong("perfects"), rs.getLong("won_htg")),
-                quizId, quizId);
+                quizId, since, quizId, since);
 
         return new SoloLeaderboardResponse(quizId, quiz.getTitle(), quiz.getQuestionsPerGame(),
                 totals.players(), totals.perfects(), totals.wonHtg(), top, me);

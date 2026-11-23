@@ -194,6 +194,13 @@ public class Quiz extends AuditableEntity {
     @Column(name = "breaker_counted_since")
     private Instant breakerCountedSince;
 
+    /**
+     * SOLO : le classement du quiz ne compte que les parties lancees depuis cette date. Fixee
+     * quand le nombre de questions change (QuizService#changeSoloTerms). Null : toutes.
+     */
+    @Column(name = "leaderboard_since")
+    private Instant leaderboardSince;
+
     public boolean isSolo() {
         return gameMode == GameMode.SOLO;
     }
