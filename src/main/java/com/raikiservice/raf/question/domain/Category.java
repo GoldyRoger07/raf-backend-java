@@ -47,7 +47,15 @@ public class Category extends AuditableEntity {
     @Column(name = "solo_enabled", nullable = false)
     private boolean soloEnabled = true;
 
+    /**
+     * Sujet d'entrainement : gratuit, correction montree aussitot (PracticeService). Jamais
+     * propose en solo ni en groupe en meme temps : ses questions ne doivent servir a aucune
+     * partie payante.
+     */
+    @Column(name = "practice_enabled", nullable = false)
+    private boolean practiceEnabled;
+
     public boolean isAvailableFor(GameMode mode) {
-        return active && (mode == GameMode.SOLO ? soloEnabled : groupEnabled);
+        return active && !practiceEnabled && (mode == GameMode.SOLO ? soloEnabled : groupEnabled);
     }
 }

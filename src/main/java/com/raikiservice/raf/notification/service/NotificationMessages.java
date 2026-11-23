@@ -243,6 +243,26 @@ public final class NotificationMessages {
                         Map.of(), "/admin/retraits?statut=PENDING");
     }
 
+    /**
+     * Disjoncteur de rentabilite : un quiz solo vient d'etre masque.
+     *
+     * @param payoutPercent prix verses sur recettes, en %, sur la fenetre mesuree
+     */
+    public static NotificationMessage soloBreakerTripped(Quiz quiz, long games, long perfectGames,
+            long revenueHtg, long prizesHtg, long payoutPercent, int maxPayoutPercent) {
+        return new NotificationMessage(NotificationType.ADMIN_SOLO_BREAKER_TRIPPED,
+                "Quiz solo masque : il perd de l'argent",
+                "Le quiz solo « " + quiz.getTitle() + " » a ete masque aux joueurs par le disjoncteur "
+                        + "de rentabilite. Sur ses " + games + " dernieres parties : " + perfectGames
+                        + " sans-faute, " + prizesHtg + " HTG de prix verses pour " + revenueHtg
+                        + " HTG de recettes, soit " + payoutPercent + " % (limite " + maxPayoutPercent
+                        + " %). Les parties en cours vont a leur terme, aucune nouvelle ne peut demarrer. "
+                        + "Verifiez le prix, le vivier et les sans-faute (fraude, questions qui circulent), "
+                        + "puis demasquez le quiz : le compte repartira de zero.",
+                Map.of("quizId", quiz.getId()),
+                "/admin/quiz/" + quiz.getId());
+    }
+
     // --- Outils -------------------------------------------------------------------
 
     private static NotificationMessage quiz(NotificationType type, Quiz quiz, String title,

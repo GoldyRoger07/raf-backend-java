@@ -68,6 +68,17 @@ public final class SettingKeys {
      * reserve au SUPER_ADMIN : voir WithdrawalCodeService.
      */
     public static final String APP_WITHDRAWAL_CODES_BY_EMAIL = "app.withdrawal_codes_by_email";
+    /**
+     * Disjoncteur de rentabilite des quiz solo (SoloBreakerService) : coupe par defaut. Sur
+     * les N dernieres parties d'un quiz, au moins M jouees, prix verses au-dela de X % des
+     * recettes : le quiz est masque.
+     */
+    public static final String APP_SOLO_BREAKER_ENABLED = "app.solo_breaker.enabled";
+    public static final String APP_SOLO_BREAKER_WINDOW_GAMES = "app.solo_breaker.window_games";
+    public static final String APP_SOLO_BREAKER_MIN_GAMES = "app.solo_breaker.min_games";
+    public static final String APP_SOLO_BREAKER_MAX_PAYOUT_PERCENT = "app.solo_breaker.max_payout_percent";
+    /** Entrainement gratuit : parties par jour et par joueur (PracticeService), 3 par defaut. */
+    public static final String APP_PRACTICE_DAILY_LIMIT = "app.practice.daily_limit";
     private static final String APP_PREFIX = "app.";
 
     /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */

@@ -180,6 +180,20 @@ public class Quiz extends AuditableEntity {
     @Column(name = "created_by")
     private Long createdBy;
 
+    /**
+     * SOLO : date ou le disjoncteur de rentabilite a masque ce quiz (SoloBreakerService).
+     * Remis a vide quand un admin le demasque.
+     */
+    @Column(name = "breaker_tripped_at")
+    private Instant breakerTrippedAt;
+
+    /**
+     * SOLO : le disjoncteur ne compte que les parties lancees depuis cette date. Fixee
+     * quand un admin demasque un quiz coupe par le disjoncteur : le compte repart de zero.
+     */
+    @Column(name = "breaker_counted_since")
+    private Instant breakerCountedSince;
+
     public boolean isSolo() {
         return gameMode == GameMode.SOLO;
     }

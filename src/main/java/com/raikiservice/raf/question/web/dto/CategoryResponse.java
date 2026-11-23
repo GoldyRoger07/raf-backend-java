@@ -13,7 +13,9 @@ public record CategoryResponse(
         Long mediaId,
         boolean active,
         boolean groupEnabled,
-        boolean soloEnabled) {
+        boolean soloEnabled,
+        /** Sujet d'entrainement (gratuit, correction immediate), jamais en solo ni en groupe. */
+        boolean practiceEnabled) {
 
     public static CategoryResponse from(Category category) {
         return new CategoryResponse(
@@ -26,6 +28,7 @@ public record CategoryResponse(
                 category.getMedia() == null ? null : category.getMedia().getId(),
                 category.isActive(),
                 category.isGroupEnabled(),
-                category.isSoloEnabled());
+                category.isSoloEnabled(),
+                category.isPracticeEnabled());
     }
 }

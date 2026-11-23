@@ -453,6 +453,37 @@ DRAFT ──publish──▶ RUNNING (vivier figé, ouvert en continu) ──clo
     niveau), avec la même règle de repli que le tirage ; `byDifficulty` détaille
     chaque niveau. La simulation (`GET /solo/economics`) accepte
     `easyPercent`, `mediumPercent`, `hardPercent`.
+- **Disjoncteur de rentabilité** (`SoloBreakerService`, V50) : chaque minute
+  (`SoloBreakerScheduler`), pour chaque quiz solo `RUNNING`, payant, ni de test ni masqué,
+  on mesure ses `window_games` dernières parties terminées (SUBMITTED ou EXPIRED, comptes
+  de test exclus). Avec au moins `min_games` parties et des prix versés au-delà de
+  `max_payout_percent` % des recettes (crédits d'entrée × taux actuel ; une partie offerte
+  compte 0), le quiz est **masqué** (`hidden`), jamais fermé : `breaker_tripped_at`, audit
+  `QUIZ_BREAKER_TRIPPED`, notification `ADMIN_SOLO_BREAKER_TRIPPED` (email + push).
+  Le démasquer (`setHidden(false)`) le réarme : `breaker_counted_since` = maintenant, seules
+  les parties lancées ensuite comptent. Réglages `app.solo_breaker.*` (coupé par défaut,
+  50 / 20 / 100 %) sur l'écran Anti-fraude, `GET|PUT /api/admin/solo-breaker` (le PUT
+  vérifie tout de suite). Quiz gratuits jamais coupés.
+
+### 4.2 Entraînement et progression (V51)
+
+- **Montée en difficulté** : dans toute partie (solo et groupe), les questions tirées sont
+  servies faciles → moyennes → difficiles (ordre aléatoire dans chaque niveau,
+  `GameService.deal`). Le tirage ne change pas, donc la chance d'un sans-faute non plus.
+- **Entraînement** (`PracticeService`, `/api/practice`) : sujets réservés
+  (`categories.practice_enabled`), gratuits, sans gain, 5 questions faciles → difficiles,
+  jamais vues d'abord, correction et explication après chaque réponse. Limite
+  `app.practice.daily_limit` (3) par jour, heure d'Haïti ; une partie non finie se reprend.
+  Un sujet d'entraînement n'est jamais en solo ni en groupe (`isAvailableFor` faux ;
+  l'activer coupe les deux modes et est refusé si un quiz non terminé l'utilise). Les
+  stats des questions (`times_served`) ne sont pas touchées.
+- **Progression** (`ProgressService`, `GET /api/me/progress`) : rien n'est stocké, tout se
+  recalcule depuis les parties soumises et les entraînements terminés. XP : partie 20,
+  bonne réponse 10, sans-faute solo 50, entraînement 10, bonne réponse en entraînement 5.
+  Missions du jour (une partie, 10 bonnes réponses, 2 sujets) + bonus si toutes faites ;
+  niveau : 100 XP puis +25 par niveau ; badges sur seuils. **Ni crédit ni gourde** : la
+  progression ne coûte rien à RAF. La série de jours (`PlayerStatsService`) compte aussi
+  l'entraînement.
 
 ## 5. Cycle de vie du quiz
 

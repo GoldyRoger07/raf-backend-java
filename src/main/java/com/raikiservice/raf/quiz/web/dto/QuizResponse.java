@@ -76,7 +76,12 @@ public record QuizResponse(
          * Solo : anti-fraude pour tous les joueurs de ce quiz. Back-office seulement : null (donc absent
          * du JSON) dans l'app joueur, voir {@link #forPlayers()}.
          */
-        Boolean antiFraud) {
+        Boolean antiFraud,
+        /**
+         * SOLO, back-office seulement : date ou le disjoncteur de rentabilite l'a masque,
+         * null s'il ne l'a pas fait (ou si un admin l'a demasque depuis).
+         */
+        Instant breakerTrippedAt) {
 
     /** Montant par joueur de la tranche, en HTG. */
     public record RewardView(int rankFrom, int rankTo, long amountHtg,
@@ -145,7 +150,8 @@ public record QuizResponse(
                                 topic.getMedia() == null ? null : topic.getMedia().getUrl(),
                                 topic.getVoteCount()))
                         .toList(),
-                quiz.getGameMode() == GameMode.SOLO ? quiz.isAntiFraud() : null);
+                quiz.getGameMode() == GameMode.SOLO ? quiz.isAntiFraud() : null,
+                quiz.getBreakerTrippedAt());
     }
 
     /**
@@ -153,7 +159,7 @@ public record QuizResponse(
      * nulls etant omis du JSON, le champ disparait.
      */
     public QuizResponse forPlayers() {
-        if (antiFraud == null) {
+        if (antiFraud == null && breakerTrippedAt == null) {
             return this;
         }
         return new QuizResponse(id, title, slug, description, themeLabel, bannerUrl, bannerMediaId, status,
@@ -163,7 +169,7 @@ public record QuizResponse(
                 perfectCooldownMinutes, difficultyMix, minScoreThreshold, closingCountdownMinutes,
                 startDelayMinutes, voteOpensAt, voteClosesAt, voteOpen, thresholdReachedAt, scheduledStartAt,
                 startedAt, endsAt, finishedAt, cancellationReason, playersRegistered, ticketsSold, poolSize,
-                rewards, topics, null);
+                rewards, topics, null, null);
     }
 
     /**
@@ -222,6 +228,7 @@ public record QuizResponse(
                 poolSize,
                 rewards,
                 topics,
-                antiFraud);
+                antiFraud,
+                breakerTrippedAt);
     }
 }

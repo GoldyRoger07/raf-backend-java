@@ -57,7 +57,10 @@ public enum NotificationType {
             EnumSet.of(NotificationChannel.EMAIL)),
     /** Reserve aux administrateurs : les codes de retrait passent par email, ou reviennent au SMS. */
     ADMIN_WITHDRAWAL_CODES_CHANNEL("Codes de retrait par email active ou coupe",
-            EnumSet.of(NotificationChannel.EMAIL));
+            EnumSet.of(NotificationChannel.EMAIL)),
+    /** Reserve aux administrateurs : le disjoncteur de rentabilite a masque un quiz solo. */
+    ADMIN_SOLO_BREAKER_TRIPPED("Quiz solo masque par le disjoncteur de rentabilite",
+            EnumSet.of(NotificationChannel.EMAIL, NotificationChannel.PUSH));
 
     private final String description;
     private final Set<NotificationChannel> defaultChannels;

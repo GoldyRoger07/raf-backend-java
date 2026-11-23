@@ -76,11 +76,13 @@ public class PlayerStatsService {
         // Jours joues, a l'heure d'Haiti : la conversion se fait ici et non en SQL,
         // CONVERT_TZ dependant des tables de fuseaux de MySQL, souvent absentes.
         TreeSet<LocalDate> played = new TreeSet<>();
-        jdbc.query("SELECT started_at FROM game_sessions WHERE user_id = ? AND status = 'SUBMITTED'",
+        // Un entrainement termine compte aussi : jouer chaque jour ne doit pas obliger a payer.
+        jdbc.query("SELECT started_at FROM game_sessions WHERE user_id = ? AND status = 'SUBMITTED' "
+                + "UNION ALL SELECT started_at FROM practice_sessions WHERE user_id = ? AND finished_at IS NOT NULL",
                 rs -> {
                     Timestamp startedAt = rs.getTimestamp("started_at");
                     played.add(startedAt.toInstant().atZone(HAITI).toLocalDate());
-                }, userId);
+                }, userId, userId);
         List<LocalDate> days = List.copyOf(played.descendingSet());
 
         Integer accuracy = games.answered() == 0 ? null

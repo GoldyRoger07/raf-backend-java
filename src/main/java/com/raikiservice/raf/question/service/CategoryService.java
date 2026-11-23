@@ -105,14 +105,52 @@ public class CategoryService {
     @Transactional
     public CategoryResponse configureModes(Long actorId, Long id, Boolean groupEnabled,
             Boolean soloEnabled) {
+        return configureModes(actorId, id, groupEnabled, soloEnabled, null);
+    }
+
+    /**
+     * Comme {@link #configureModes(Long, Long, Boolean, Boolean)}, avec l'entrainement.
+     *
+     * <p>Entrainement et modes payants s'excluent, car l'entrainement montre la bonne reponse :
+     * <ul>
+     *   <li>activer l'entrainement coupe le solo et le groupe, et est refuse tant qu'un quiz
+     *       non termine (brouillon compris) utilise ce sujet ;</li>
+     *   <li>activer le solo ou le groupe sur un sujet d'entrainement est refuse : couper
+     *       l'entrainement d'abord.</li>
+     * </ul>
+     */
+    @Transactional
+    public CategoryResponse configureModes(Long actorId, Long id, Boolean groupEnabled,
+            Boolean soloEnabled, Boolean practiceEnabled) {
         Category category = require(id);
         String previous = modes(category);
+
+        boolean practice = practiceEnabled != null ? practiceEnabled : category.isPracticeEnabled();
+        if (practice && (Boolean.TRUE.equals(groupEnabled) || Boolean.TRUE.equals(soloEnabled))) {
+            throw new ApiException(ErrorCode.CATEGORY_MODE_DISABLED,
+                    "Un sujet d'entrainement ne peut pas servir en solo ni en groupe : coupez d'abord l'entrainement.");
+        }
+        if (practice && !category.isPracticeEnabled()) {
+            long inUse = categoryRepository.countUnfinishedQuizzesUsing(id);
+            if (inUse > 0) {
+                throw new ApiException(ErrorCode.CATEGORY_MODE_DISABLED,
+                        "Ce sujet sert a " + inUse + " quiz non termine(s) : l'entrainement montrerait leurs "
+                                + "reponses. Terminez ou supprimez ces quiz d'abord.");
+            }
+        }
 
         if (groupEnabled != null) {
             category.setGroupEnabled(groupEnabled);
         }
         if (soloEnabled != null) {
             category.setSoloEnabled(soloEnabled);
+        }
+        if (practiceEnabled != null) {
+            category.setPracticeEnabled(practiceEnabled);
+        }
+        if (category.isPracticeEnabled()) {
+            category.setGroupEnabled(false);
+            category.setSoloEnabled(false);
         }
 
         auditService.record(actorId, "CATEGORY_MODES_UPDATED", "Category", String.valueOf(id),
@@ -141,7 +179,8 @@ public class CategoryService {
     }
 
     private static String modes(Category category) {
-        return "groupe=" + category.isGroupEnabled() + ", solo=" + category.isSoloEnabled();
+        return "groupe=" + category.isGroupEnabled() + ", solo=" + category.isSoloEnabled()
+                + ", entrainement=" + category.isPracticeEnabled();
     }
 
     /**

@@ -90,11 +90,13 @@ public class CategoryController {
     /** Decision commerciale (ou se joue l'argent) : reservee aux administrateurs. */
     @PatchMapping("/{id}/modes")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    @Operation(summary = "Rendre le sujet disponible ou non en mode En groupe et en mode Solo")
+    @Operation(summary = "Rendre le sujet disponible ou non en mode En groupe, Solo et Entrainement",
+            description = "Entrainement et modes payants s'excluent : activer l'entrainement coupe le solo et "
+                    + "le groupe, et il est refuse tant qu'un quiz en cours utilise le sujet.")
     public CategoryResponse configureModes(@AuthenticationPrincipal UserPrincipal actor,
             @PathVariable Long id, @RequestBody CategoryModesDto request) {
         return categoryService.configureModes(actor.getId(), id, request.groupEnabled(),
-                request.soloEnabled());
+                request.soloEnabled(), request.practiceEnabled());
     }
 
     @DeleteMapping("/{id}")

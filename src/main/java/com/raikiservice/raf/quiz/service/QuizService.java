@@ -197,6 +197,9 @@ public class QuizService {
     /**
      * Masque ou demasque un quiz aux joueurs, quel que soit son statut. Rien d'autre ne
      * change : les tickets et parties en cours sont conserves.
+     *
+     * <p>Demasquer un quiz coupe par le disjoncteur de rentabilite (SoloBreakerService) le
+     * rearme : seules les parties lancees ensuite comptent, sinon il se couperait aussitot.
      */
     @Transactional
     public Quiz setHidden(Long actorId, Long quizId, boolean hidden) {
@@ -205,6 +208,10 @@ public class QuizService {
         boolean previous = quiz.isHidden();
         if (previous != hidden) {
             quiz.setHidden(hidden);
+            if (!hidden && quiz.getBreakerTrippedAt() != null) {
+                quiz.setBreakerTrippedAt(null);
+                quiz.setBreakerCountedSince(Instant.now());
+            }
             auditService.record(actorId, "QUIZ_HIDDEN_CHANGED", "Quiz", String.valueOf(quizId),
                     String.valueOf(previous), String.valueOf(hidden));
         }

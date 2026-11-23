@@ -143,6 +143,9 @@ public enum ErrorCode {
     SOLO_LINKED_ACCOUNT_ALREADY_PLAYED_TODAY(HttpStatus.CONFLICT,
             "Ce sujet a deja ete joue aujourd'hui depuis un autre compte utilise sur cet appareil. "
                     + "Revenez demain ou choisissez un autre sujet."),
+    GAME_INVALID_ANSWER(HttpStatus.UNPROCESSABLE_CONTENT, "Cette reponse ne correspond pas a la partie."),
+    PRACTICE_DAILY_LIMIT(HttpStatus.CONFLICT,
+            "Tu as fait tous tes entrainements du jour. Reviens demain !"),
     GAME_REVIEW_LOCKED(HttpStatus.FORBIDDEN,
             "Le corrige sera disponible a la cloture du quiz."),
     GAME_RESULTS_NOT_READY(HttpStatus.CONFLICT,

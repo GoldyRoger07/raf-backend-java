@@ -401,6 +401,11 @@ public class GameService {
         return session;
     }
 
+    private static int difficultyRank(Question question) {
+        return question == null || question.getDifficulty() == null
+                ? Difficulty.MEDIUM.ordinal() : question.getDifficulty().ordinal();
+    }
+
     /** Tire les questions de la partie, l'enregistre et renvoie la vue du joueur. */
     private GameStartResponse deal(Quiz quiz, GameSession session, Instant now) {
         return deal(quiz, session, now, quiz.getQuestionsPerGame());
@@ -443,6 +448,12 @@ public class GameService {
 
         Map<Long, Question> questions = questionRepository.findWithChoicesByIdIn(picked).stream()
                 .collect(Collectors.toMap(Question::getId, Function.identity()));
+
+        // Montee en difficulte : faciles d'abord, puis moyennes, puis difficiles, dans un
+        // ordre aleatoire a l'interieur de chaque niveau (le tirage est deja melange, le
+        // tri est stable). Les chances d'un sans-faute ne changent pas : seul l'ordre change.
+        picked = new ArrayList<>(picked);
+        picked.sort(Comparator.comparingInt(id -> difficultyRank(questions.get(id))));
 
         PlayMode mode = session.getPlayMode();
         int perQuestion = session.getQuestionDurationSeconds();
