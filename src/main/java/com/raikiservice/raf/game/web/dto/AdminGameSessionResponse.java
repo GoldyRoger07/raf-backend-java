@@ -27,6 +27,8 @@ public record AdminGameSessionResponse(
         Integer correctCount,
         Integer answeredCount,
         boolean won,
+        /** SOLO : credits rendus pour un quasi sans-faute, null sans cashback. */
+        Integer cashbackCredits,
         boolean flagged,
         String flagReason,
         String invalidationReason,
@@ -53,6 +55,7 @@ public record AdminGameSessionResponse(
                 session.getCorrectCount(),
                 session.getAnsweredCount(),
                 session.isWon(),
+                session.getCashbackCredits(),
                 session.isFlagged(),
                 session.getFlagReason(),
                 session.getInvalidationReason(),

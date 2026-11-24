@@ -79,6 +79,15 @@ public final class SettingKeys {
     public static final String APP_SOLO_BREAKER_MAX_PAYOUT_PERCENT = "app.solo_breaker.max_payout_percent";
     /** Entrainement gratuit : parties par jour et par joueur (PracticeService), 3 par defaut. */
     public static final String APP_PRACTICE_DAILY_LIMIT = "app.practice.daily_limit";
+    /**
+     * Cashback du quasi sans-faute en solo (SoloCashbackService) : coupe par defaut. Taux
+     * global (% du prix d'entree), plafond par joueur et par jour, nombre minimum de
+     * questions de la partie.
+     */
+    public static final String APP_SOLO_CASHBACK_ENABLED = "app.solo_cashback.enabled";
+    public static final String APP_SOLO_CASHBACK_PERCENT = "app.solo_cashback.percent";
+    public static final String APP_SOLO_CASHBACK_DAILY_LIMIT = "app.solo_cashback.daily_limit";
+    public static final String APP_SOLO_CASHBACK_MIN_QUESTIONS = "app.solo_cashback.min_questions";
     private static final String APP_PREFIX = "app.";
 
     /** Parametre gere par son propre ecran, hors de la liste des parametres entiers. */

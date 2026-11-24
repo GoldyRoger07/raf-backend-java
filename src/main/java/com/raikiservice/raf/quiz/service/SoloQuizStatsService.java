@@ -177,7 +177,8 @@ public class SoloQuizStatsService {
                                COUNT(*) AS games,
                                COUNT(DISTINCT gs.user_id) AS players,
                                SUM(CASE WHEN gs.won THEN 1 ELSE 0 END) AS perfect,
-                               SUM(COALESCE(gs.entry_price_credits, 0)) AS entry_credits,
+                               -- Recette nette : le cashback du quasi sans-faute est rendu.
+                               SUM(COALESCE(gs.entry_price_credits, 0) - COALESCE(gs.cashback_credits, 0)) AS entry_credits,
                                SUM(CASE WHEN gs.won THEN COALESCE(gs.prize_htg, 0) ELSE 0 END) AS prizes,
                                AVG(CASE WHEN gs.status = 'SUBMITTED' THEN gs.correct_count END) AS avg_correct,
                                MAX(gs.started_at) AS last_played

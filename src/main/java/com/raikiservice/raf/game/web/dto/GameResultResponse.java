@@ -12,6 +12,7 @@ import com.raikiservice.raf.quiz.domain.GameMode;
  *
  * <p>SOLO : {@code won} indique un sans-faute, et {@code prizeCredits} le prix
  * alors verse (HTG). Le joueur sait s'il a gagne, pas quelle reponse etait fausse.
+ * {@code cashbackCredits} : credits rendus pour un quasi sans-faute, null sinon.
  */
 public record GameResultResponse(
         Long sessionId,
@@ -25,7 +26,8 @@ public record GameResultResponse(
         Integer answeredCount,
         Integer bestScore,
         boolean won,
-        Long prizeHtg) {
+        Long prizeHtg,
+        Integer cashbackCredits) {
 
     public static GameResultResponse from(GameSession session, Integer bestScore) {
         return new GameResultResponse(
@@ -40,6 +42,7 @@ public record GameResultResponse(
                 session.getAnsweredCount(),
                 bestScore,
                 session.isWon(),
-                session.isWon() ? session.getPrizeHtg() : null);
+                session.isWon() ? session.getPrizeHtg() : null,
+                session.getCashbackCredits());
     }
 }

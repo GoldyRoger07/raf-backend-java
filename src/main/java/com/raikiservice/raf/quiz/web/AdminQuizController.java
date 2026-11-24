@@ -15,6 +15,7 @@ import com.raikiservice.raf.quiz.service.SoloEconomicsService;
 import com.raikiservice.raf.quiz.service.SoloQuizStatsService;
 import com.raikiservice.raf.quiz.service.VoteService;
 import com.raikiservice.raf.quiz.web.dto.AntiFraudFlagDto;
+import com.raikiservice.raf.quiz.web.dto.CashbackPercentDto;
 import com.raikiservice.raf.quiz.web.dto.CancelQuizDto;
 import com.raikiservice.raf.quiz.web.dto.DifficultyMixDto;
 import com.raikiservice.raf.quiz.web.dto.QuizDto;
@@ -215,6 +216,17 @@ public class AdminQuizController {
     public QuizResponse setAntiFraud(@AuthenticationPrincipal UserPrincipal admin, @PathVariable Long id,
             @RequestBody AntiFraudFlagDto request) {
         quizService.setAntiFraud(admin.getId(), id, request.enabled());
+        return quizService.view(id);
+    }
+
+    @PostMapping("/{id}/cashback")
+    @Operation(summary = "Solo : cashback du quasi sans-faute sur ce quiz",
+            description = "percent : null pour le taux global, 0 pour aucun cashback, 1 a 100 pour un taux "
+                    + "propre (% du prix d'entree rendu en credits pour une seule erreur). Modifiable a tout "
+                    + "moment ; sans effet tant que l'interrupteur general est coupe.")
+    public QuizResponse setCashback(@AuthenticationPrincipal UserPrincipal admin, @PathVariable Long id,
+            @Valid @RequestBody CashbackPercentDto request) {
+        quizService.setCashbackPercent(admin.getId(), id, request.percent());
         return quizService.view(id);
     }
 

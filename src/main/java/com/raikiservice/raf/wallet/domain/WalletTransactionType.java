@@ -9,6 +9,11 @@ public enum WalletTransactionType {
     SOLO_ENTRY,
     /** Gain d'un quiz (rang au classement, ou sans-faute en solo) : credite le solde WINNINGS. */
     PRIZE,
+    /**
+     * Quasi sans-faute en solo (une seule erreur) : part du prix d'entree rendue sur le
+     * solde CREDIT, non retirable. Voir SoloCashbackService.
+     */
+    SOLO_CASHBACK,
     /** Demande de retrait : debite (gele) le solde WINNINGS. */
     WITHDRAWAL,
     /** Remboursement : quiz annule, ou retrait rejete. */

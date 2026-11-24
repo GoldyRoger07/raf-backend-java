@@ -1,6 +1,7 @@
 package com.raikiservice.raf.quiz.service;
 
 import com.raikiservice.raf.game.repository.GameSessionRepository;
+import com.raikiservice.raf.game.service.SoloCashbackService;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -85,6 +86,7 @@ public class QuizService {
     private final QuizAccess quizAccess;
     private final PlayerAppService playerAppService;
     private final SoloEconomicsService soloEconomicsService;
+    private final SoloCashbackService soloCashbackService;
 
     @Transactional(readOnly = true)
     public Quiz require(Long id) {
@@ -166,6 +168,28 @@ public class QuizService {
             quiz.setAntiFraud(enabled);
             auditService.record(actorId, "QUIZ_ANTI_FRAUD_CHANGED", "Quiz", String.valueOf(quizId),
                     String.valueOf(previous), String.valueOf(enabled));
+        }
+        return quiz;
+    }
+
+    /**
+     * Cashback du quasi sans-faute d'un quiz solo (SoloCashbackService), modifiable a tout
+     * moment : null = taux global, 0 = pas de cashback, 1 a 100 = taux propre. Lu a la fin de
+     * chaque partie. Trace au journal d'audit.
+     */
+    @Transactional
+    public Quiz setCashbackPercent(Long actorId, Long quizId, Integer percent) {
+        if (percent != null && (percent < 0 || percent > 100)) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Le taux doit etre entre 0 et 100 %.");
+        }
+        Quiz quiz = quizRepository.findByIdForUpdate(quizId)
+                .orElseThrow(() -> ApiException.notFound("Quiz"));
+        assertMode(quiz, GameMode.SOLO);
+        Integer previous = quiz.getSoloCashbackPercent();
+        if (!java.util.Objects.equals(previous, percent)) {
+            quiz.setSoloCashbackPercent(percent);
+            auditService.record(actorId, "QUIZ_CASHBACK_CHANGED", "Quiz", String.valueOf(quizId),
+                    previous == null ? "global" : previous + " %", percent == null ? "global" : percent + " %");
         }
         return quiz;
     }
@@ -397,6 +421,7 @@ public class QuizService {
         copy.setCloseOnPerfect(source.isCloseOnPerfect());
         copy.setPerfectCooldownMinutes(source.getPerfectCooldownMinutes());
         copy.setAntiFraud(source.isAntiFraud());
+        copy.setSoloCashbackPercent(source.getSoloCashbackPercent());
         copy.setDifficultyMix(source.getDifficultyMix());
         copy.setMinScoreThreshold(source.getMinScoreThreshold());
         copy.setClosingCountdownMinutes(source.getClosingCountdownMinutes());
@@ -871,7 +896,8 @@ public class QuizService {
                 ticketService.registeredPlayers(quiz),
                 ticketService.soldTickets(quiz),
                 quizQuestionPoolRepository.countByQuizId(quiz.getId()),
-                walletService.htgRate());
+                walletService.htgRate(),
+                soloCashbackService.effectivePercent(quiz));
     }
 
     @Transactional(readOnly = true)

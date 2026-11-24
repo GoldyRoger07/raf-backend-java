@@ -126,6 +126,14 @@ public class Quiz extends AuditableEntity {
     private Integer perfectCooldownMinutes;
 
     /**
+     * SOLO : part du prix d'entree rendue en credits pour un quasi sans-faute (une seule
+     * erreur), voir SoloCashbackService. Null : taux global ; 0 : pas de cashback sur ce
+     * quiz ; 1 a 100 : taux propre au quiz.
+     */
+    @Column(name = "solo_cashback_percent")
+    private Integer soloCashbackPercent;
+
+    /**
      * SOLO : anti-fraude pour tous les joueurs (hors staff) de ce quiz (AntiFraudService).
      * S'ajoute a la liste et a l'interrupteur « pour tous » (OU) : decoche, les joueurs de
      * la liste restent vises. Decoche par defaut, reglable a tout moment.

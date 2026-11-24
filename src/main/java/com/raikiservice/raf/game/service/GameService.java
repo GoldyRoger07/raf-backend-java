@@ -136,6 +136,7 @@ public class GameService {
     private final UserRepository userRepository;
     private final QuizService quizService;
     private final WalletService walletService;
+    private final SoloCashbackService soloCashbackService;
     private final QuestionStatsRecorder questionStatsRecorder;
     private final AfterTransactionExecutor afterTransactionExecutor;
     private final SettingsService settingsService;
@@ -923,9 +924,11 @@ public class GameService {
                 .toList();
         // Statistiques des questions : la vraie correction, avant l'anti-fraude.
         List<Long> reallyCorrectIds = correctQuestionIds;
+        boolean antiFraudVoided = false;
         if (session.isSolo() && session.isAntiFraud() && totalQuestions > 0
                 && correctQuestionIds.size() == totalQuestions) {
             correctQuestionIds = voidForAntiFraud(session, answers);
+            antiFraudVoided = true;
         }
         int answeredCount = (int) answers.stream()
                 .filter(answer -> answer.getChoiceId() != null)
@@ -974,6 +977,12 @@ public class GameService {
                     antiFraudService.afterPaidPerfect(session.getUser(), session.getId());
                 }
             } else {
+                // Une seule erreur : une part du prix d'entree rendue en credits, si les
+                // reglages le prevoient (jamais apres une intervention de l'anti-fraude).
+                if (!perfect) {
+                    soloCashbackService.payIfNearPerfect(session, totalQuestions,
+                            correctQuestionIds.size(), antiFraudVoided);
+                }
                 // Partie perdue : commission au leader du joueur, s'il en a un.
                 commissionService.paySoloCommission(session);
             }

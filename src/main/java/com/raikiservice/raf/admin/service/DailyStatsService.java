@@ -49,7 +49,9 @@ public class DailyStatsService {
         SALES_CREDITS("-COALESCE(SUM(t.amount), 0)",
                 RealActivity.TRANSACTIONS + "AND t.type IN ('TICKET_PURCHASE', 'SOLO_ENTRY')", "t.created_at"),
         REFUNDS_CREDITS("COALESCE(SUM(t.amount), 0)",
-                RealActivity.TRANSACTIONS + "AND t.type = 'REFUND' AND t.balance_type = 'CREDIT'", "t.created_at"),
+                // Cashback du quasi sans-faute : part d'entree rendue, comme un remboursement.
+                RealActivity.TRANSACTIONS + "AND t.type IN ('REFUND', 'SOLO_CASHBACK') AND t.balance_type = 'CREDIT'",
+                "t.created_at"),
         PRIZES_HTG("COALESCE(SUM(t.amount), 0)",
                 RealActivity.TRANSACTIONS + "AND t.type = 'PRIZE'", "t.created_at"),
         COMMISSIONS_HTG("COALESCE(SUM(t.amount), 0)",

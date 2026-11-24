@@ -67,9 +67,11 @@ public class GameProfitService {
         long salesCredits = -sum("SELECT COALESCE(SUM(t.amount), 0) " + RealActivity.TRANSACTIONS
                 + "AND t.type IN ('TICKET_PURCHASE', 'SOLO_ENTRY') AND t.created_at >= ? AND t.created_at < ?", lo, hi);
         // Seuls les tickets sont rembourses sur le solde de credits ; les retraits
-        // rejetes le sont sur les gains et ne sont pas une recette perdue.
+        // rejetes le sont sur les gains et ne sont pas une recette perdue. Le cashback
+        // du quasi sans-faute en solo est une part d'entree rendue : compte ici aussi.
         long refundsCredits = sum("SELECT COALESCE(SUM(t.amount), 0) " + RealActivity.TRANSACTIONS
-                + "AND t.type = 'REFUND' AND t.balance_type = 'CREDIT' AND t.created_at >= ? AND t.created_at < ?", lo, hi);
+                + "AND t.type IN ('REFUND', 'SOLO_CASHBACK') AND t.balance_type = 'CREDIT' "
+                + "AND t.created_at >= ? AND t.created_at < ?", lo, hi);
         long prizesHtg = sum("SELECT COALESCE(SUM(t.amount), 0) " + RealActivity.TRANSACTIONS
                 + "AND t.type = 'PRIZE' AND t.created_at >= ? AND t.created_at < ?", lo, hi);
         long commissionsHtg = sum("SELECT COALESCE(SUM(t.amount), 0) " + RealActivity.TRANSACTIONS

@@ -81,7 +81,14 @@ public record QuizResponse(
          * SOLO, back-office seulement : date ou le disjoncteur de rentabilite l'a masque,
          * null s'il ne l'a pas fait (ou si un admin l'a demasque depuis).
          */
-        Instant breakerTrippedAt) {
+        Instant breakerTrippedAt,
+        /** SOLO, reglage du quiz : null = taux global, 0 = aucun cashback, sinon taux propre. */
+        Integer soloCashbackPercent,
+        /**
+         * SOLO : % du prix d'entree rendu en credits pour une seule erreur, tel qu'il s'applique
+         * (reglages globaux compris) ; null sans cashback. Affiche au joueur.
+         */
+        Integer cashbackPercent) {
 
     /** Montant par joueur de la tranche, en HTG. */
     public record RewardView(int rankFrom, int rankTo, long amountHtg,
@@ -93,7 +100,7 @@ public record QuizResponse(
     }
 
     public static QuizResponse from(Quiz quiz, List<QuizReward> rewards, List<QuizTopic> topics,
-            long playersRegistered, long ticketsSold, long poolSize, long htgRate) {
+            long playersRegistered, long ticketsSold, long poolSize, long htgRate, Integer cashbackPercent) {
 
         return new QuizResponse(
                 quiz.getId(),
@@ -151,7 +158,9 @@ public record QuizResponse(
                                 topic.getVoteCount()))
                         .toList(),
                 quiz.getGameMode() == GameMode.SOLO ? quiz.isAntiFraud() : null,
-                quiz.getBreakerTrippedAt());
+                quiz.getBreakerTrippedAt(),
+                quiz.getSoloCashbackPercent(),
+                cashbackPercent);
     }
 
     /**
@@ -159,7 +168,7 @@ public record QuizResponse(
      * nulls etant omis du JSON, le champ disparait.
      */
     public QuizResponse forPlayers() {
-        if (antiFraud == null && breakerTrippedAt == null) {
+        if (antiFraud == null && breakerTrippedAt == null && soloCashbackPercent == null) {
             return this;
         }
         return new QuizResponse(id, title, slug, description, themeLabel, bannerUrl, bannerMediaId, status,
@@ -169,13 +178,13 @@ public record QuizResponse(
                 perfectCooldownMinutes, difficultyMix, minScoreThreshold, closingCountdownMinutes,
                 startDelayMinutes, voteOpensAt, voteClosesAt, voteOpen, thresholdReachedAt, scheduledStartAt,
                 startedAt, endsAt, finishedAt, cancellationReason, playersRegistered, ticketsSold, poolSize,
-                rewards, topics, null, null);
+                rewards, topics, null, null, null, cashbackPercent);
     }
 
     /**
      * Le quiz tel qu'un joueur suspecte de fraude le joue en solo : prix, secondes par
      * question et nombre de questions de son profil (FraudProfileService). Ce sont les
-     * valeurs encaissees et jouees ; le gain du sans-faute ne change pas.
+     * valeurs encaissees et jouees ; le gain du sans-faute ne change pas. Pas de cashback.
      */
     public QuizResponse adjustedFor(SoloAdjustment adjustment) {
         if (gameMode != GameMode.SOLO) {
@@ -229,6 +238,9 @@ public record QuizResponse(
                 rewards,
                 topics,
                 antiFraud,
-                breakerTrippedAt);
+                breakerTrippedAt,
+                soloCashbackPercent,
+                // Joueur sous profil fraudeur : pas de cashback, donc pas de badge.
+                null);
     }
 }

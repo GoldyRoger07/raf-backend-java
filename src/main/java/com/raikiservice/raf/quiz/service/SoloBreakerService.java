@@ -43,7 +43,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p>Les recettes sont les credits d'entree reellement payes, convertis au taux actuel du
  * credit (comme {@link SoloQuizStatsService}) : une partie offerte compte zero recette, ce
- * qu'elle coute vraiment. Les prix sont les gourdes versees pour les sans-faute.
+ * qu'elle coute vraiment, et les credits rendus en cashback (quasi sans-faute, voir
+ * SoloCashbackService) en sont retires. Les prix sont les gourdes versees pour les sans-faute.
  *
  * <p>Un admin rearme le quiz en le demasquant ({@link QuizService#setHidden}) : le compte
  * repart de zero, seules les parties lancees ensuite comptent. Les quiz gratuits ne sont
@@ -223,7 +224,7 @@ public class SoloBreakerService {
         return jdbc.queryForObject("""
                 SELECT COUNT(*), COALESCE(SUM(w.won), 0), COALESCE(SUM(w.entry), 0), COALESCE(SUM(w.prize), 0)
                 FROM (SELECT CASE WHEN gs.won THEN 1 ELSE 0 END AS won,
-                             COALESCE(gs.entry_price_credits, 0) AS entry,
+                             COALESCE(gs.entry_price_credits, 0) - COALESCE(gs.cashback_credits, 0) AS entry,
                              CASE WHEN gs.won THEN COALESCE(gs.prize_htg, 0) ELSE 0 END AS prize
                       FROM game_sessions gs
                       JOIN users u ON u.id = gs.user_id

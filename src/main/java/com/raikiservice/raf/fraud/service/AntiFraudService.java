@@ -112,6 +112,16 @@ public class AntiFraudService {
                 "SELECT EXISTS (SELECT 1 FROM anti_fraud_targets WHERE user_id = ?)", Boolean.class, user.getId()));
     }
 
+    /** Le joueur est-il sur la liste anti-fraude (hors interrupteur « pour tous ») ? */
+    @Transactional(readOnly = true)
+    public boolean isListed(User user) {
+        if (user == null || isStaff(user)) {
+            return false;
+        }
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM anti_fraud_targets WHERE user_id = ?)", Boolean.class, user.getId()));
+    }
+
     /**
      * Bonnes reponses a compter fausses : entre 1 et {@link #MAX_VOIDED} (sans depasser
      * leur nombre), nombre et reponses tires au hasard.

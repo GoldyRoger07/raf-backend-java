@@ -17,6 +17,7 @@ public enum ReconciliationCheck {
     PRIZE_PAYMENT("Gain du classement sans versement correspondant"),
     SOLO_ENTRY_DEBIT("Partie solo sans debit d'entree correspondant"),
     SOLO_PRIZE_PAYMENT("Sans-faute en solo sans versement correspondant"),
+    SOLO_CASHBACK_PAYMENT("Cashback solo sans versement correspondant"),
     LEADER_TRANSFER_DEBIT("Recharge par un leader sans debit correspondant du leader"),
     LEADER_TRANSFER_CREDIT("Recharge par un leader sans credit correspondant du joueur"),
     TOPUP_RETENTION("Recharge dont credits et retenue ne correspondent pas au montant recu"),

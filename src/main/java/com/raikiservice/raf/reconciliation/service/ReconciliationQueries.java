@@ -104,6 +104,9 @@ final class ReconciliationQueries {
                 "CREDIT", "-b.entry_price_credits"));
         queries.add(link(ReconciliationCheck.SOLO_PRIZE_PAYMENT, "game_sessions", "GameSession",
                 "prize_transaction_id", "b.won = TRUE", "PRIZE", "WINNINGS", "b.prize_htg"));
+        queries.add(link(ReconciliationCheck.SOLO_CASHBACK_PAYMENT, "game_sessions", "GameSession",
+                "cashback_transaction_id", "b.cashback_credits IS NOT NULL", "SOLO_CASHBACK", "CREDIT",
+                "b.cashback_credits"));
         // Recharge par un leader : le debit est sur le portefeuille du leader, le
         // credit sur celui du joueur. La table expose le bon titulaire en user_id.
         queries.add(link(ReconciliationCheck.LEADER_TRANSFER_DEBIT,
@@ -124,6 +127,8 @@ final class ReconciliationQueries {
                 "b.price_paid_credits = 0", "Ticket offert portant un remboursement"));
         queries.add(unexpected("game_sessions", "GameSession", "entry_transaction_id",
                 "b.entry_price_credits = 0", "Partie solo offerte portant un debit"));
+        queries.add(unexpected("game_sessions", "GameSession", "cashback_transaction_id",
+                "b.won = TRUE OR b.entry_price_credits = 0", "Partie gagnee ou offerte portant un cashback"));
         queries.add(unexpected("topup_requests", "TopUpRequest", "transaction_id",
                 "b.status <> 'CONFIRMED'", "Recharge non confirmee portant un credit"));
         queries.add(unexpected("topup_requests", "TopUpRequest", "transaction_id",

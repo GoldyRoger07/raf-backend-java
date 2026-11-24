@@ -479,6 +479,21 @@ DRAFT ──publish──▶ RUNNING (vivier figé, ouvert en continu) ──clo
   (`StartGameDto.expected*`, valeurs du profil fraudeur comprises) : s'ils ne sont plus ceux
   du quiz, 409 `SOLO_TERMS_CHANGED` avant tout débit.
 
+- **Cashback à une erreur** (`SoloCashbackService`, V53) : partie solo payante terminée avec
+  exactement N-1 bonnes réponses → `percent` % du prix d'entrée rendus en crédits (solde
+  CREDIT, transaction `SOLO_CASHBACK`, clé `solo-cashback:session:{id}`), arrondi inférieur,
+  au moins 1. Exclus : prix d'entrée 0 (gratuit, partie offerte), comptes de test, parties de
+  moins de `min_questions` questions, parties où l'anti-fraude a compté des réponses fausses,
+  joueurs de la liste anti-fraude (`isListed`, pas l'interrupteur « pour tous ») ou sous profil
+  fraudeur, au-delà de `daily_limit` cashbacks par joueur et par `solo_day` (compté sous verrou
+  du portefeuille). Réglages `app.solo_cashback.*` (coupé par défaut, 50 % / 3 / 5) sur l'écran
+  App joueur, `GET|PUT /api/admin/solo-cashback` ; par quiz `quizzes.solo_cashback_percent`
+  (null = global, 0 = aucun), `POST /api/admin/quizzes/{id}/cashback`. `QuizResponse.cashbackPercent`
+  = taux effectif (null sous profil fraudeur), affiché en badge dans l'app ;
+  `GameResultResponse.cashbackCredits` sur l'écran de résultat. Les crédits rendus sont retirés
+  des recettes (disjoncteur, statistiques solo, résultat du jeu, stats du jour) ; la commission
+  du leader reste versée. Rapprochement : `SOLO_CASHBACK_PAYMENT`.
+
 ### 4.2 Entraînement et progression (V51)
 
 - **Montée en difficulté** : dans toute partie (solo et groupe), les questions tirées sont

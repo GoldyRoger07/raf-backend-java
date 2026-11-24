@@ -92,6 +92,13 @@ public class GameSession {
     @Column(name = "prize_transaction_id")
     private Long prizeTransactionId;
 
+    /** SOLO : credits rendus pour un quasi sans-faute (SoloCashbackService) ; null sans cashback. */
+    @Column(name = "cashback_credits")
+    private Integer cashbackCredits;
+
+    @Column(name = "cashback_transaction_id")
+    private Long cashbackTransactionId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private GameSessionStatus status = GameSessionStatus.IN_PROGRESS;
