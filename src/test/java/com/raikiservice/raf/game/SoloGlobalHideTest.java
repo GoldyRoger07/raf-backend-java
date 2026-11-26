@@ -42,7 +42,7 @@ class SoloGlobalHideTest extends IntegrationTest {
     }
 
     private void setVisible(boolean visible) {
-        playerAppService.update(null, new PlayerAppConfig(null, null, null, null, null, visible, null));
+        playerAppService.update(null, new PlayerAppConfig(null, null, null, null, null, visible, null, null));
     }
 
     private boolean listed(Long quizId, User viewer, boolean privileged) {

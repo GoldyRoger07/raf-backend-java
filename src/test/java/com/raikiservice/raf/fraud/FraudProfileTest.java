@@ -106,14 +106,14 @@ class FraudProfileTest extends IntegrationTest {
 
     @Test
     void aSuspectGetsNoFreeFirstGame() {
-        playerAppService.update(null, new PlayerAppConfig(null, null, null, null, null, null, true));
+        playerAppService.update(null, new PlayerAppConfig(null, null, null, null, null, null, true, null));
         try {
             User player = data.player();
             assertThat(offers.offeredTo(player.getId())).isTrue();
             fraud.addSuspect(null, player.getId(), profile(10, 0, 0), "Suspect");
             assertThat(offers.offeredTo(player.getId())).isFalse();
         } finally {
-            playerAppService.update(null, new PlayerAppConfig(null, null, null, null, null, null, false));
+            playerAppService.update(null, new PlayerAppConfig(null, null, null, null, null, null, false, null));
         }
     }
 

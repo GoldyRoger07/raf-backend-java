@@ -41,6 +41,8 @@ public final class SettingKeys {
 
     /** Comportement de l'app joueur, voir PlayerAppService. */
     public static final String APP_EMAIL_REMINDER_ENABLED = "app.email_reminder.enabled";
+    /** Secondes entre deux apparitions du rappel (apres fermeture), 10 par defaut, voir PlayerAppService. */
+    public static final String APP_EMAIL_REMINDER_DELAY_SECONDS = "app.email_reminder.delay_seconds";
     /** Recharge des joueurs par leur leader, voir LeaderTransferService. */
     public static final String APP_LEADER_TRANSFER_ENABLED = "app.leader_transfer.enabled";
     /** Conversion des gains (HTG) en credits par le joueur, voir TopUpService#convertWinnings. */

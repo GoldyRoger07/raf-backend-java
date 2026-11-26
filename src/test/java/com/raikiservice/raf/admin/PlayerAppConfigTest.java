@@ -33,6 +33,31 @@ class PlayerAppConfigTest extends IntegrationTest {
     @AfterEach
     void restore() throws Exception {
         update(data.admin(), true);
+        updateJson(data.admin(), "{\"emailReminderDelaySeconds\":10}");
+    }
+
+    @Test
+    void theReminderDelayIsTenSecondsByDefaultAndAnAdminCanChangeIt() throws Exception {
+        mvc.perform(get("/api/public/app-config"))
+                .andExpect(jsonPath("$.emailReminderDelaySeconds").value(10));
+
+        updateJson(data.admin(), "{\"emailReminderDelaySeconds\":45}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.emailReminderDelaySeconds").value(45))
+                .andExpect(jsonPath("$.emailReminderEnabled").value(true));
+        mvc.perform(get("/api/public/app-config"))
+                .andExpect(jsonPath("$.emailReminderDelaySeconds").value(45));
+
+        // Un interrupteur modifie seul garde le delai.
+        update(data.admin(), false).andExpect(jsonPath("$.emailReminderDelaySeconds").value(45));
+    }
+
+    @Test
+    void theReminderDelayMustStayWithinBounds() throws Exception {
+        updateJson(data.admin(), "{\"emailReminderDelaySeconds\":4}").andExpect(status().isBadRequest());
+        updateJson(data.admin(), "{\"emailReminderDelaySeconds\":86401}").andExpect(status().isBadRequest());
+        mvc.perform(get("/api/public/app-config"))
+                .andExpect(jsonPath("$.emailReminderDelaySeconds").value(10));
     }
 
     @Test
@@ -70,10 +95,14 @@ class PlayerAppConfigTest extends IntegrationTest {
     }
 
     private ResultActions update(User user, boolean enabled) throws Exception {
+        return updateJson(user, "{\"emailReminderEnabled\":" + enabled + "}");
+    }
+
+    private ResultActions updateJson(User user, String body) throws Exception {
         return mvc.perform(put("/api/admin/player-app")
                 .header("Authorization", token(user))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"emailReminderEnabled\":" + enabled + "}"));
+                .content(body));
     }
 
     private String token(User user) {

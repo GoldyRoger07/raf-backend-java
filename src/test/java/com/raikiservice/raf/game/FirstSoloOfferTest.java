@@ -47,7 +47,7 @@ class FirstSoloOfferTest extends IntegrationTest {
     }
 
     private void setEnabled(boolean enabled) {
-        playerAppService.update(null, new PlayerAppConfig(null, null, null, null, null, null, enabled));
+        playerAppService.update(null, new PlayerAppConfig(null, null, null, null, null, null, enabled, null));
     }
 
     private Long paidQuiz() {

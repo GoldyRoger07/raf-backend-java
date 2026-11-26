@@ -1,5 +1,8 @@
 package com.raikiservice.raf.common.settings;
 
+import com.raikiservice.raf.common.error.ApiException;
+import com.raikiservice.raf.common.error.ErrorCode;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,8 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
  * Comportements de l'app joueur pilotes depuis le back-office, lus sans connexion
  * par l'app ({@code GET /api/public/app-config}).
  *
- * <p>Rappel de confirmation de l'email : la fenetre qui revient toutes les 10
- * secondes tant que l'email du joueur n'est pas confirme. Active par defaut. Le
+ * <p>Rappel de confirmation de l'email : la fenetre qui revient tant que l'email du
+ * joueur n'est pas confirme, toutes les {@code emailReminderDelaySeconds} secondes
+ * apres sa fermeture (10 par defaut, de 5 a 86 400). Active par defaut. Le
  * couper ne leve aucune exigence : un email non confirme bloque toujours la
  * verification du telephone et les retraits.
  *
@@ -47,15 +51,28 @@ public class PlayerAppService {
     /** En modification, un champ absent (null) garde sa valeur actuelle. */
     public record PlayerAppConfig(Boolean emailReminderEnabled, Boolean leaderTransferEnabled,
             Boolean winningsConversionEnabled, Boolean onlineTopUpEnabled, Boolean autoPayoutEnabled,
-            Boolean soloQuizzesVisible, Boolean firstSoloFreeEnabled) {
+            Boolean soloQuizzesVisible, Boolean firstSoloFreeEnabled, Integer emailReminderDelaySeconds) {
     }
+
+    public static final int EMAIL_REMINDER_DELAY_DEFAULT = 10;
+    public static final int EMAIL_REMINDER_DELAY_MIN = 5;
+    /** Une journee : au-dela, le rappel ne reviendrait plus dans la pratique. */
+    public static final int EMAIL_REMINDER_DELAY_MAX = 86_400;
 
     @Transactional(readOnly = true)
     public PlayerAppConfig get() {
         return new PlayerAppConfig(flag(SettingKeys.APP_EMAIL_REMINDER_ENABLED),
                 flag(SettingKeys.APP_LEADER_TRANSFER_ENABLED), flag(SettingKeys.APP_WINNINGS_CONVERSION_ENABLED),
                 flag(SettingKeys.APP_ONLINE_TOPUP_ENABLED), flag(SettingKeys.APP_AUTO_PAYOUT_ENABLED),
-                flag(SettingKeys.APP_SOLO_QUIZZES_VISIBLE), flag(SettingKeys.APP_FIRST_SOLO_FREE_ENABLED, false));
+                flag(SettingKeys.APP_SOLO_QUIZZES_VISIBLE), flag(SettingKeys.APP_FIRST_SOLO_FREE_ENABLED, false),
+                emailReminderDelaySeconds());
+    }
+
+    /** Valeur hors bornes en base (modifiee a la main) : ramenee dans les bornes. */
+    private int emailReminderDelaySeconds() {
+        long value = settingsService.getLong(SettingKeys.APP_EMAIL_REMINDER_DELAY_SECONDS,
+                EMAIL_REMINDER_DELAY_DEFAULT);
+        return (int) Math.max(EMAIL_REMINDER_DELAY_MIN, Math.min(EMAIL_REMINDER_DELAY_MAX, value));
     }
 
     @Transactional(readOnly = true)
@@ -91,7 +108,15 @@ public class PlayerAppService {
     /** Modification tracee au journal d'audit (SETTING_UPDATED). */
     @Transactional
     public PlayerAppConfig update(Long actorId, PlayerAppConfig request) {
+        Integer delay = request.emailReminderDelaySeconds();
+        if (delay != null && (delay < EMAIL_REMINDER_DELAY_MIN || delay > EMAIL_REMINDER_DELAY_MAX)) {
+            throw new ApiException(ErrorCode.SETTING_INVALID, "Le delai du rappel doit etre entre "
+                    + EMAIL_REMINDER_DELAY_MIN + " et " + EMAIL_REMINDER_DELAY_MAX + " secondes.");
+        }
         PlayerAppConfig current = get();
+        if (delay != null && delay != current.emailReminderDelaySeconds().intValue()) {
+            settingsService.update(actorId, SettingKeys.APP_EMAIL_REMINDER_DELAY_SECONDS, String.valueOf(delay));
+        }
         change(actorId, SettingKeys.APP_EMAIL_REMINDER_ENABLED, current.emailReminderEnabled(),
                 request.emailReminderEnabled());
         change(actorId, SettingKeys.APP_LEADER_TRANSFER_ENABLED, current.leaderTransferEnabled(),
